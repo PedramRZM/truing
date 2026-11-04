@@ -21,3 +21,6 @@ CLAUDE.local.md
 /.scratch/
 __pycache__/
 *.pyc
+
+# Git worktrees that coding agents make: each is a whole copy of the repo.
+.claude/worktrees/
