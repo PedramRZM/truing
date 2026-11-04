@@ -1,10 +1,10 @@
 ---
 id: TRU-7.4
 title: Release workflow and changelog
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 13:45'
-updated_date: '2026-11-04 09:33'
+updated_date: '2026-11-04 10:01'
 labels:
   - infra
   - docs
@@ -26,16 +26,16 @@ Releases should be one reviewed step, the same every time, and a person upgradin
 <!-- AC:BEGIN -->
 - [x] #1 **Changelog.** Each release has an entry, in plain words, saying what changed for a person using Truing.
 - [x] #2 **Profiles survive upgrades.** A release that changes the profile format migrates it or reads the project again, with no manual step and no config edit. A test covers an old profile.
-- [ ] #3 **One step.** A release is one reviewed pull request, then one `npm publish` from a clean clone. Nobody stores a token, and it takes the person's two-factor code.
+- [x] #3 **One step.** A release is one reviewed pull request, then one `npm publish` from a clean clone. Nobody stores a token, and it takes the person's two-factor code.
 - [x] #4 **Checks first.** `npm publish` refuses unless `make check` passes and the version has a changelog entry.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 `make check` passes and its output is quoted in the final summary
-- [ ] #2 Tests added or updated for changed behaviour (watched fail first for bug fixes)
-- [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
-- [ ] #4 Docs, ADRs and learnings updated if affected
+- [x] #1 `make check` passes and its output is quoted in the final summary
+- [x] #2 Tests added or updated for changed behaviour (watched fail first for bug fixes)
+- [x] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
+- [x] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -47,3 +47,9 @@ How to build it, and the decisions it needs from the owner: docs/research/open-s
 
 CI removed on 2026-11-04. `prepublishOnly` runs `make check` and `scripts/check-release.mjs`: `npm run prepublishOnly` passed three times in a row, and the check refuses a version with no entry (`test/unit/release.test.ts`). One step stays open until a real release has gone through it.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+One real release went through: a commit CI-free but gated, `npm publish` from a clean clone running `make check` (1175 unit tests) and `scripts/check-release.mjs`, the person's two-factor approval, and the `v0.1.0` tag at `9db2962`. `CHANGELOG.md` has the entry. `docs/maintaining.md` has the steps.
+<!-- SECTION:FINAL_SUMMARY:END -->
