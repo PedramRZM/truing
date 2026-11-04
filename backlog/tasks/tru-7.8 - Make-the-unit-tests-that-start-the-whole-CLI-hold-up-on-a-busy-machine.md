@@ -4,12 +4,14 @@ title: Make the unit tests that start the whole CLI hold up on a busy machine
 status: To Do
 assignee: []
 created_date: '2026-11-04 05:31'
+updated_date: '2026-11-04 05:43'
 labels:
   - testing
+milestone: m-1
 dependencies: []
 parent_task_id: TRU-7
 type: bug
-ordinal: 202000
+ordinal: 70080
 ---
 
 ## Description
@@ -32,3 +34,9 @@ ordinal: 202000
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Seen again on 2026-11-04 with no app running, only Chrome opening: two tests timed out at 5.4s and 6.0s in `make check`, which blocked a Markdown-only commit. Alone, `truing setup` starts in about 1.4s, so the cost comes from running in parallel on a machine in ordinary use. That's 2 of the 3 gates run that day.
+<!-- SECTION:NOTES:END -->
