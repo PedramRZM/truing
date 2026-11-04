@@ -39,7 +39,7 @@ import {
   newProgress,
   type TurnProgress,
 } from './events';
-import { promptSummary, renderMessage, renderText } from './message';
+import { promptSummary, renderTurn } from './message';
 import {
   type Attachment,
   type Chat,
@@ -318,9 +318,8 @@ export function createChat(options: ChatOptions) {
     session: PreparedSession,
   ): Promise<{ progress: TurnProgress; startError: string | null }> {
     let progress = newProgress(sessionId);
-    const text = renderText({ ...message, notes });
-    const input = renderMessage(
-      text,
+    const input = renderTurn(
+      { ...message, notes },
       await imagesFor(message.attachments),
       sessionId,
     );

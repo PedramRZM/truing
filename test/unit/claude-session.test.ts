@@ -615,6 +615,40 @@ describe('the session', () => {
     expect(await sessionPrompt(config)).toMatchSnapshot();
   });
 
+  // TRU-5.3 #20: neither was in the prompt, and only some projects have Next.
+  it('mentions Next’s tools only when the project has Next', async () => {
+    expect(await sessionPrompt(config, true)).toMatch(/Next\.js.*mcp__next/);
+    expect(await sessionPrompt(config, false)).not.toMatch(
+      /Next\.js|mcp__next/,
+    );
+    expect(await sessionPrompt(config)).not.toMatch(/Next\.js|mcp__next/);
+  });
+
+  it('tells a Next project’s session about Next’s tools', async () => {
+    const session = await prepareSession({
+      root: project({
+        'package.json': JSON.stringify({ dependencies: { next: '16.0.0' } }),
+      }),
+      config,
+    });
+    const prompt =
+      session.args[session.args.indexOf('--append-system-prompt') + 1];
+    expect(prompt).toMatch(/Next\.js/);
+    await session.dispose();
+  });
+
+  it('names the design paths it may write when asked, under full access too', async () => {
+    for (const writable of [
+      config.writable,
+      { include: ['**'], exclude: [] },
+    ]) {
+      const prompt = await sessionPrompt({ ...config, writable });
+      for (const glob of DESIGN_CONFIG_PATHS) {
+        expect(prompt).toContain(glob);
+      }
+    }
+  });
+
   it('knows nothing of one project', () => {
     for (const file of [
       'claude/session.ts',

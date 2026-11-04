@@ -48,5 +48,7 @@ Write for a designer, in short plain sentences, in the language they write in. S
 
 - Never: src/server/**
 
+- When the designer asks you to keep a rule or a skill for later: .claude/rules/design-*.md, .claude/skills/design-*/**/*.md. Markdown only, each write asks the designer first, and a skill's frontmatter stays to its name and description.
+
 - Shell commands that run without asking: pnpm typecheck"
 `;

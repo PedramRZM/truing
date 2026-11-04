@@ -276,7 +276,10 @@ export function writableRules(
 }
 
 /** What every turn is told: the rules, and this project's facts from its config. */
-export async function sessionPrompt(config: SessionConfig): Promise<string> {
+export async function sessionPrompt(
+  config: SessionConfig,
+  hasNext = false,
+): Promise<string> {
   const rules = skillBody(await readFile(DESIGN_SKILL, 'utf8'));
   const shell = plainChecks(config);
   return [
@@ -293,7 +296,13 @@ export async function sessionPrompt(config: SessionConfig): Promise<string> {
           `- You may write: ${config.writable.include.join(', ')}`,
           `- Never: ${config.writable.exclude.join(', ')}`,
         ]),
+    `- When the designer asks you to keep a rule or a skill for later: ${DESIGN_CONFIG_PATHS.join(', ')}. Markdown only, each write asks the designer first, and a skill's frontmatter stays to its name and description.`,
     `- Shell commands that run without asking: ${shell.length > 0 ? shell.join(', ') : 'none'}`,
+    ...(hasNext
+      ? [
+          `- This app runs on Next.js: its dev server's tools (mcp__${NEXT_SERVER}__*) report routes and errors, so use them to find a page or a runtime error.`,
+        ]
+      : []),
   ].join('\n\n');
 }
 
@@ -397,7 +406,7 @@ export async function prepareSession(options: {
       '--permission-prompt-tool',
       PROMPT_TOOL,
       '--append-system-prompt',
-      await sessionPrompt(config),
+      await sessionPrompt(config, hasNext),
     ],
     env: {
       ...sessionEnv(dropEnv, options.env),
