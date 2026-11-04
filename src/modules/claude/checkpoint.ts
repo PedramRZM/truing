@@ -11,6 +11,8 @@ import {
   mkdir,
   readFile,
   rm,
+  stat,
+  utimes,
   writeFile,
 } from 'node:fs/promises';
 import os from 'node:os';
@@ -47,8 +49,15 @@ export async function snapshot(root: string): Promise<string | null> {
       (await git(root, ['rev-parse', '--git-path', 'index'])).trim(),
     );
     const index = path.join(dir, 'index');
-    // The copy keeps git's cached file times, so it hashes only what changed.
-    await copyFile(real, index).catch(() => {});
+    // The copy keeps git's cached file times, so it hashes only what changed. It keeps
+    // the index's own time too: git rereads a file as new as its index, so a same-size
+    // edit in the same second as a commit isn't missed. A fresh time would hide that.
+    await copyFile(real, index)
+      .then(async () => {
+        const { atime, mtime } = await stat(real);
+        await utimes(index, atime, mtime);
+      })
+      .catch(() => {});
     const env = { GIT_INDEX_FILE: index };
     await git(root, ['add', '-A', '.'], env);
     return (await git(root, ['write-tree'], env)).trim();

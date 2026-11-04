@@ -113,6 +113,14 @@ describe('the package', () => {
     expect(loose).toEqual([]);
   });
 
+  it('won’t publish unless the gate and the changelog pass', () => {
+    const { scripts } = z
+      .object({ scripts: z.record(z.string(), z.string()) })
+      .parse(JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')));
+    expect(scripts.prepublishOnly).toContain('make check');
+    expect(scripts.prepublishOnly).toContain('check-release');
+  });
+
   it('needs no install step of its own', () => {
     const { scripts } = z
       .object({ scripts: z.record(z.string(), z.string()) })

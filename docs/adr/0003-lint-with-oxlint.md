@@ -36,7 +36,7 @@ Chosen option: "oxlint", with only the `correctness` category as errors, because
 
 ### Confirmation
 
-`pnpm lint` runs in `make check`, so it runs in the git hook and in CI.
+`pnpm lint` runs in `make check`, so it runs in the git hook.
 
 ## Pros and cons of the options
 

@@ -4,7 +4,7 @@ title: Release workflow and changelog
 status: In Progress
 assignee: []
 created_date: '2026-11-03 13:45'
-updated_date: '2026-11-04 09:10'
+updated_date: '2026-11-04 09:33'
 labels:
   - infra
   - docs
@@ -24,10 +24,10 @@ Releases should be one reviewed step, the same every time, and a person upgradin
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 **One step.** A release is cut from CI by a tagged commit or a release PR, never from a laptop.
-- [x] #2 **Changelog.** Each release has an entry, in plain words, saying what changed for a person using Truing.
-- [x] #3 **Profiles survive upgrades.** A release that changes the profile format migrates it or reads the project again, with no manual step and no config edit. A test covers an old profile.
-- [ ] #4 **Checks first.** `make check` passes before a release can publish.
+- [x] #1 **Changelog.** Each release has an entry, in plain words, saying what changed for a person using Truing.
+- [x] #2 **Profiles survive upgrades.** A release that changes the profile format migrates it or reads the project again, with no manual step and no config edit. A test covers an old profile.
+- [ ] #3 **One step.** A release is one reviewed pull request, then one `npm publish` from a clean clone. Nobody stores a token, and it takes the person's two-factor code.
+- [x] #4 **Checks first.** `npm publish` refuses unless `make check` passes and the version has a changelog entry.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -44,4 +44,6 @@ Releases should be one reviewed step, the same every time, and a person upgradin
 How to build it, and the decisions it needs from the owner: docs/research/open-source-repo-setup.md (Recommended release flow), ADR 0004 (proposed), the release skill and docs/maintaining.md. CHANGELOG.md and the release skill exist; the release workflow itself doesn't, because the first-publish option and direct or staged publishing are still open.
 
 `release.yml` is written and reviewed, and `scripts/check-release.mjs` is tested, but no workflow can run until the repository exists on GitHub. So One step and Checks first stay open until a release has actually gone through. The `release` environment has to be created with a required reviewer first: GitHub makes a missing one unprotected.
+
+CI removed on 2026-11-04. `prepublishOnly` runs `make check` and `scripts/check-release.mjs`: `npm run prepublishOnly` passed three times in a row, and the check refuses a version with no entry (`test/unit/release.test.ts`). One step stays open until a real release has gone through it.
 <!-- SECTION:NOTES:END -->

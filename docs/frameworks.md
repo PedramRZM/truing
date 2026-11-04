@@ -23,8 +23,8 @@ Truing uses your project's own Tailwind, once you've pressed Start.
 
 ## Computers
 
-| System  | State                                                                     |
-| ------- | ------------------------------------------------------------------------- |
-| Linux   | Tested on every change                                                    |
-| macOS   | Its unit tests run in CI. It hasn't been tried by hand on a clean machine |
-| Windows | Not supported yet                                                         |
+| System  | State                                                 |
+| ------- | ----------------------------------------------------- |
+| Linux   | Tested on every change                                |
+| macOS   | Written to work, and not yet tried on a clean machine |
+| Windows | Not supported yet                                     |

@@ -6,36 +6,30 @@ The reasoning and the projects this draws on are in [the research note](research
 
 ## What happens when
 
-| When                   | What                                                                                                     | How an agent helps                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| An issue arrives       | Reply. Ask for a reproduction if it needs one. Label it. If it's accepted, make it a task under an epic. | Ask it to summarise the issue and propose labels and a reply. You post them.                |
-| A PR arrives           | Check it against [`REVIEW.md`](../REVIEW.md). CI has to be green, and a person approves every merge.     | The `review` skill gives a fresh read of the diff.                                          |
-| Weekly                 | Merge the Dependabot group if it's safe.                                                                 | Ask it to read the changelogs of what moved and flag anything breaking. CI proves the rest. |
-| Weekly                 | Tend the docs.                                                                                           | The `garden-docs` skill finds broken links, stale plans and index drift.                    |
-| A change is ready      | Cut a release. There's no fixed cadence or promised date.                                                | The `release` skill drafts the version and changelog in a PR.                               |
-| A security report      | Handle it through a private advisory, as [`SECURITY.md`](../SECURITY.md) says. Fix first, then publish.  | Only on your own machine. Never paste an embargoed report into a hosted tool.               |
-| An outsider's PR ships | Thank them by handle in the changelog entry.                                                             | The `release` skill keeps the thanks.                                                       |
+| When                   | What                                                                                                                                            | How an agent helps                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| An issue arrives       | Reply. Ask for a reproduction if it needs one. Label it. If it's accepted, make it a task under an epic.                                        | Ask it to summarise the issue and propose labels and a reply. You post them.  |
+| A PR arrives           | Check it against [`REVIEW.md`](../REVIEW.md). Run `make check` on the branch, since nothing runs it for you, and a person approves every merge. | The `review` skill gives a fresh read of the diff.                            |
+| Weekly                 | Tend the docs.                                                                                                                                  | The `garden-docs` skill finds broken links, stale plans and index drift.      |
+| A change is ready      | Cut a release. There's no fixed cadence or promised date.                                                                                       | The `release` skill drafts the version and changelog in a PR.                 |
+| A security report      | Handle it through a private advisory, as [`SECURITY.md`](../SECURITY.md) says. Fix first, then publish.                                         | Only on your own machine. Never paste an embargoed report into a hosted tool. |
+| An outsider's PR ships | Thank them by handle in the changelog entry.                                                                                                    | The `release` skill keeps the thanks.                                         |
 
 ## Cutting a release
 
-The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release` skill drafts the pull request.
+The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release` skill drafts the pull request. There's no CI, so a person runs the last steps on their own machine.
 
 1. Someone runs the `release` skill. It changes only the version and `CHANGELOG.md`, on a branch.
 2. A person edits the entry and merges the pull request, keeping the subject `release: v<version>`.
-3. `release.yml` sees that subject on `main`. It checks that the version and the changelog agree, then runs `make check`.
-4. A person approves the `release` environment on GitHub.
-5. CI publishes to npm with provenance, using npm's trusted publishing with no stored token, and tags the commit.
+3. From a clean clone of `main`:
 
-Nobody publishes from a laptop, except for the first version.
+   ```sh
+   pnpm install --frozen-lockfile
+   npm publish --access public
+   git tag v<version> && git push origin v<version>
+   ```
 
-**The first publish.** npm's trusted publisher is set in a package's own settings, so the package has to exist first. The owner publishes `0.1.0` once by hand from a clean clone of a commit CI passed. Every later version goes through the steps above.
-
-**Before the first release through CI**, in this order:
-
-1. Make the repository public. GitHub only offers required reviewers on public repositories on its Free, Pro and Team plans, and npm generates no provenance for a private one.
-2. On GitHub, create the `release` environment with yourself as required reviewer. Do this before any `release:` commit lands.
-3. On npm, in the package's settings, add a trusted publisher: your user, the repository, `release.yml` and the `release` environment, with direct `npm publish` allowed. npm doesn't check it when you save it, and it expires unless it publishes within 2 days, so set it up just before you cut the release.
-4. After that release works, set Publishing access to require two-factor authentication and disallow tokens.
+`npm publish` runs `make check` first, then checks that the version has a changelog entry, and stops if either fails. It asks for your two-factor code. Nobody stores an npm token anywhere.
 
 ## Re-recording the demo
 

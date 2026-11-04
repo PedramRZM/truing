@@ -16,7 +16,7 @@ Never restate what a check already enforces. Details belong in `docs/`.
 ## Commands
 
 - `make setup`: once per clone, after `pnpm install`. Git hooks and per-harness glue.
-- `make check`: the gate. Agent-config drift, docs lint and brand guard, hook tests, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`. The git hook and CI run the same target.
+- `make check`: the gate. Agent-config drift, docs lint and brand guard, hook tests, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`. The git hook runs the same target, and nothing else runs it for you: there's no CI.
 - `make sync`: regenerate per-harness files after editing `.mcp.json` or adding or removing a skill.
 - `make board`: the Kanban. `backlog <cmd>` is the task CLI (`npx -y backlog.md@1.53.0 <cmd>` if it isn't installed).
 - `make test` or `pnpm test`: unit tests. One file: `pnpm exec vitest run test/unit/camera.test.ts`. One test: add `-t "<name>"`.

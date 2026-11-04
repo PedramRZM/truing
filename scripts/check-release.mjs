@@ -1,5 +1,5 @@
-// TRU-7.4: what has to be true before CI publishes. The release workflow runs it with
-// the subject of the commit on main: `release: v0.2.0`.
+// TRU-7.4: what has to be true before a version is published. `npm publish` runs it,
+// through prepublishOnly, as `release: v<version>`.
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 

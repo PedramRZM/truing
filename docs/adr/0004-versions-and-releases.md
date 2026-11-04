@@ -15,8 +15,8 @@ Truing has no release process yet, and people will come to rely on its command, 
 ## Decision drivers
 
 - A person approves anything that publishes, whichever coding agent they use.
-- Agents help on the person's own machine, under their own login (golden rule 8), with no provider secret in CI.
-- No long-lived npm token in the repository.
+- Agents help on the person's own machine, under their own login (golden rule 8).
+- No npm token stored anywhere.
 - A changelog people want to read.
 
 ## Considered options
@@ -30,17 +30,18 @@ Truing has no release process yet, and people will come to rely on its command, 
 Chosen option: "a hand-curated changelog drafted by an agent", because Truing publishes one package, and generated changelogs read like commit logs.
 
 - **Versions.** While on 0.x, the middle number goes up for anything breaking in the `truing` command, the module API or a saved profile that can't migrate itself, and the last number for everything else.
-- **Flow.** A person runs the `release` skill with their own agent, which drafts a PR. A person merges it. CI runs the gates. A person approves a GitHub `release` environment. CI publishes with npm trusted publishing.
+- **Flow.** A person runs the `release` skill with their own agent, which drafts a PR. A person merges it, then publishes from a clean clone with `npm publish`, which runs the gates first and asks for their two-factor code. The owner removed CI on 2026-11-04, so nothing runs on a server.
 
 ### Consequences
 
-- Good, because no agent can publish on its own in any harness: the gate is on GitHub.
+- Good, because no agent can publish on its own: it takes the person's npm login and two-factor code.
 - Good, because no dependency is added and no npm token is stored.
-- Bad, because a workflow of our own has to be maintained, and a person has to edit each entry.
+- Bad, because a person has to edit each entry, and a release is only as clean as the machine it's published from.
+- Bad, because with no CI there's no npm provenance, so nobody can check which commit built a version.
 
 ### Confirmation
 
-The workflow is built and tested in the task for the release workflow and changelog (TRU-7.4). `CHANGELOG.md` states the policy at the top.
+`prepublishOnly` in `package.json` and `test/unit/release.test.ts` (TRU-7.4). `CHANGELOG.md` states the policy at the top.
 
 ## Pros and cons of the options
 
@@ -49,8 +50,4 @@ The workflow is built and tested in the task for the release workflow and change
 
 ## More information
 
-Open for the owner to decide, with the options in [the research note](../research/open-source-repo-setup.md#recommended-release-flow):
-
-- how to do the first publish, as npm needs a package to exist before a trusted publisher can be set;
-- direct or staged publishing;
-- whether a GitHub Release generated from the changelog counts as hosted output under golden rule 12.
+Open for the owner to decide: whether a GitHub Release counts as hosted output under golden rule 12.

@@ -121,6 +121,28 @@ describe('Undo, when git itself fails', () => {
     ).toMatchObject({ ok: false, reason: 'failed', rolledBack: false });
   });
 
+  it('sees a same-size edit made in the same second as the commit', async () => {
+    const nextSecond = () =>
+      new Promise((resolve) => setTimeout(resolve, 1000 - (Date.now() % 1000)));
+    // All of this lands inside one second, and the next snapshot in the one after. So
+    // the file looks as it did to git, and only the index's own time can give it away.
+    await nextSecond();
+    const root = temp();
+    const git = (...args: string[]) =>
+      execFileSync(REAL_GIT, args, { cwd: root, stdio: 'ignore' });
+    git('init', '-q');
+    writeFileSync(path.join(root, 'b.tsx'), 'one\n');
+    git('add', '.');
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'one');
+    const before = execFileSync(REAL_GIT, ['rev-parse', 'HEAD^{tree}'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+    writeFileSync(path.join(root, 'b.tsx'), 'two\n');
+    await nextSecond();
+    expect(await snapshot(root)).not.toBe(before);
+  });
+
   it('still undoes a turn that went fine, a new file included', async () => {
     const { root, before, read } = await aTurn();
     writeFileSync(path.join(root, 'new.tsx'), 'turn\n');

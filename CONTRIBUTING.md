@@ -4,7 +4,7 @@ Thanks for helping. Truing is written largely with AI coding agents and reviewed
 
 ## Set up
 
-You need Node.js 20.19 or newer (CI runs 24), [pnpm](https://pnpm.io) 10, `git`, `make` and Python 3.10 or newer for the repo's tooling (standard library only).
+You need Node.js 20.19 or newer, [pnpm](https://pnpm.io) 10, `git`, `make` and Python 3.10 or newer for the repo's tooling (standard library only).
 
 ```sh
 git clone https://github.com/PedramRZM/truing.git
@@ -12,7 +12,7 @@ cd truing
 pnpm install
 pnpm exec playwright install chromium   # the browser Truing uses
 make setup                              # once: git hooks and per-harness agent config
-make check                              # the gate that also runs on every commit and in CI
+make check                              # the gate that also runs on every commit
 ```
 
 To try your working copy on an app, run it from that app's folder, with the app's dev server running or ready to start:
@@ -31,7 +31,7 @@ The smallest whole example is [`examples/element-count/`](examples/element-count
 
 ## You don't need a Claude account for most of this
 
-The unit tests need no account and no secrets, and they run on the projects in `test/fixtures/`. CI runs them the same way, so a pull request from a fork passes with no secrets.
+The unit tests need no account and no secrets, and they run on the projects in `test/fixtures/`.
 
 Only `pnpm check-claude` and `pnpm check-first-run` need a real `claude`, and they spend your own usage. Nobody has to run them to contribute.
 
@@ -59,7 +59,7 @@ Numbers follow the order to do things in: `TRU-6.4` is the fourth task in the si
 
 1. Pick or open an issue. For anything larger than a small fix, agree the shape first: a hard-to-reverse choice (a protocol, the module API, a new dependency) needs an ADR in `docs/adr/`.
 2. Branch from `main`. A bug fix starts with a test that fails, and a behaviour change comes with tests.
-3. Run `make check`, and look at anything visible on a real app. Never skip, delete or weaken a test to get green, and don't use `--no-verify`.
+3. Run `make check`, and look at anything visible on a real app. There's no CI, so paste its result in the pull request. Never skip, delete or weaken a test to get green, and don't use `--no-verify`.
 4. Open a pull request using the template: what changed and why, how you verified it, and which agent helped if one did. A person approves every merge.
 
 ## Rules a contribution has to meet

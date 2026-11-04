@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PreToolUse guard for shell and file-editing tools.
 
-A guardrail, not a security boundary: the sandbox, permission rules and CI are the
+A guardrail, not a security boundary: the sandbox and permission rules are the
 real controls. The rules here are the few mistakes agents make that are expensive to
 undo, and each message tells the agent what to do instead.
 Exit 2 = block (message goes back to the agent); JSON "ask" = ask the human.

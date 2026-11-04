@@ -1,5 +1,5 @@
 # Harness-neutral entry points: every agent (Claude Code, Codex, Gemini, OpenCode, ...) and every
-# human runs the same targets, and CI runs `make check`.
+# human runs the same targets.
 .DEFAULT_GOAL := help
 PY ?= python3
 BACKLOG ?= npx -y backlog.md@1.53.0

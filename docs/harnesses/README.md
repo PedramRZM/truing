@@ -2,7 +2,7 @@
 
 Content is canonical and harness-neutral. Each harness only gets thin, generated glue.
 
-- **Canonical:** `AGENTS.md`, `.agents/skills/`, `.mcp.json`, `docs/`, and the gates (`make check` via git hook and CI).
+- **Canonical:** `AGENTS.md`, `.agents/skills/`, `.mcp.json`, `docs/`, and the gates (`make check` via git hook).
 - **Generated:** `make sync` writes each harness's own files.
 
 Switching harness changes configuration, not content. This is about working on Truing. Truing itself only ever drives the person's own `claude` CLI, whichever harness built it.

@@ -1,4 +1,4 @@
-// TRU-7.4: what has to be true before CI publishes a tag, and that a profile saved by
+// TRU-7.4: what has to be true before a version is published, and that a profile saved by
 // an earlier or later version never stops anyone with a manual step.
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -24,7 +24,7 @@ You can now change settings later.
 The first version.
 `;
 
-describe('a tag CI may publish', () => {
+describe('a version that may be published', () => {
   it('passes when the tag, the package and the changelog agree', () => {
     expect(releaseProblem('v0.2.0', '0.2.0', CHANGELOG)).toBeNull();
   });

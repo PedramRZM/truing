@@ -7,7 +7,6 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/github/license/PedramRZM/truing" /></a>
-  <a href="https://github.com/PedramRZM/truing/actions/workflows/check.yml"><img alt="Checks" src="https://img.shields.io/github/actions/workflow/status/PedramRZM/truing/check.yml?label=checks" /></a>
   <a href="https://github.com/PedramRZM/truing/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/PedramRZM/truing" /></a>
 </p>
 
