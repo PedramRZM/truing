@@ -30,6 +30,10 @@ Nobody publishes from a laptop, except for the first version.
 
 **The first publish.** npm needs a package to exist before it can trust a workflow. So the owner publishes `0.1.0` once by hand from a clean checkout of a commit CI passed, then sets `release.yml` as the trusted publisher on npm, and creates the `release` environment with themselves as required reviewer. Every later version goes through the steps above.
 
+## Re-recording the demo
+
+`pnpm exec tsx scripts/record-demo.ts` writes `docs/assets/demo.gif` from a real run on a small app it builds in a temp folder. It needs `ffmpeg`, and it spends a little of your usage, as Claude reads the app for real.
+
 ## Labels
 
 Keep about six: `bug`, `enhancement`, `needs repro`, `good first issue`, `help wanted` and `docs`. Add one only when a real sorting problem needs it.

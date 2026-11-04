@@ -11,6 +11,10 @@
   <a href="https://github.com/PedramRZM/truing/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/PedramRZM/truing" /></a>
 </p>
 
+<p align="center">
+  <img alt="Truing on a small app: run it in a folder, confirm what Claude read, pick a button, change its text and padding, and apply. The change lands in the source as a normal diff." src="docs/assets/demo.gif" width="800" />
+</p>
+
 ## The problem
 
 Design and code drift apart. The design file says one thing and the app does another, and the gap closes one ticket at a time: a designer spots a wrong margin, files it, waits for a developer, checks it again. Coding agents have made this worse, because features now get built faster than anyone can polish them.
