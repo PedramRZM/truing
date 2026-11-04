@@ -73,7 +73,7 @@ Truing aims to feel precise, calm and dense: closer to a craftsperson's workbenc
 From your project's folder:
 
 ```sh
-npx github:PedramRZM/truing
+npx truing-cli
 ```
 
 You need [Node.js](https://nodejs.org) 20.19 or newer and [Claude Code](https://code.claude.com/docs/en/overview). The first run downloads Truing's own Chromium once. That's the whole setup.
@@ -85,7 +85,7 @@ You need [Node.js](https://nodejs.org) 20.19 or newer and [Claude Code](https://
 3. **Claude reads it.** With read-only tools, Claude works out the start command, the port, your components, your tokens and which files are UI. You watch what it reads. When the files don't settle something, it asks.
 4. **You confirm, and it starts.** You see everything it found and where each value came from. Nothing runs until you press Start. Truing then runs the app and checks that it answers.
 
-The next time, `npx github:PedramRZM/truing` opens your project straight away.
+The next time, `npx truing-cli` opens your project straight away.
 
 ## What works where
 
@@ -113,11 +113,11 @@ An `ANTHROPIC_API_KEY` in your environment is not used today: sessions run on yo
 ### Run it without typing the long command
 
 ```sh
-npm install -g github:PedramRZM/truing
+npm install -g truing-cli
 truing
 ```
 
-Or add a script to your project: `"design": "npx github:PedramRZM/truing"`.
+Or add a script to your project: `"design": "npx truing-cli"`.
 
 ### Open a different project
 
@@ -230,7 +230,7 @@ export default {
 ## Roadmap
 
 - **v0.1, zero-config foundation:** this release.
-- **v0.2, everyone can install it:** `npx truing` from npm, macOS, a Vite adapter, tokens read through Claude for projects not on Tailwind v4, and noticing when a project's setup has changed.
+- **v0.2, everyone can install it:** `npx truing-cli` from npm, macOS, a Vite adapter, tokens read through Claude for projects not on Tailwind v4, and noticing when a project's setup has changed.
 - **v0.3, design system round trip:** create and lint tokens, flag what's off-token, let Claude apply what the panels can't, and hand changes back as a pull request that follows your project's own conventions.
 - **v1.0, team ready:** a board of pages, several takes side by side, a component gallery, drag to reorder, performance tools, and shared team settings for those who want them.
 

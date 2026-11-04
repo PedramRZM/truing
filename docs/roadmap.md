@@ -26,7 +26,7 @@ Run `truing` in a folder and reach your app, with nothing to write and nothing a
 
 ## v0.2 Everyone can install it
 
-- **TRU-7, open-source readiness.** The browser tests are green (TRU-7.1, done), and run on every PR next (TRU-7.2). `npx truing` works for someone who has never heard of this repository (TRU-7.3), with a release workflow and changelog (TRU-7.4), verified on macOS (TRU-7.5), with a demo and docs site (TRU-7.6) and first issues for contributors (TRU-7.7).
+- **TRU-7, open-source readiness.** The browser tests are green (TRU-7.1, done), and run on every PR next (TRU-7.2). `npx truing-cli` works for someone who has never heard of this repository (TRU-7.3), with a release workflow and changelog (TRU-7.4), verified on macOS (TRU-7.5), with a demo and docs site (TRU-7.6) and first issues for contributors (TRU-7.7).
 - **TRU-8, read everything through Claude.** Writable and off-limits files come with evidence (TRU-8.1), and reads get a cache and a cost budget (TRU-8.2). Tokens not on Tailwind v4 go into the same table (TRU-8.3), and a stale profile is noticed and only what changed is re-read (TRU-8.4). A failed start is explained from its log (TRU-8.5), and missing dependencies are offered as a fix (TRU-8.6).
 - **TRU-9, more frameworks and platforms.** The UI says honestly what works on each framework (TRU-9.1), and a Vite and React adapter comes first (TRU-9.2).
 - **TRU-10, day to day on real projects.** The inspector is tested on heavy signed-in screens (TRU-10.1). The shell gains a project switcher (TRU-10.2) and a settings screen for the profile (TRU-10.3), and adding your own module takes one line (TRU-10.4).

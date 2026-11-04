@@ -31,6 +31,8 @@ The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release
 
 `npm publish` runs `make check` first, then checks that the version has a changelog entry, and stops if either fails. It asks for your two-factor code. Nobody stores an npm token anywhere.
 
+npm refused the name `truing` as too similar to another package, so the package is `truing-cli`. The project and the command it installs are still `truing`.
+
 ## Re-recording the demo
 
 `pnpm exec tsx scripts/record-demo.ts` writes `docs/assets/demo.gif` from a real run on a small app it builds in a temp folder. It needs `ffmpeg`, and it spends a little of your usage, as Claude reads the app for real.

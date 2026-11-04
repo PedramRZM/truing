@@ -1,4 +1,4 @@
-// TRU-7.3: what `npx truing` downloads. It runs from a person's machine, so it holds
+// TRU-7.3: what `npx truing-cli` downloads. It runs from a person's machine, so it holds
 // what it needs and nothing else: no fixtures, no backlog, no secrets, and every
 // package its code imports is one npm will install.
 import { execFileSync } from 'node:child_process';

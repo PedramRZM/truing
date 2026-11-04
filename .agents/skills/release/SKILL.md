@@ -42,6 +42,6 @@ If anything fails, stop and report `BLOCKED: <reason>`. Never touch a test to ge
 
 Show the person the entry and the commands' output, and let them edit it. Once they've agreed, push and open a PR titled `release: v<version>`. A person reviews and merges it, then publishes it from a clean clone, as `docs/maintaining.md` says.
 
-After it publishes, offer to check it from a clean folder: `npm view truing`, and `npx truing@<version>`.
+After it publishes, offer to check it from a clean folder: `npm view truing-cli`, and `npx truing-cli@<version>`.
 
 `docs/maintaining.md` covers the rest of the project's rituals.

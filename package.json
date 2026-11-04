@@ -1,5 +1,5 @@
 {
-  "name": "truing",
+  "name": "truing-cli",
   "version": "0.1.0",
   "description": "Refine your real app visually. Zero config: Claude reads your project, and every change lands in your source as a reviewable edit.",
   "keywords": [

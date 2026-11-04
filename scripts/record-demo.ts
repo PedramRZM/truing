@@ -213,7 +213,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: SIZE, colorScheme: 'light' });
 
 await page.setContent(
-  card(`<span style="color:#8d93a6">~/shop $</span> npx truing`),
+  card(`<span style="color:#8d93a6">~/shop $</span> npx truing-cli`),
 );
 film.show(page);
 await hold(1800);

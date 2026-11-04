@@ -3,7 +3,7 @@
 In your project's folder:
 
 ```sh
-npx truing
+npx truing-cli
 ```
 
 That's the only command. You need Node.js 20.19 or newer and [Claude Code](https://claude.com/claude-code). Truing gets its own browser the first time, which takes a minute.
