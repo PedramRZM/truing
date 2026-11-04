@@ -21,6 +21,9 @@ import {
   checkedTokens,
   draftProblem,
   draftToConfig,
+  foldersOf,
+  keepYours,
+  pathProblem,
   profileToDraft,
 } from './draft';
 import { findProjects, listFolder } from './find-projects';
@@ -173,7 +176,7 @@ export async function startSetupServer(
     response: ServerResponse,
     root: string,
     config: TruingConfig,
-    saved: Pick<Profile, 'framework' | 'evidence'> | null,
+    saved: Pick<Profile, 'framework' | 'evidence' | 'folders' | 'yours'> | null,
   ): Promise<void> {
     const write = openStream(response);
     if (saved) saveProfile({ root, config, ...saved }, env);
@@ -268,7 +271,13 @@ export async function startSetupServer(
           // would run the project's own Tailwind, before anyone has confirmed
           // anything: `/api/start` does that, once a person has.
           if (event.type === 'done') {
-            write({ type: 'done', draft: checkReading(root, event.reading) });
+            write({
+              type: 'done',
+              draft: keepYours(
+                checkReading(root, event.reading),
+                loadProfile(root, env),
+              ),
+            });
             return;
           }
           write(event);
@@ -289,15 +298,18 @@ export async function startSetupServer(
     },
     '/api/start': async (request, response) => {
       const { root, draft } = startBody.parse(await bodyOf(request));
-      const problem = draftProblem(draft);
+      const problem = draftProblem(draft) ?? pathProblem(root, draft);
       if (problem) {
         sendJson(response, { problem }, 400);
         return;
       }
       const checked = await checkedTokens(root, draft);
+      const folders = foldersOf(checked);
       await startProject(response, root, draftToConfig(checked), {
         framework: checked.framework,
         evidence: checked.evidence,
+        ...(folders ? { folders } : {}),
+        ...(checked.yours ? { yours: checked.yours } : {}),
       });
     },
     '/api/open': async (request, response) => {
@@ -314,6 +326,8 @@ export async function startSetupServer(
       await startProject(response, root, profile.config, {
         framework: profile.framework,
         evidence: profile.evidence,
+        ...(profile.folders ? { folders: profile.folders } : {}),
+        ...(profile.yours ? { yours: profile.yours } : {}),
       });
     },
     '/api/saved-draft': async (request, response) => {

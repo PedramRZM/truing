@@ -75,6 +75,10 @@ const RIGHT_VIEW_NAME = {
     label: 'Claude',
     empty: 'What Claude loads will show here.',
   },
+  settings: {
+    label: 'Settings',
+    empty: "This project's settings will show here.",
+  },
 } as const satisfies Record<RightView, { label: string; empty: string }>;
 
 /** The views a module asks for, after Properties, which is always there. */

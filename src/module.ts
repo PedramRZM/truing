@@ -33,9 +33,15 @@ export type LeftTab = (typeof LEFT_TABS)[number];
 
 /**
  * The right panel's views: Properties follows the selection, Claude is the chat
- * and Claude's configuration opens from it (TRU-5.2).
+ * and Claude's configuration opens from it (TRU-5.2), and Settings is the project's
+ * (TRU-10.3).
  */
-export const RIGHT_VIEWS = ['properties', 'claude', 'claude-config'] as const;
+export const RIGHT_VIEWS = [
+  'properties',
+  'claude',
+  'claude-config',
+  'settings',
+] as const;
 export type RightView = (typeof RIGHT_VIEWS)[number];
 
 export type ModuleSpec = {

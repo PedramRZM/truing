@@ -17,7 +17,7 @@ A module has up to four parts. Each runs in a different place, so each lives in 
 
 The left panel is 240 px wide and the right 280 px, and both sit beside the canvas (TRU-3.3). A section has about 216 and 256 px for its content, so long paths truncate rather than scroll sideways.
 
-The left panel has two tabs (TRU-3.4): Design holds the page's structure, Theme its tokens. A left section sits in Design unless `panel.tab` says otherwise. The right panel has views (TRU-5.2): Properties, Claude, and Claude's configuration, which opens from the chat. A right section sits in Properties unless `panel.view` says otherwise, and a view no module asks for doesn't show.
+The left panel has two tabs (TRU-3.4): Design holds the page's structure, Theme its tokens. A left section sits in Design unless `panel.tab` says otherwise. The right panel has views (TRU-5.2): Properties, Claude, Claude's configuration, which opens from the chat, and Settings (TRU-10.3). A right section sits in Properties unless `panel.view` says otherwise, and a view no module asks for doesn't show.
 
 Only `module.ts` is required. Each part it declares needs its file, and each file needs its declaration; Truing refuses to start if they disagree. All four come from [`src/module.ts`](../src/module.ts).
 

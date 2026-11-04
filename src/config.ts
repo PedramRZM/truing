@@ -94,6 +94,27 @@ export const truingConfigSchema = z.object({
 
 export type TruingConfig = z.infer<typeof truingConfigSchema>;
 
+/** The modules a project gets when nobody chose others. */
+export const DEFAULT_MODULES = [
+  'selection',
+  'changes',
+  'claude-config',
+  'claude',
+  'settings',
+];
+
+/** The writable list that means every file in the project (TRU-10.7). */
+export const WHOLE_PROJECT = ['**'];
+
+/** A list with off-limits of its own is a list, however wide: only this is the choice. */
+export function isWholeProject(writable: TruingConfig['writable']): boolean {
+  return (
+    writable.include.length === 1 &&
+    writable.include[0] === '**' &&
+    writable.exclude.length === 0
+  );
+}
+
 export const CONFIG_FILE = 'truing.config.ts';
 
 /** Walks up from `from` to the first folder holding the config file. */

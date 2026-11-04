@@ -11,9 +11,10 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-import { sessionEnv } from '../claude/session';
+import { DENIED_READS, sessionEnv } from '../claude/session';
 
 import { scrubSecrets } from './profile';
+import type { SettingField } from './setting-fields';
 
 export const QUESTION_FIELDS = [
   'project',
@@ -74,23 +75,6 @@ export function readingJsonSchema(): string {
 /** It reads a whole project once: quick enough, and right about the rest. */
 const READER_MODEL = 'sonnet';
 const READ_TIMEOUT_MS = 5 * 60_000;
-
-const DENIED_READS = [
-  'Read(**/.env)',
-  'Read(**/.env.*)',
-  'Read(**/.envrc)',
-  'Read(**/secrets/**)',
-  'Read(**/*.pem)',
-  'Read(**/*.key)',
-  'Read(**/*.p12)',
-  'Read(**/id_rsa*)',
-  'Read(**/id_ed25519*)',
-  'Read(**/.npmrc)',
-  'Read(**/.netrc)',
-  'Read(**/.git/config)',
-  'Read(**/.aws/**)',
-  'Read(**/.ssh/**)',
-];
 
 const READ_GUARD = fileURLToPath(new URL('./read-guard.mjs', import.meta.url));
 
@@ -268,9 +252,11 @@ export function readerArgs(settings: string, prompt: string): string[] {
   ];
 }
 
-type ReadOptions = {
+export type ReadOptions = {
   /** What the person already answered, for a second read. */
   answers?: readonly { question: string; answer: string }[];
+  /** Narrows the read to one value: added after the prompt (TRU-10.3). */
+  focus?: string;
   spawner?: Spawner;
   timeoutMs?: number;
   dropEnv?: readonly string[];
@@ -329,7 +315,8 @@ function readOnce(
         .map(({ question, answer }) => `- ${question} ${answer}`)
         .join('\n')}`
     : '';
-  const args = readerArgs(settings, `${READER_PROMPT}${answered}`);
+  const focus = options.focus ? `\n\n${options.focus}` : '';
+  const args = readerArgs(settings, `${READER_PROMPT}${answered}${focus}`);
 
   const child = (options.spawner ?? spawnClaude)(args, {
     cwd: root,
@@ -399,6 +386,14 @@ function readOnce(
   };
 }
 
+/** A value a person set, kept over what a later read says (TRU-10.3). */
+export type KeptValue = {
+  field: SettingField;
+  /** What the read said instead, to put back if they prefer it. */
+  read: Partial<Draft>;
+  shown: string;
+};
+
 export type Draft = {
   name: string;
   summary: string;
@@ -418,6 +413,12 @@ export type Draft = {
   dropEnv: string[];
   evidence: Record<string, string>;
   questions: Question[];
+  /** Every file in the project, rather than the two lists above (TRU-10.7). */
+  fullAccess?: boolean;
+  /** The values a person changed, kept on a later read. */
+  yours?: string[];
+  /** What a read said about those values, for the review screen to offer. */
+  kept?: KeptValue[];
 };
 
 function insideRoot(root: string, relative: string | null): boolean {
@@ -428,7 +429,7 @@ function insideRoot(root: string, relative: string | null): boolean {
   );
 }
 
-function safeGlob(glob: string): boolean {
+export function isSafeGlob(glob: string): boolean {
   return !path.isAbsolute(glob) && !glob.split('/').includes('..');
 }
 
@@ -454,17 +455,29 @@ export function isSafeCheck(command: string): boolean {
   return command.trim() !== '' && !/[*?;&|$`<>()\n]/.test(command);
 }
 
+/** Control characters, and the zero-width and direction marks that hide text. */
 function isControl(character: string): boolean {
   const code = character.charCodeAt(0);
-  return code < 32 || code === 127;
+  return (
+    code < 32 ||
+    code === 127 ||
+    (code >= 0x200b && code <= 0x200f) ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2060 && code <= 0x2069) ||
+    code === 0xfeff
+  );
 }
 
 /**
  * The command as a person should see it. Padding can push a payload out of view,
  * and a control character can hide one, so one closes up and the other isn't shown.
  */
+export function isVisibleCommand(command: string): boolean {
+  return ![...command].some(isControl);
+}
+
 function visibleCommand(command: string): string {
-  if ([...command].some(isControl)) return '';
+  if (!isVisibleCommand(command)) return '';
   return command.trim().replace(/ {2,}/g, ' ');
 }
 
@@ -529,8 +542,8 @@ export function checkReading(root: string, reading: Reading): Draft {
     tailwindMerge: insideRoot(root, reading.tailwindMerge)
       ? reading.tailwindMerge
       : null,
-    writableInclude: reading.writableInclude.filter(safeGlob),
-    writableExclude: reading.writableExclude.filter(safeGlob),
+    writableInclude: reading.writableInclude.filter(isSafeGlob),
+    writableExclude: reading.writableExclude.filter(isSafeGlob),
     checks: reading.checks.filter(isSafeCheck),
     dropEnv: reading.dropEnv.filter((name) => ENV_NAME.test(name)),
     evidence,

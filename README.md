@@ -144,6 +144,14 @@ Change it on the review screen before you start. To read the project again later
 truing --reconfigure
 ```
 
+A value you changed yourself stays when Claude reads the project again, and the review screen shows what Claude read instead.
+
+### Changing settings later
+
+Everything setup confirms is in the **Settings** tab of the right panel, with Claude's reason beside each value. Change any of it there, or have Claude read one value again, without going through setup. What Truing and Claude may change takes effect right away. The rest applies the next time you open Truing, and the tab says so. A new start command needs your yes before it's saved.
+
+Truing and Claude start out limited to your UI files. To let them change the whole project, choose **The whole project** on the review screen or in Settings. Tests, secret files, and Git's and Claude Code's own settings stay off limits either way, and Claude still never commits or pushes.
+
 ### Where settings live
 
 Nothing goes in your repository. Truing saves one file per project in `~/.config/truing/projects/` (or `$XDG_CONFIG_HOME/truing`, or `$TRUING_HOME`), and each project's browser profile in `~/.cache/truing/`, so a sign-in to your app survives.

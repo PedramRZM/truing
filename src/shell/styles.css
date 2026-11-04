@@ -257,7 +257,8 @@ strong {
 
 /* The chat needs the room (TRU-5.2), and the canvas gives it up. */
 .truing[data-right-view='claude'],
-.truing[data-right-view='claude-config'] {
+.truing[data-right-view='claude-config'],
+.truing[data-right-view='settings'] {
   --ds-dock-right: var(--ds-dock-right-claude);
 }
 
@@ -690,6 +691,126 @@ strong {
   margin-top: var(--ds-space-1);
   color: var(--ds-text-2);
   overflow-wrap: anywhere;
+}
+
+/* A project's settings (TRU-10.3): the same fields as the review screen. */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-3);
+}
+
+.settings-note {
+  margin: 0;
+  padding: var(--ds-space-3);
+  color: var(--ds-text-2);
+}
+
+.settings-field,
+.settings-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+}
+
+.settings-field label,
+.settings-choice legend {
+  padding: 0;
+  font-weight: var(--ds-weight-label);
+}
+
+.settings-choice label {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control);
+}
+
+.settings-read {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ds-text-2);
+  cursor: pointer;
+}
+
+.settings-read:hover:not(:disabled) {
+  color: var(--ds-text);
+}
+
+.settings-read:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.settings-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--ds-control);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+  font-family: var(--ds-mono);
+  resize: vertical;
+}
+
+.settings-hint,
+.settings-outcome,
+.settings-problem {
+  margin: 0;
+  color: var(--ds-text-2);
+  overflow-wrap: anywhere;
+}
+
+.settings-outcome,
+.settings-problem {
+  color: var(--ds-text);
+}
+
+.settings-warning {
+  display: flex;
+  gap: var(--ds-space-2);
+  color: var(--ds-text);
+}
+
+.settings-warning p {
+  margin: 0;
+}
+
+.settings-warning svg {
+  flex: none;
+}
+
+/* The form is long, and saving shouldn't take a scroll to find. */
+.settings-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  padding-block: var(--ds-space-2);
+  background: var(--ds-panel);
+}
+
+.settings-save {
+  margin-top: 0;
 }
 
 /* A failed section's way forward: reload what stopped. */

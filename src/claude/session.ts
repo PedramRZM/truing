@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-import type { TruingConfig } from '../config';
+import { isWholeProject, type TruingConfig } from '../config';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -86,7 +86,36 @@ export const DESIGN_CONFIG_PATHS = [
 /** Claude never commits or pushes: the designer keeps a turn, and TRU-13.2 commits it. */
 const DENIED_SHELL = ['git push', 'git push *', 'git commit', 'git commit *'];
 
-const SECRET_FILES = ['**/.env', '**/.env.*'];
+/** What may hold a secret: neither read nor edited. */
+const SECRET_FILES = [
+  '**/.env',
+  '**/.env.*',
+  '**/.envrc',
+  '**/secrets/**',
+  '**/*.pem',
+  '**/*.key',
+  '**/*.p12',
+  '**/id_rsa*',
+  '**/id_ed25519*',
+  '**/.npmrc',
+  '**/.netrc',
+  '**/.aws/**',
+  '**/.ssh/**',
+];
+
+export const DENIED_READS = [
+  ...SECRET_FILES.map((glob) => `Read(${glob})`),
+  'Read(**/.git/config)',
+];
+
+/** Never written, whatever the writable list says: `neverWritten` holds the rest. */
+const NEVER_EDITED = [
+  ...SECRET_FILES,
+  '**/.git/**',
+  '.mcp.json',
+  '.claude/settings.json',
+  '.claude/settings.local.json',
+];
 
 /** The environment for a session; `dropEnv` is what the project's config adds. */
 export function sessionEnv(
@@ -173,7 +202,8 @@ export function sessionPermissions(
     deny: [
       ...DENIED_SHELL.map((rule) => `Bash(${rule})`),
       ...config.writable.exclude.map((glob) => `Edit(${glob})`),
-      ...SECRET_FILES.map((glob) => `Read(${glob})`),
+      ...DENIED_READS,
+      ...NEVER_EDITED.map((glob) => `Edit(${glob})`),
     ],
   };
 }
@@ -226,8 +256,14 @@ export async function sessionPrompt(config: SessionConfig): Promise<string> {
     '## This project',
     `- Tokens: ${config.tokens ?? 'none found; match the styling the code already uses'}`,
     `- Primitives: ${config.primitives ?? 'none found; look at the components near the file you change'}`,
-    `- You may write: ${config.writable.include.join(', ')}`,
-    `- Never: ${config.writable.exclude.join(', ')}`,
+    ...(isWholeProject(config.writable)
+      ? [
+          "- You may write: any file in the project, except tests, secret files, and Git's and Claude Code's settings",
+        ]
+      : [
+          `- You may write: ${config.writable.include.join(', ')}`,
+          `- Never: ${config.writable.exclude.join(', ')}`,
+        ]),
     `- Shell commands that run without asking: ${shell.length > 0 ? shell.join(', ') : 'none'}`,
   ].join('\n\n');
 }

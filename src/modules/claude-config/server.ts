@@ -53,7 +53,7 @@ export default defineServer(claudeConfig, (ctx) => {
         {
           ...emptyItem('PreToolUse', 'truing'),
           note: 'Edit|Write|MultiEdit|NotebookEdit',
-          body: `Refuses a write outside the files truing.config.ts lists, and any test.`,
+          body: `Refuses a write outside the files this project allows, and any test, secret file or file that runs later.`,
         },
       ],
       permissions: Object.entries(PERMISSION_KINDS).flatMap(([kind, title]) =>

@@ -178,6 +178,47 @@ body {
   line-height: var(--setup-leading-body);
 }
 
+.setup-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.setup-choice legend {
+  padding: 0;
+  margin-bottom: var(--ds-space-1);
+  font-weight: var(--ds-weight-label);
+}
+
+.setup-choice label {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.setup-page .setup-choice input {
+  flex: none;
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+.setup-kept {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+}
+
+.setup-kept p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Buttons */
 .setup-actions {
   display: flex;

@@ -14,7 +14,8 @@ import MagicString from 'magic-string';
 import ts from 'typescript';
 
 import type { TruingConfig } from '../config';
-import { matchesGlob } from '../globs.mjs';
+import { matchesGlob, neverWritten } from '../globs.mjs';
+import { realPath } from '../real-path.mjs';
 import type { ApplyOutcome, Edit, Scope } from '../module';
 import { configFor, parseCvaFile } from '../modules/selection/cva';
 
@@ -129,10 +130,27 @@ export function createEditEngine(options: {
   function writable(file: string): boolean {
     const normal = path.posix.normalize(file);
     if (path.isAbsolute(normal) || normal.startsWith('..')) return false;
+    // Where the write would really land: a link in an allowed folder is only as
+    // allowed as what it points at.
+    let real: string;
+    try {
+      real = path
+        .relative(realPath(root), realPath(path.resolve(root, normal)))
+        .split(path.sep)
+        .join('/');
+    } catch {
+      return false;
+    }
+    if (real === '..' || real.startsWith('../') || path.isAbsolute(real)) {
+      return false;
+    }
     const { include, exclude } = config.writable;
+    if (neverWritten(real, include.includes('**'))) return false;
+    // Forbidden paths ignore case, as the path guard's do.
+    const lower = real.toLowerCase();
     return (
-      include.some((glob) => matchesGlob(normal, glob)) &&
-      !exclude.some((glob) => matchesGlob(normal, glob))
+      include.some((glob) => matchesGlob(real, glob)) &&
+      !exclude.some((glob) => matchesGlob(lower, glob.toLowerCase()))
     );
   }
 

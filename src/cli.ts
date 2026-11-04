@@ -218,9 +218,7 @@ async function open(args: readonly string[], from: string): Promise<void> {
   const saved = loadProfile(opened.root);
   if (truing.app.moved && saved) {
     saveProfile({
-      root: saved.root,
-      framework: saved.framework,
-      evidence: saved.evidence,
+      ...saved,
       config: withAppPort(saved.config, truing.app.port),
     });
   }

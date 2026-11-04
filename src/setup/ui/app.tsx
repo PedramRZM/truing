@@ -18,6 +18,7 @@ import {
 import type { Connection } from '../connection';
 import type { Candidate, FolderList } from '../find-projects';
 import type { Draft, Question } from '../read-project';
+import { changedFields } from '../setting-fields';
 
 import { call, stream } from './api';
 
@@ -705,6 +706,23 @@ function QuestionCard({
   );
 }
 
+/** What the review screen calls a value a person set. */
+const KEPT_NAMES: Record<string, string> = {
+  name: 'Project name',
+  framework: 'Framework',
+  devCommand: 'Start command',
+  port: 'Port',
+  startRoute: 'First page',
+  appDir: 'App folder',
+  source: 'Code folder',
+  primitives: 'Components folder',
+  tokens: 'Token stylesheet',
+  tailwindMerge: 'tailwind-merge groups file',
+  writable: 'Allowed files',
+  checks: 'Checks Claude may run without asking',
+  dropEnv: "Variables Claude's sessions don't get",
+};
+
 function ReviewScreen({
   root,
   initial,
@@ -723,6 +741,8 @@ function ReviewScreen({
   onReadAgain: (answers: Answer[]) => void;
 }) {
   const [draft, setDraft] = useState(initial);
+  // What Claude said, as a person has accepted it: what differs is theirs.
+  const [baseline, setBaseline] = useState(initial);
   const [answered, setAnswered] = useState(answers);
   const [open, setOpen] = useState(false);
   const update = (change: Partial<Draft>): void =>
@@ -790,6 +810,40 @@ function ReviewScreen({
                 }));
               }}
             />
+          ))}
+        </div>
+      ) : null}
+
+      {(draft.kept ?? []).length > 0 ? (
+        <div className="setup-questions">
+          <h2>Your values, kept</h2>
+          {(draft.kept ?? []).map((kept) => (
+            <div key={kept.field} className="setup-kept">
+              <p>
+                {KEPT_NAMES[kept.field]}: Claude read{' '}
+                <code className="setup-mono">{kept.shown}</code>
+              </p>
+              <button
+                type="button"
+                className="setup-text"
+                aria-label={`Use Claude's value for ${KEPT_NAMES[kept.field]}`}
+                onClick={() => {
+                  setBaseline((current) => ({ ...current, ...kept.read }));
+                  setDraft((current) => ({
+                    ...current,
+                    ...kept.read,
+                    yours: (current.yours ?? []).filter(
+                      (field) => field !== kept.field,
+                    ),
+                    kept: (current.kept ?? []).filter(
+                      (other) => other !== kept,
+                    ),
+                  }));
+                }}
+              >
+                Use Claude&apos;s value
+              </button>
+            </div>
           ))}
         </div>
       ) : null}
@@ -884,30 +938,61 @@ function ReviewScreen({
             }
           />
         </Field>
-        <Field
-          id="field-include"
-          label="Files Truing and Claude may change"
-          hint={
-            draft.writableInclude.length > 0
-              ? 'One pattern per line.'
-              : 'None yet, so nothing can be written until you add some. One pattern per line.'
-          }
-          evidence={draft.evidence.writable}
-        >
-          <textarea
+        <fieldset className="setup-choice">
+          <legend>What Truing and Claude may change</legend>
+          <label>
+            <input
+              type="radio"
+              name="access"
+              checked={!draft.fullAccess}
+              onChange={() => update({ fullAccess: false })}
+            />
+            Only listed files
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="access"
+              checked={draft.fullAccess ?? false}
+              onChange={() => update({ fullAccess: true })}
+            />
+            The whole project
+          </label>
+          {draft.fullAccess ? (
+            <p className="setup-hint">
+              Includes server code and what runs when the project opens, so use
+              it on a project you trust. Tests, secret files, Git&apos;s files
+              and Claude Code&apos;s settings stay off limits. You can change
+              this later in Settings.
+            </p>
+          ) : null}
+        </fieldset>
+        {draft.fullAccess ? null : (
+          <Field
             id="field-include"
-            className="setup-mono"
-            rows={3}
-            spellCheck={false}
-            value={draft.writableInclude.join('\n')}
-            onChange={(event) =>
-              update({ writableInclude: event.target.value.split('\n') })
+            label="Allowed files"
+            hint={
+              draft.writableInclude.length > 0
+                ? 'One pattern per line.'
+                : 'None yet, so nothing can be written until you add some. One pattern per line.'
             }
-            onBlur={(event) =>
-              update({ writableInclude: lines(event.target.value) })
-            }
-          />
-        </Field>
+            evidence={draft.evidence.writable}
+          >
+            <textarea
+              id="field-include"
+              className="setup-mono"
+              rows={3}
+              spellCheck={false}
+              value={draft.writableInclude.join('\n')}
+              onChange={(event) =>
+                update({ writableInclude: event.target.value.split('\n') })
+              }
+              onBlur={(event) =>
+                update({ writableInclude: lines(event.target.value) })
+              }
+            />
+          </Field>
+        )}
         <Field
           id="field-checks"
           label="Checks Claude may run without asking"
@@ -1018,25 +1103,27 @@ function ReviewScreen({
               }
             />
           </Field>
-          <Field
-            id="field-exclude"
-            label="Files that stay off limits"
-            hint="One pattern per line."
-          >
-            <textarea
+          {draft.fullAccess ? null : (
+            <Field
               id="field-exclude"
-              className="setup-mono"
-              rows={3}
-              spellCheck={false}
-              value={draft.writableExclude.join('\n')}
-              onChange={(event) =>
-                update({ writableExclude: event.target.value.split('\n') })
-              }
-              onBlur={(event) =>
-                update({ writableExclude: lines(event.target.value) })
-              }
-            />
-          </Field>
+              label="Files that stay off limits"
+              hint="One pattern per line."
+            >
+              <textarea
+                id="field-exclude"
+                className="setup-mono"
+                rows={3}
+                spellCheck={false}
+                value={draft.writableExclude.join('\n')}
+                onChange={(event) =>
+                  update({ writableExclude: event.target.value.split('\n') })
+                }
+                onBlur={(event) =>
+                  update({ writableExclude: lines(event.target.value) })
+                }
+              />
+            </Field>
+          )}
         </div>
       ) : null}
 
@@ -1045,7 +1132,20 @@ function ReviewScreen({
           type="button"
           className="setup-primary"
           disabled={!canStart}
-          onClick={() => onStart(draft, answered)}
+          onClick={() =>
+            onStart(
+              {
+                ...draft,
+                yours: [
+                  ...new Set([
+                    ...(draft.yours ?? []),
+                    ...changedFields(baseline, draft),
+                  ]),
+                ],
+              },
+              answered,
+            )
+          }
         >
           Start {draft.name}
         </button>

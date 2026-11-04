@@ -16,7 +16,11 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { type TruingConfig, truingConfigSchema } from '../config';
+import {
+  DEFAULT_MODULES,
+  type TruingConfig,
+  truingConfigSchema,
+} from '../config';
 
 const profileSchema = z.object({
   version: z.literal(1),
@@ -29,6 +33,12 @@ const profileSchema = z.object({
   /** Why each value is what it is, in Claude's words, for the review screen. */
   evidence: z.record(z.string(), z.string()),
   config: truingConfigSchema,
+  /** The lists to go back to, while `config` gives the whole project (TRU-10.7). */
+  folders: z
+    .object({ include: z.array(z.string()), exclude: z.array(z.string()) })
+    .optional(),
+  /** The values a person changed: a later read keeps them unless they say (TRU-10.3). */
+  yours: z.array(z.string()).optional(),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -58,12 +68,28 @@ export function profileFile(
   return path.join(truingHome(env), 'projects', `${projectKey(root)}.json`);
 }
 
+/**
+ * Setup saves the default list as it stood, and a person can't edit it. So a
+ * project saved before a module existed gets it too.
+ */
+function withNewModules(profile: Profile): Profile {
+  const { modules } = profile.config;
+  if (!modules) return profile;
+  const missing = DEFAULT_MODULES.filter((name) => !modules.includes(name));
+  return missing.length === 0
+    ? profile
+    : {
+        ...profile,
+        config: { ...profile.config, modules: [...modules, ...missing] },
+      };
+}
+
 function parse(file: string): Profile | null {
   try {
     const parsed = profileSchema.safeParse(
       JSON.parse(readFileSync(file, 'utf8')),
     );
-    return parsed.success ? parsed.data : null;
+    return parsed.success ? withNewModules(parsed.data) : null;
   } catch {
     // A file a person broke by hand is the same as none: setup runs again.
     return null;
