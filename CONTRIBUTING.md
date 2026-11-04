@@ -23,6 +23,22 @@ pnpm --dir /path/to/truing dev
 
 To change a feature, or add one, read [`docs/modules.md`](docs/modules.md): every feature is a module. For anything in Truing's own interface, read [`docs/design-language.md`](docs/design-language.md).
 
+## Write a module
+
+A module is a folder with a `module.ts` that declares what it does, and one file for each part it uses: `probe.ts` runs in the app's frames, `panel.tsx` in Truing's panels, and `server.ts` in Truing's own process. Only `module.ts` is required.
+
+The smallest whole example is [`examples/element-count/`](examples/element-count/). Copy it, list your folder under `modules` in a `truing.config.ts` in a test project, and restart Truing. [`docs/modules.md`](docs/modules.md) covers the rest.
+
+## You don't need a Claude account for most of this
+
+Everything runs on the repo's own fixtures, with no account and no secrets:
+
+- `test/fixture-app/` is the Next.js app the e2e tests frame. Start Truing on it, and on your change, by running a spec: `pnpm exec playwright test test/e2e/shell.spec.ts`.
+- `test/fixtures/` holds projects to edit, and `test/fixtures/fake-claude/` is a scripted `claude` for anything that talks to one.
+- CI runs the same way, so a pull request from a fork passes with no secrets.
+
+Only `pnpm check-claude` and `pnpm check-first-run` need a real `claude`, and they spend your own usage. Nobody has to run them to contribute.
+
 ## Test
 
 ```sh
@@ -41,7 +57,7 @@ Everyone gets the same setup in VS Code or Cursor. Open the folder, accept the r
 
 ## How work is tracked
 
-Work lives in [`backlog/`](backlog/) as files, so it's reviewed like code. Issues are where people outside the project raise things. Once an issue is accepted, it becomes a task under an epic.
+Work lives in [`backlog/`](backlog/) as files, so it's reviewed like code. Change it with the `backlog` CLI, not by hand, since hand edits break its metadata: `make board` shows it, and `backlog task list --plain` lists it. Issues are where people outside the project raise things. Once an issue is accepted, it becomes a task under an epic.
 
 Numbers follow the order to do things in: `TRU-6.4` is the fourth task in the sixth epic. [`docs/roadmap.md`](docs/roadmap.md) shows the epics in order. You don't need a task number to contribute: an issue number is enough.
 
@@ -54,7 +70,7 @@ Numbers follow the order to do things in: `TRU-6.4` is the fourth task in the si
 
 ## Rules a contribution has to meet
 
-- **Zero config.** A feature must never need a config file or a hard-coded project path, port, framework or token location. Its acceptance criteria say how it gets what it needs from the project: Truing asks Claude to read it, and asks the person when Claude can't.
+- **Zero config.** A feature must never need a config file or a hard-coded project path, port, framework or token location. Its acceptance criteria say how it gets what it needs from the project: read it from the saved profile, or ask Claude to read the project, and ask the person when Claude can't tell.
 - **The Claude auth rule.** Truing only ever runs the person's own unmodified `claude` binary. It never reads, stores, proxies or asks for credentials, tokens or login codes, and never shows a login form of its own.
 - **No brand of any host project** in code, config, tests, docs or the backlog. `make check` fails on it. Reduce a real app's case to `test/fixture-app/`.
 - **Third-party code** needs a compatible licence, its header and a row in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
