@@ -210,6 +210,8 @@ export function writeDenyRules(file: string, root: string): void {
     file,
     JSON.stringify({
       permissions: { deny: DENIED_READS },
+      // A person's own settings could otherwise switch the read guard off.
+      disableAllHooks: false,
       hooks: {
         PreToolUse: [
           {
@@ -218,6 +220,8 @@ export function writeDenyRules(file: string, root: string): void {
               {
                 type: 'command',
                 command: `${JSON.stringify(process.execPath)} ${JSON.stringify(READ_GUARD)} ${JSON.stringify(root)}`,
+                // A hook that times out doesn't block by itself.
+                onFailure: 'block',
               },
             ],
           },
@@ -535,7 +539,10 @@ export function checkReading(root: string, reading: Reading): Draft {
     tailwindMerge: insideRoot(root, reading.tailwindMerge)
       ? reading.tailwindMerge
       : null,
-    writableInclude: reading.writableInclude.filter(isSafeGlob),
+    // Everything is a person's choice to make (ADR 0006), so a read can't answer with it.
+    writableInclude: reading.writableInclude.filter(
+      (glob) => isSafeGlob(glob) && glob !== '**',
+    ),
     writableExclude: reading.writableExclude.filter(isSafeGlob),
     checks: reading.checks.filter(isSafeCheck),
     dropEnv: reading.dropEnv.filter((name) => ENV_NAME.test(name)),

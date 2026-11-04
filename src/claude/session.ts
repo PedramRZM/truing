@@ -359,6 +359,8 @@ export async function prepareSession(options: {
   const settings = await write('settings.json', {
     // The person's own helper would beat the subscription.
     apiKeyHelper: '',
+    // A cloned repository's own settings could otherwise switch the path guard off.
+    disableAllHooks: false,
     env: Object.fromEntries(dropEnv.map((name) => [name, ''])),
     permissions,
     hooks: {
@@ -371,6 +373,8 @@ export async function prepareSession(options: {
               // A hook that fails to start isn't a blocking one: this makes it so.
               command: `${JSON.stringify(process.execPath)} ${JSON.stringify(GUARD)} ${JSON.stringify(rules)} || exit 2`,
               timeout: 10,
+              // A hook that times out doesn't block by itself.
+              onFailure: 'block',
             },
           ],
         },

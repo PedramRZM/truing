@@ -6,6 +6,7 @@
 import { execFile } from 'node:child_process';
 import {
   copyFile,
+  lstat,
   mkdtemp,
   mkdir,
   readFile,
@@ -111,24 +112,26 @@ async function blobAt(
   tree: string,
   file: string,
 ): Promise<string | null> {
-  return git(root, [
-    'rev-parse',
-    '--verify',
-    '--quiet',
-    // `./` is from the project; a bare path would be from the repository's root.
-    `${tree}:./${file}`,
-  ]).then(
-    (id) => id.trim(),
-    () => null,
-  );
+  // `./` is from the project; a bare path would be from the repository's root. No line
+  // means it isn't there. A failure throws: it must never read as "isn't there", or
+  // Undo deletes the file (TRU-5.3).
+  const line = await git(root, ['ls-tree', tree, '--', `./${file}`]);
+  return /^\S+ \S+ (\S+)\t/.exec(line)?.[1] ?? null;
 }
 
 /** The file's hash now, as git would store it; null if it's gone. */
 async function hashNow(root: string, file: string): Promise<string | null> {
-  return git(root, ['hash-object', '--', file]).then(
-    (id) => id.trim(),
-    () => null,
-  );
+  try {
+    await lstat(path.join(root, file));
+  } catch (error) {
+    const gone =
+      error instanceof Error &&
+      'code' in error &&
+      (error.code === 'ENOENT' || error.code === 'ENOTDIR');
+    if (gone) return null;
+    throw error;
+  }
+  return (await git(root, ['hash-object', '--', file])).trim();
 }
 
 export type UndoResult =
@@ -192,14 +195,26 @@ export async function undoTurn(
   files: readonly string[],
   write: typeof writeFile = writeFile,
 ): Promise<UndoResult> {
-  const plans = await Promise.all(
-    files.map(async (file) => ({
-      file,
-      was: await blobAt(root, before, file),
-      left: await blobAt(root, after, file),
-      now: await hashNow(root, file),
-    })),
-  );
+  // One at a time: three processes for each of hundreds of files at once can run out
+  // of processes, and every read has to be sure before anything is written.
+  const plans: {
+    file: string;
+    was: string | null;
+    left: string | null;
+    now: string | null;
+  }[] = [];
+  for (const file of files) {
+    try {
+      plans.push({
+        file,
+        was: await blobAt(root, before, file),
+        left: await blobAt(root, after, file),
+        now: await hashNow(root, file),
+      });
+    } catch {
+      return { ok: false, reason: 'failed', files: [file], rolledBack: true };
+    }
+  }
   const moved = plans.filter(({ left, now }) => left !== now);
   if (moved.length > 0) {
     return { ok: false, reason: 'moved', files: moved.map(({ file }) => file) };

@@ -41,6 +41,7 @@ The owner decided the test question on 2026-11-04.
 
 - Good, because a steered Claude can't push through a hook script, and can't pass by editing a test.
 - Bad, because "full access" isn't quite full, so the screen says what's left out.
+- Bad, because these limits are on file tools. A shell command Claude is allowed to run isn't checked against them, and Accept edits mode allows `sed`, `cp` and `mv` unasked (TRU-10.8).
 - Bad, because it isn't a sandbox. Claude can still change `package.json` or other code that runs when the project opens, and the screen says so. Full access means "I trust this project and this Claude with its code".
 
 ### Confirmation

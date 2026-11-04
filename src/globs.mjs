@@ -38,6 +38,10 @@ const RUNS_LATER = [
   /(^|\/)\.(husky|githooks)\//,
   /(^|\/)lefthook(-local)?\.ya?ml$/,
   /(^|\/)\.pre-commit-config\.ya?ml$/,
+  // Instructions every later session loads, and what other tools run by themselves.
+  /(^|\/)(claude|claude\.local|agents|gemini)\.md$/,
+  /(^|\/)\.github\/workflows\//,
+  /(^|\/)\.(cursor|codex|gemini|vscode)\//,
 ];
 
 /**

@@ -52,9 +52,10 @@ export function picksFrom(reports: Readonly<Record<string, unknown>>): Pick[] {
 function pageOf(href: string | null): string | null {
   if (!href) return null;
   try {
-    // A hash can be the page, in a hash-routed app. A query can hold a one-time token.
+    // `#/` is the page, in a hash-routed app. Any other hash, like a query, can hold a
+    // one-time token.
     const { pathname, hash } = new URL(href);
-    return `${pathname}${hash}`;
+    return `${pathname}${hash.startsWith('#/') ? hash : ''}`;
   } catch {
     return null;
   }

@@ -59,15 +59,25 @@ const PLAIN_KEYS = new Set([
   'version',
 ]);
 
-/** The frontmatter key that isn't plain, if any. An unclosed block counts whole. */
+/**
+ * The frontmatter key that isn't plain, if any. An unclosed block counts whole. Read as
+ * strictly as Claude Code's own YAML parser might read it: a bare CR ends a line, and
+ * an indented key is a key, so indented text holds a colon only in a `|` or `>` block.
+ */
 function grantingKey(text) {
-  const lines = text.trimStart().split(/\r?\n/);
+  const lines = text.trimStart().split(/\r\n|\r|\n/);
   if (lines[0]?.trimEnd() !== '---') return null;
+  let block = false;
   for (const line of lines.slice(1)) {
     if (line === '---') return null;
-    if (line.trim() === '' || /^(\s|#)/.test(line)) continue;
+    if (line.trim() === '' || line.startsWith('#')) continue;
+    if (/^\s/.test(line)) {
+      if (!block && line.includes(':')) return line.trim().split(':')[0];
+      continue;
+    }
     const key = line.split(':')[0] ?? '';
     if (!line.includes(':') || !PLAIN_KEYS.has(key)) return key;
+    block = /:\s*[|>][+-]?\d?\s*$/.test(line);
   }
   return null;
 }
@@ -81,6 +91,8 @@ function textAfter(input, file) {
   }
   let text = existsSync(file) ? readFileSync(file, 'utf8') : '';
   for (const { old_string: from, new_string: to, replace_all: all } of edits) {
+    // Claude Code matches quotes loosely, so text it would change may not match here.
+    if (!text.includes(from)) return null;
     text = all ? text.split(from).join(to) : text.replace(from, () => to);
   }
   return text;
@@ -107,15 +119,25 @@ function run() {
   const rules = JSON.parse(readFileSync(process.argv[2], 'utf8'));
   wholeProject = rules.include.includes('**');
   const input = JSON.parse(readFileSync(0, 'utf8'));
-  const target = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
-  if (typeof target !== 'string' || target === '') {
+  // Every path it names: a decoy beside the real one proves nothing.
+  const targets = [
+    input.tool_input?.file_path,
+    input.tool_input?.notebook_path,
+  ].filter((target) => target !== undefined);
+  if (
+    targets.length === 0 ||
+    targets.some((target) => typeof target !== 'string' || target === '')
+  ) {
     return 'The call names no file.';
   }
   const cwd = input.cwd ?? rules.root;
-  return (
-    refusal(rules, target, cwd) ??
-    instructionsRefusal(rules, input.tool_input, target, cwd)
-  );
+  for (const target of targets) {
+    const reason =
+      refusal(rules, target, cwd) ??
+      instructionsRefusal(rules, input.tool_input, target, cwd);
+    if (reason) return reason;
+  }
+  return null;
 }
 
 function block(reason) {
