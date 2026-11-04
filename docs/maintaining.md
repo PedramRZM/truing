@@ -16,6 +16,20 @@ The reasoning and the projects this draws on are in [the research note](research
 | A security report      | Handle it through a private advisory, as [`SECURITY.md`](../SECURITY.md) says. Fix first, then publish.  | Only on your own machine. Never paste an embargoed report into a hosted tool.               |
 | An outsider's PR ships | Thank them by handle in the changelog entry.                                                             | The `release` skill keeps the thanks.                                                       |
 
+## Cutting a release
+
+The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release` skill drafts the pull request.
+
+1. Someone runs the `release` skill. It changes only the version and `CHANGELOG.md`, on a branch.
+2. A person edits the entry and merges the pull request, keeping the subject `release: v<version>`.
+3. `release.yml` sees that subject on `main`. It checks that the version and the changelog agree, then runs `make check` and the e2e suite.
+4. A person approves the `release` environment on GitHub.
+5. CI publishes to npm with provenance, using npm's trusted publishing with no stored token, and tags the commit.
+
+Nobody publishes from a laptop, except for the first version.
+
+**The first publish.** npm needs a package to exist before it can trust a workflow. So the owner publishes `0.1.0` once by hand from a clean checkout of a commit CI passed, then sets `release.yml` as the trusted publisher on npm, and creates the `release` environment with themselves as required reviewer. Every later version goes through the steps above.
+
 ## Labels
 
 Keep about six: `bug`, `enhancement`, `needs repro`, `good first issue`, `help wanted` and `docs`. Add one only when a real sorting problem needs it.
