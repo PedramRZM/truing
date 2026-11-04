@@ -3501,10 +3501,25 @@ details[open] > .fold > .fold-chevron {
   gap: var(--ds-space-2);
 }
 
+/* Stays in reach in a long chat (TRU-5.3), on the panel so the chat passes under it. */
 .chat-bar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
   display: flex;
   justify-content: space-between;
   gap: var(--ds-space-1);
+  margin: calc(var(--ds-space-3) * -1) calc(var(--ds-space-3) * -1) 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-border);
+  background: var(--ds-panel);
+}
+
+/* A row reached by keyboard isn't left under the bar. */
+.dock-body:has(.chat-bar) {
+  scroll-padding-block-start: calc(
+    var(--ds-control) + 2 * var(--ds-space-2) + 1px
+  );
 }
 
 .chat-sessions {
@@ -3534,7 +3549,7 @@ details[open] > .fold > .fold-chevron {
 }
 
 .chat-session[aria-current='true'] {
-  font-weight: var(--ds-weight-strong);
+  background: var(--ds-selected);
 }
 
 .chat-session:disabled {
@@ -3593,12 +3608,18 @@ details[open] > .fold > .fold-chevron {
 }
 
 .chat-text {
-  margin: 0;
-  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* A line break Claude wrote stays one, as Markdown alone would fold it away. */
+.chat-text p {
   white-space: pre-wrap;
 }
 
-.chat-text code,
+.chat-text .markdown > :last-child {
+  margin-block-end: 0;
+}
+
 .chat-activity code,
 .chat-command,
 .chat-file code,
@@ -3789,22 +3810,26 @@ details[open] > .fold > .fold-chevron {
   border-top: 1px solid var(--ds-border);
 }
 
+/* Three rows, then it scrolls: many picks can't push Send off the window (TRU-5.3). */
 .composer-chips {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   gap: var(--ds-space-1);
+  max-height: calc(3 * var(--ds-control) + 2 * var(--ds-space-1));
   margin: 0;
   padding: 0;
+  overflow-y: auto;
   list-style: none;
+  scrollbar-width: thin;
 }
 
 .composer-chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
   max-width: 100%;
   height: var(--ds-control);
-  padding-inline: var(--ds-space-2) 2px;
+  padding-inline: var(--ds-space-2) 0;
   border-radius: var(--ds-radius);
   background: var(--ds-control-fill);
   box-shadow: var(--ds-shadow-control);
@@ -3821,8 +3846,8 @@ details[open] > .fold > .fold-chevron {
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: var(--ds-control);
+  height: var(--ds-control);
   padding: 0;
   border: 0;
   border-radius: var(--ds-radius);
@@ -3862,18 +3887,23 @@ details[open] > .fold > .fold-chevron {
   gap: var(--ds-space-1);
 }
 
+/* They wrap rather than truncate: "Bypa…" won't do for what a message runs under (TRU-5.3). */
 .composer-menus {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ds-space-1);
   min-width: 0;
 }
 
+/* The chevron's own margin is enough: this is what fits three short words on a row. */
 .composer-menus .field-button {
   flex: 0 1 auto;
+  gap: 0;
   width: auto;
   min-width: 0;
+  padding-inline-end: 0;
 }
 
 .composer-send {
@@ -3897,7 +3927,6 @@ details[open] > .fold > .fold-chevron {
 .inline-ask {
   position: absolute;
   z-index: 1;
-  transform: translateX(-100%);
 }
 
 .inline-prompt {
@@ -3910,9 +3939,43 @@ details[open] > .fold > .fold-chevron {
   padding: var(--ds-space-2);
 }
 
+/* A waiting prompt, where the chat can't show it (TRU-5.3). At the canvas's foot, above the toast. */
+.chat-asking {
+  position: fixed;
+  left: calc((100vw + var(--ds-canvas-left) - var(--ds-canvas-right)) / 2);
+  bottom: calc(2 * var(--ds-space-4) + var(--ds-control));
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  width: min(
+    360px,
+    100vw - var(--ds-canvas-left) - var(--ds-canvas-right) - 2 *
+      var(--ds-space-4)
+  );
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: var(--ds-radius);
+  background: var(--ds-panel);
+  box-shadow: var(--ds-shadow-float);
+  transform: translateX(-50%);
+}
+
+/* It floats on the panel's colour, as the prompt on a pick does: not a box in a box. */
+.chat-asking .chat-permission {
+  background: none;
+  box-shadow: none;
+}
+
+.truing[data-right='true'][data-right-view='claude']:not([data-chrome='hidden'])
+  .chat-asking {
+  display: none;
+}
+
 .inline-ask {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--ds-space-1);
   height: var(--ds-control);
   padding-inline: var(--ds-space-2);
