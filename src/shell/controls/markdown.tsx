@@ -14,11 +14,28 @@ export function splitFrontmatter(text: string): {
 }
 
 /**
+ * Where a link can go. TRU-5.3: Claude writes `[a.tsx](src/a.tsx:12)`, which would
+ * open Truing's own page, so an address that can't open anything stays words.
+ */
+export function linkTarget(href: string | undefined): string | null {
+  return href && /^(?:https?:|mailto:)/i.test(href) ? href : null;
+}
+
+/**
  * Markdown as a reader sees it, with tables. HTML in the text stays text, a file
  * can't load a picture, and a link opens outside Truing's own page.
  */
-export function Markdown({ text }: { text: string }) {
-  const { frontmatter, body } = splitFrontmatter(text);
+export function Markdown({
+  text,
+  file = true,
+}: {
+  text: string;
+  /** A file can open with frontmatter; an answer that opens with `---` has a rule. */
+  file?: boolean;
+}) {
+  const { frontmatter, body } = file
+    ? splitFrontmatter(text)
+    : { frontmatter: null, body: text };
   return (
     <div className="markdown">
       {frontmatter ? (
@@ -29,11 +46,16 @@ export function Markdown({ text }: { text: string }) {
         disallowedElements={['img']}
         unwrapDisallowed
         components={{
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const target = linkTarget(href);
+            if (!target) return <>{children}</>;
+            // The words can say anything, so the address shows on hover.
+            return (
+              <a href={target} title={target} target="_blank" rel="noreferrer">
+                {children}
+              </a>
+            );
+          },
           // Wide tables scroll by themselves, not the panel.
           table: ({ children }) => (
             <div className="markdown-table">

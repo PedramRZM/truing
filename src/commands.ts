@@ -175,7 +175,7 @@ export const CORE_COMMANDS = {
   },
   'view-claude': {
     group: 'Panels',
-    title: 'Show Claude',
+    title: 'Show the Claude tab',
     keys: VIEW_CLAUDE_KEYS,
   },
   shortcuts: {

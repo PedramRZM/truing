@@ -1,4 +1,5 @@
 import {
+  type ReactNode,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -7,12 +8,13 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { createPortal } from 'react-dom';
 import {
   ChevronRight,
+  CircleStop,
   History,
   MessageSquare,
   Settings2,
-  Square,
   SquarePen,
   TriangleAlert,
   X,
@@ -26,6 +28,7 @@ import {
 } from '../../module';
 import { ChoiceMenu } from '../../shell/controls/choice-menu';
 import { Composer, type ComposerChip } from '../../shell/controls/composer';
+import { Markdown } from '../../shell/controls/markdown';
 
 import {
   attachmentOf,
@@ -34,6 +37,7 @@ import {
   picksFrom,
   screenOf,
 } from './attachments';
+import { inlineLeft, inlineTop } from './inline-place';
 import claude, {
   type Attachment,
   type Chat as ChatState,
@@ -45,7 +49,13 @@ import claude, {
   type Model,
   type Turn,
 } from './module';
-import { answerBlocks, problemWords, textRuns } from './words';
+import {
+  answerBlocks,
+  emptyChat,
+  MODE_NAME,
+  MODE_NOTE,
+  problemWords,
+} from './words';
 
 type Props = PanelProps<typeof claude>;
 
@@ -66,23 +76,6 @@ const EFFORT_NAME = {
   xhigh: 'Extra high',
   max: 'Max',
 } as const satisfies Record<Effort, string>;
-
-/** Claude Code's permission modes, in the designer's words. */
-const MODE_NAME = {
-  manual: 'Ask first',
-  acceptEdits: 'Accept edits',
-  plan: 'Plan only',
-  auto: 'Auto',
-  dontAsk: "Don't ask",
-  bypassPermissions: 'Bypass',
-} as const satisfies Record<Mode, string>;
-
-/** Under the composer, for the two modes that stop asking about commands. */
-const MODE_NOTE: Partial<Record<Mode, string>> = {
-  bypassPermissions:
-    'Claude runs commands without asking, and a command can change any file. Its file tools stay limited to UI files.',
-  dontAsk: "Claude won't ask. Anything not already allowed is refused.",
-};
 
 const FIRST_PROMPTS = [
   'Check this page against the design rules and list what looks off.',
@@ -140,28 +133,16 @@ function pickToShow(props: Props): Pick | null {
 // ---------------------------------------------------------------------------
 // Text
 
-function Text({ text }: { text: string }) {
-  return (
-    <p className="chat-text">
-      {textRuns(text).map((run, index) =>
-        run.code ? (
-          <code key={index}>{run.text}</code>
-        ) : (
-          <span key={index}>{run.text}</span>
-        ),
-      )}
-    </p>
-  );
-}
-
 function Failure({
   what,
   message,
   command,
+  action,
 }: {
   what: string;
   message: string | null;
   command?: string | null;
+  action?: ReactNode;
 }) {
   return (
     <div className="module-failed" role="status">
@@ -169,7 +150,20 @@ function Failure({
       <p>{what}</p>
       {message ? <p className="module-error">{message}</p> : null}
       {command ? <code className="chat-command">{command}</code> : null}
+      {action}
     </div>
+  );
+}
+
+/** What the chosen mode does, wherever a message can be sent from (TRU-5.3). */
+function ModeNote({ mode }: { mode: Mode }) {
+  const note = MODE_NOTE[mode];
+  if (!note) return null;
+  return (
+    <p className="composer-note">
+      <TriangleAlert aria-hidden size={16} />
+      <span>{note}</span>
+    </p>
   );
 }
 
@@ -289,7 +283,9 @@ function TurnView({
       </div>
       {blocks.map((block) =>
         block.kind === 'text' ? (
-          <Text key={block.key} text={block.text} />
+          <div key={block.key} className="chat-text">
+            <Markdown text={block.text} file={false} />
+          </div>
         ) : (
           <ul key={block.key} className="chat-activities">
             {block.rows.map((row) => (
@@ -505,6 +501,7 @@ function ChatPanel(props: Props) {
   const { chat, live } = props.state;
   const end = useRef<HTMLDivElement>(null);
   const [listing, setListing] = useState(false);
+  const [checking, setChecking] = useState(false);
   const showing = props.rightView === 'claude';
   const { call } = props;
 
@@ -540,8 +537,11 @@ function ChatPanel(props: Props) {
   if (!chat) return <p className="module-empty">Connecting to Claude…</p>;
 
   const empty = chat.turns.length === 0 && !live;
-  const nothingPicked = picksOf(props).length === 0;
-  const firstTime = localStorage.getItem(USED_KEY) === null;
+  const offer = emptyChat({
+    signedIn: chat.signedIn,
+    nothingPicked: picksOf(props).length === 0,
+    firstTime: localStorage.getItem(USED_KEY) === null,
+  });
   const status = statusText(chat);
 
   return (
@@ -591,13 +591,29 @@ function ChatPanel(props: Props) {
           what="Sign in to Claude again."
           message="Run this in a terminal, then type /login:"
           command="claude"
+          action={
+            <button
+              type="button"
+              className="module-action"
+              disabled={checking}
+              onClick={() => {
+                setChecking(true);
+                props
+                  .call('status', {})
+                  .catch((error: unknown) => {
+                    props.notify(messageOf(error), { stays: true });
+                  })
+                  .finally(() => setChecking(false));
+              }}
+            >
+              Check again
+            </button>
+          }
         />
       ) : null}
       {empty && status ? <p className="chat-activity">{status}</p> : null}
-      {empty && nothingPicked && firstTime ? (
-        <FirstPrompts props={props} />
-      ) : null}
-      {empty && !firstTime ? (
+      {empty && offer === 'examples' ? <FirstPrompts props={props} /> : null}
+      {empty && offer === 'hint' ? (
         <p className="module-empty">
           Pick an element to attach it, or write what you want changed.
         </p>
@@ -716,6 +732,8 @@ function ChatComposer(props: Props) {
     bypassChosen = next.mode === 'bypassPermissions';
     setChoices(next);
     localStorage.setItem(CHOICES_KEY, JSON.stringify(next));
+    // The prompt on a pick sends with these, and says so.
+    tellInline();
   };
 
   async function send(text: string): Promise<void> {
@@ -771,30 +789,24 @@ function ChatComposer(props: Props) {
         </>
       }
       action={
-        props.state.chat?.working ? (
-          <button
-            type="button"
-            className="tool"
-            aria-label="Stop Claude"
-            title="Stop"
-            onClick={() => {
-              props.call('stop', {}).catch((error: unknown) => {
-                props.notify(messageOf(error), { stays: true });
-              });
-            }}
-          >
-            <Square aria-hidden size={16} />
-          </button>
-        ) : null
+        // TRU-5.3: always in the row, so the menus don't jump as a run starts.
+        <button
+          type="button"
+          className="tool"
+          aria-label="Stop Claude"
+          title="Stop"
+          disabled={!props.state.chat?.working}
+          onClick={() => {
+            props.call('stop', {}).catch((error: unknown) => {
+              props.notify(messageOf(error), { stays: true });
+            });
+          }}
+        >
+          {/* Not `Square`: idle and greyed beside Send, it read as a checkbox. */}
+          <CircleStop aria-hidden size={16} />
+        </button>
       }
-      note={
-        MODE_NOTE[choices.mode] ? (
-          <p className="composer-note">
-            <TriangleAlert aria-hidden size={16} />
-            <span>{MODE_NOTE[choices.mode]}</span>
-          </p>
-        ) : null
-      }
+      note={<ModeNote mode={choices.mode} />}
       onSend={send}
     />
   );
@@ -806,9 +818,12 @@ function ChatComposer(props: Props) {
 /** Open or not. The key and the context menu's row open it, from outside the box. */
 let inlineOpen = false;
 const inlineListeners = new Set<() => void>();
+function tellInline(): void {
+  for (const listener of inlineListeners) listener();
+}
 function setInlineOpen(open: boolean): void {
   inlineOpen = open;
-  for (const listener of inlineListeners) listener();
+  tellInline();
 }
 function subscribeInline(listener: () => void): () => void {
   inlineListeners.add(listener);
@@ -817,11 +832,16 @@ function subscribeInline(listener: () => void): () => void {
 
 const INLINE_GAP = 8;
 const INLINE_WIDTH = 280;
-/** The closed pill's and the box's room, so it stays on the frame near the page's foot. */
-const INLINE_ROOM = 96;
+/** Set, not left to its text, so the pill can stop at the frame's edge. */
+const INLINE_ASK_WIDTH = 96;
+/** Their room near the page's foot, tallest first: the longest note takes four lines. */
+const INLINE_HEIGHT_NOTED = 144;
+const INLINE_HEIGHT = 72;
+const INLINE_ASK_HEIGHT = 24;
 
 const InlinePrompt: CanvasComponent<typeof claude> = (props) => {
   const open = useSyncExternalStore(subscribeInline, () => inlineOpen);
+  const mode = useSyncExternalStore(subscribeInline, () => loadChoices().mode);
   const pick = pickToShow(props);
   const selector = pick?.selector ?? null;
   const frame = pick?.frame ?? null;
@@ -841,22 +861,32 @@ const InlinePrompt: CanvasComponent<typeof claude> = (props) => {
   const anchor = frame ? props.reports.anchor[frame] : null;
   if (!pick || !anchor || anchor.selector !== pick.selector) return null;
   const shown = props.frames.find((entry) => entry.id === pick.frame);
-  const top = Math.min(
-    anchor.y + anchor.height,
-    (shown?.height ?? Number.POSITIVE_INFINITY) - INLINE_ROOM,
-  );
   const right = Math.min(
     anchor.x + anchor.width,
     shown?.width ?? Number.POSITIVE_INFINITY,
   );
   // At the element's foot on the right: its name's label sits on the left.
-  const at = props.place(pick.frame, { x: right, y: Math.max(0, top) });
-  if (!at) return null;
-  const style = {
-    left: at.left,
-    top: at.top + INLINE_GAP,
-    width: INLINE_WIDTH,
-  };
+  const at = props.place(pick.frame, {
+    x: right,
+    y: anchor.y + anchor.height,
+  });
+  const frameStart = props.place(pick.frame, { x: 0, y: 0 });
+  const frameEnd = props.place(pick.frame, {
+    x: 0,
+    y: shown?.height ?? Number.POSITIVE_INFINITY,
+  });
+  if (!at || !frameStart || !frameEnd) return null;
+  const styleOf = (width: number, height: number) => ({
+    left: inlineLeft({ end: at.left, frameLeft: frameStart.left, width }),
+    top:
+      inlineTop({
+        foot: at.top,
+        frameTop: frameStart.top,
+        frameFoot: frameEnd.top,
+        height: height + INLINE_GAP,
+      }) + INLINE_GAP,
+    width,
+  });
 
   async function send(text: string): Promise<void> {
     if (!pick) return;
@@ -885,7 +915,7 @@ const InlinePrompt: CanvasComponent<typeof claude> = (props) => {
       <button
         type="button"
         className="inline-ask"
-        style={{ left: at.left, top: style.top }}
+        style={styleOf(INLINE_ASK_WIDTH, INLINE_ASK_HEIGHT)}
         title="Ask Claude about this (A)"
         onClick={() => setInlineOpen(true)}
       >
@@ -901,18 +931,64 @@ const InlinePrompt: CanvasComponent<typeof claude> = (props) => {
   }
 
   return (
-    <div className="inline-prompt" style={style}>
+    <div
+      className="inline-prompt"
+      style={styleOf(
+        INLINE_WIDTH,
+        MODE_NOTE[mode] ? INLINE_HEIGHT_NOTED : INLINE_HEIGHT,
+      )}
+    >
       <Composer
         small
         autoFocus
         label={`Message to Claude about ${pick.tag}`}
         placeholder="What should change here?"
+        action={
+          <button
+            type="button"
+            className="tool"
+            aria-label="Close this prompt"
+            title="Close (Esc)"
+            onClick={() => setInlineOpen(false)}
+          >
+            <X aria-hidden size={16} />
+          </button>
+        }
+        note={<ModeNote mode={mode} />}
         onSend={send}
         onEscape={() => setInlineOpen(false)}
       />
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// A prompt the chat can't show right now
+
+/**
+ * TRU-5.3: a run waits on the answer, and the chat is out of sight behind
+ * Properties or a closed panel. So the prompt also floats over the canvas, and
+ * CSS hides this copy while the chat shows. Portalled, as the layer it's drawn in
+ * moves with the canvas and this stays put.
+ */
+function WaitingPrompts(props: Props) {
+  const chat = props.state.chat;
+  const shell = document.querySelector('.truing');
+  if (!chat || chat.prompts.length === 0 || !shell) return null;
+  return createPortal(
+    <div className="chat-asking">
+      <Prompts chat={chat} props={props} />
+    </div>,
+    shell,
+  );
+}
+
+const OverCanvas: CanvasComponent<typeof claude> = (props) => (
+  <>
+    <WaitingPrompts {...props} />
+    <InlinePrompt {...props} />
+  </>
+);
 
 export default definePanel(
   claude,
@@ -925,6 +1001,6 @@ export default definePanel(
       },
     },
     foot: ChatComposer,
-    canvas: InlinePrompt,
+    canvas: OverCanvas,
   },
 );

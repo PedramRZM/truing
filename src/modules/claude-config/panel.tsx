@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react';
 import { definePanel, messageOf, type PanelProps } from '../../module';
 
 import claudeConfig, { type ClaudeConfig, type ConfigItem } from './module';
-import { type Opened, Viewer } from './viewer';
+import { type Opened, Viewer, type ViewerHandle } from './viewer';
 
 type Props = PanelProps<typeof claudeConfig>;
 
@@ -225,6 +225,13 @@ function ClaudeConfigPanel({ call, showRightView }: Props) {
   const [fresh, setFresh] = useState(false);
   const [adding, setAdding] = useState<'rule' | 'skill' | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const viewer = useRef<ViewerHandle>(null);
+
+  /** TRU-5.3: what's being written isn't lost to opening something else. */
+  function replaceViewer(then: () => void): void {
+    if (viewer.current) viewer.current.leave(then);
+    else then();
+  }
 
   function check(): void {
     setChecking(true);
@@ -264,11 +271,13 @@ function ClaudeConfigPanel({ call, showRightView }: Props) {
     const { path } = await call('create', { kind, name });
     const { text } = await call('file', { path });
     setAdding(null);
-    setFresh(true);
-    setOpened({
-      item: { ...emptyListed(name), path, editable: true },
-      text,
-      error: null,
+    replaceViewer(() => {
+      setFresh(true);
+      setOpened({
+        item: { ...emptyListed(name), path, editable: true },
+        text,
+        error: null,
+      });
     });
     check();
   }
@@ -290,17 +299,19 @@ function ClaudeConfigPanel({ call, showRightView }: Props) {
   }
 
   function open(item: ConfigItem): void {
-    setFresh(false);
-    if (item.path === null) {
-      setOpened({ item, text: item.body, error: null });
-      return;
-    }
-    setOpened({ item, text: null, error: null });
-    call('file', { path: item.path }).then(
-      ({ text }) => setOpened({ item, text, error: null }),
-      (error: unknown) =>
-        setOpened({ item, text: null, error: messageOf(error) }),
-    );
+    replaceViewer(() => {
+      setFresh(false);
+      if (item.path === null) {
+        setOpened({ item, text: item.body, error: null });
+        return;
+      }
+      setOpened({ item, text: null, error: null });
+      call('file', { path: item.path }).then(
+        ({ text }) => setOpened({ item, text, error: null }),
+        (error: unknown) =>
+          setOpened({ item, text: null, error: messageOf(error) }),
+      );
+    });
   }
 
   const problem = failure ?? config?.problem ?? null;
@@ -379,7 +390,8 @@ function ClaudeConfigPanel({ call, showRightView }: Props) {
           />
           <Group title="Skills" items={config.skills} {...list} />
           <div className="claude-add">
-            <span>Yours to add</span>
+            {/* TRU-5.3: not "Yours", which marks personal files in these lists. */}
+            <span>This project</span>
             <button
               type="button"
               className="module-action"
@@ -439,6 +451,7 @@ function ClaudeConfigPanel({ call, showRightView }: Props) {
       {opened ? (
         <Viewer
           key={opened.item.path ?? opened.item.name}
+          ref={viewer}
           opened={opened}
           startEditing={fresh}
           onClose={() => setOpened(null)}

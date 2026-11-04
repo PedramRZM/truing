@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { type Ref, useImperativeHandle, useRef, useState } from 'react';
 
 import { TriangleAlert, X } from 'lucide-react';
 
@@ -13,17 +13,32 @@ export type Opened = {
   error: string | null;
 };
 
+/** TRU-5.3: removing a skill's own file removes its folder (`removeDesignerFile`). */
+export function deleteQuestion(path: string | null): string {
+  const what = path?.endsWith('/SKILL.md')
+    ? "this skill's whole folder"
+    : 'this file';
+  return `Delete ${what}? Git can bring it back only if it was committed.`;
+}
+
+export type ViewerHandle = {
+  /** Runs `then` once nothing unsaved stands in its way, asking if something does. */
+  leave: (then: () => void) => void;
+};
+
 /**
  * One item of the list: Markdown as a reader sees it, anything else as it is. A
  * designer's own file can be edited or removed here too.
  */
 export function Viewer({
+  ref,
   opened,
   startEditing = false,
   onClose,
   onSave,
   onRemove,
 }: {
+  ref?: Ref<ViewerHandle>;
   opened: Opened;
   /** A file just made opens ready to write. */
   startEditing?: boolean;
@@ -37,6 +52,8 @@ export function Viewer({
   const [confirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // What's waiting on the answer to "this text isn't saved".
+  const [leaving, setLeaving] = useState<{ next: () => void } | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
 
   function run(action: () => Promise<void>, after?: () => void): void {
@@ -47,17 +64,43 @@ export function Viewer({
       .finally(() => setPending(false));
   }
 
+  const unsaved = (): boolean =>
+    editing && field.current !== null && field.current.value !== text;
+
+  function leave(then: () => void): void {
+    if (unsaved()) setLeaving({ next: then });
+    else then();
+  }
+  useImperativeHandle(ref, () => ({ leave }));
+
+  function keepEditing(): void {
+    setLeaving(null);
+    field.current?.focus();
+  }
+
   return (
     <dialog
       className="sheet claude-viewer"
       aria-labelledby="claude-viewer-title"
       // Shown by hand so it isn't modal: the list stays usable behind it.
       ref={(dialog) => {
-        if (dialog && !dialog.open) dialog.show();
+        if (!dialog || dialog.open) return;
+        dialog.show();
+        // TRU-5.3: autoFocus ran while the dialog was closed, where nothing can
+        // take focus, and show() then gave it to the first button.
+        field.current?.focus();
       }}
       onClose={onClose}
-      // Clicking away must not lose what's being written.
-      {...{ closedby: editing ? 'closerequest' : 'any' }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !editing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (leaving) keepEditing();
+        else leave(onClose);
+      }}
+      // TRU-5.3: while editing, Esc is handled above. A close request can't be
+      // held back: Chromium skips `cancel` on a second Esc, and the text goes.
+      {...{ closedby: editing ? 'none' : 'any' }}
     >
       <header className="sheet-header">
         <h2 id="claude-viewer-title" title={title}>
@@ -75,7 +118,14 @@ export function Viewer({
             Edit
           </button>
         ) : null}
-        <form method="dialog">
+        <form
+          method="dialog"
+          onSubmit={(event) => {
+            if (!unsaved()) return;
+            event.preventDefault();
+            setLeaving({ next: onClose });
+          }}
+        >
           <button type="submit" className="tool" aria-label="Close">
             <X aria-hidden size={16} />
           </button>
@@ -120,7 +170,32 @@ export function Viewer({
           <pre className="claude-viewer-text">{text}</pre>
         )}
       </div>
-      {editing && text !== null ? (
+      {editing && text !== null && leaving ? (
+        <footer className="claude-viewer-foot">
+          <span className="claude-viewer-ask" role="status">
+            This text isn&apos;t saved.
+          </span>
+          <button
+            type="button"
+            className="module-action"
+            autoFocus
+            onClick={keepEditing}
+          >
+            Keep editing
+          </button>
+          <button
+            type="button"
+            className="changes-apply"
+            onClick={() => {
+              setLeaving(null);
+              leaving.next();
+            }}
+          >
+            Discard
+          </button>
+        </footer>
+      ) : null}
+      {editing && text !== null && !leaving ? (
         <footer className="claude-viewer-foot">
           <button
             type="button"
@@ -150,8 +225,7 @@ export function Viewer({
           {confirming ? (
             <>
               <span className="claude-viewer-ask">
-                Delete this file? Git can bring it back only if it was
-                committed.
+                {deleteQuestion(item.path)}
               </span>
               <button
                 type="button"

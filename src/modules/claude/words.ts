@@ -1,7 +1,48 @@
 // How the chat says things. Apart from the panel so the tests can read it.
-import type { Part, Problem } from './module';
+import type { Mode, Part, Problem } from './module';
 
 type Activity = Extract<Part, { kind: 'activity' }>;
+
+/** Claude Code's permission modes, in the designer's words. */
+export const MODE_NAME = {
+  manual: 'Ask first',
+  acceptEdits: 'Accept edits',
+  plan: 'Plan only',
+  auto: 'Auto',
+  // TRU-5.3: "Don't ask" read as going ahead, and this mode refuses.
+  dontAsk: 'Allowed only',
+  bypassPermissions: 'Bypass',
+} as const satisfies Record<Mode, string>;
+
+/**
+ * Under a composer, for the modes that stop asking. TRU-5.3: what each does is
+ * Claude Code's own account of it, code.claude.com/docs/en/permission-modes.
+ */
+export const MODE_NOTE: Partial<Record<Mode, string>> = {
+  // Edits, plus mkdir, touch, rm, rmdir, mv, cp and sed, in the working directory.
+  acceptEdits:
+    'Claude creates, edits, moves and deletes files in this project without asking. Other commands that change things still ask.',
+  // Reads and edits in the working directory never reach the check.
+  auto: "Claude asks less. A separate check blocks risky actions, but it doesn't guarantee safety. Edits in this project skip it.",
+  dontAsk: "Claude won't ask. Anything not already allowed is refused.",
+  bypassPermissions:
+    "Claude runs commands without asking. A command can change or delete anything, even outside this project. Undo can't bring every change back.",
+};
+
+/** What an empty chat offers. Signed out, nothing can run, so it offers nothing. */
+export function emptyChat({
+  signedIn,
+  nothingPicked,
+  firstTime,
+}: {
+  signedIn: boolean | null;
+  nothingPicked: boolean;
+  firstTime: boolean;
+}): 'examples' | 'hint' | null {
+  if (signedIn === false) return null;
+  if (!firstTime) return 'hint';
+  return nothingPicked ? 'examples' : null;
+}
 
 /** Runs of the same thing, as one quiet row. */
 export type ActivityRow = {
@@ -21,21 +62,37 @@ const VERB = {
   asked: 'Asked',
 } as const satisfies Record<Activity['verb'], string>;
 
-const plural = new Intl.PluralRules('en');
+const list = new Intl.ListFormat('en');
 
-function countOf(verb: Activity['verb'], count: number): string {
-  const files = `${count} ${plural.select(count) === 'one' ? 'file' : 'files'}`;
+/**
+ * A run folded into one row. TRU-5.3: it counts files, as three edits to one file
+ * aren't "3 files", and names what it can, so a bare "Used" never shows.
+ */
+function foldedRow(
+  verb: Activity['verb'],
+  count: number,
+  names: readonly string[],
+): Pick<ActivityRow, 'text' | 'code'> {
   switch (verb) {
     case 'read':
     case 'changed':
-      return `${VERB[verb]} ${files}`;
+      return names.length > 1
+        ? { text: `${VERB[verb]} ${names.length} files`, code: null }
+        : { text: VERB[verb], code: names[0] ?? null };
     case 'searched':
-      return VERB.searched;
+      return { text: VERB.searched, code: null };
     case 'ran':
-      return `Ran ${count} commands`;
+      return { text: `Ran ${count} commands`, code: null };
     case 'used':
+      return { text: VERB.used, code: names.join(', ') || null };
     case 'asked':
-      return VERB[verb];
+      return {
+        text:
+          names.length === 1
+            ? `Asked ${names[0]} ${count} times`
+            : `Asked ${list.format(names)}`.trim(),
+        code: null,
+      };
   }
 }
 
@@ -54,11 +111,11 @@ export function activityRows(parts: readonly Activity[]): ActivityRow[] {
     const [first] = group;
     if (!first) return [];
     if (group.length > 1) {
+      const names = [...new Set(group.flatMap((part) => part.object ?? []))];
       return [
         {
           key: first.id,
-          text: countOf(first.verb, group.length),
-          code: null,
+          ...foldedRow(first.verb, group.length, names),
           failed: false,
         },
       ];
