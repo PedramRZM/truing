@@ -1000,7 +1000,12 @@ button.claude-row[aria-current='true'] {
 /* Beside the panel it opened from, over the canvas. */
 .sheet.claude-viewer {
   --sheet-top: var(--ds-canvas-bar);
-  width: min(640px, 60vw);
+  /* What the canvas has, so it stays off the rail (TRU-5.3). */
+  width: min(
+    640px,
+    100vw - var(--ds-canvas-left) - var(--ds-canvas-right) - 2 *
+      var(--ds-space-2)
+  );
 }
 
 .claude-viewer h2 {
@@ -1069,12 +1074,14 @@ button.claude-row[aria-current='true'] {
   margin-block: 0 var(--ds-space-2);
 }
 
+/* An empty section's height, as the sections around it (TRU-5.3). */
 .claude-add {
   display: flex;
   align-items: center;
   gap: var(--ds-space-1);
+  min-height: var(--ds-section-empty);
   margin-inline: calc(var(--ds-space-3) * -1);
-  padding: var(--ds-space-2) var(--ds-space-3);
+  padding-inline: var(--ds-space-3);
   border-top: 1px solid var(--ds-border);
 }
 
