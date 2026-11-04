@@ -4,6 +4,7 @@ title: 'Claude''s design tools over MCP: selection, tokens, screenshots and exac
 status: To Do
 assignee: []
 created_date: '2026-10-31 12:51'
+updated_date: '2026-11-04 07:45'
 labels:
   - claude
 milestone: m-2
@@ -12,9 +13,9 @@ dependencies:
   - TRU-2.1
   - TRU-5.2
   - TRU-5.3
+parent_task_id: TRU-12
 type: feature
 ordinal: 120010
-parent_task_id: TRU-12
 ---
 
 ## Description
@@ -50,6 +51,7 @@ Research: `docs/research/claude-subscription-bridge.md` (how MCP servers attach 
 - [ ] #4 **Errors Claude can act on.** Tools return errors Claude can use ("no token within ΔE 1.0; nearest are …"), never a stack trace.
 - [ ] #5 **Tokens over free-form edits.** In a scripted session of 10 design requests on a fixture project, Claude uses `find_token` or `apply_direct_edit` for token-level changes rather than free-form edits, and at least 9 of the 10 resulting diffs use only that project's tokens, judged by TRU-11.6's lint. The run is recorded here.
 - [ ] #6 **Scoped.** Tools can only see the current session's selection and change set, and write only through TRU-4.1's guarded endpoint, inside the profile's writable paths.
+- [ ] #7 **The prompt is measured.** Its hash and resolved model are recorded. Attacks in element text and screenshots are reported as k of n, along with benign labels such as "Delete account", and copy stays preserved in any language. Moved here from TRU-5.3, since these tools change what Claude is handed.
 <!-- AC:END -->
 
 ## Definition of Done

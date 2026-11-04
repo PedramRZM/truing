@@ -1,10 +1,10 @@
 ---
 id: TRU-7.2
 title: Run the e2e suite in CI
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-03 13:45'
-updated_date: '2026-11-03 20:32'
+updated_date: '2026-11-04 09:10'
 labels:
   - infra
 milestone: m-1
@@ -36,3 +36,9 @@ The Playwright suite exists, but much of the later work closed without running i
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Dropped on 2026-11-04: the owner removed the e2e suite, as a full run took 9 to 14 minutes. CI runs `make check` on Linux and macOS.
+<!-- SECTION:NOTES:END -->
