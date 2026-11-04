@@ -8,4 +8,4 @@ Switching between the panel's tabs already keeps both, because a tab that isn't 
 
 **What to change.** Keep the panel's contents mounted while it's closed, and hide them so they can't be reached by keyboard or by a screen reader. Check that nothing starts working harder while hidden.
 
-**How to prove it.** Add an e2e test beside the others in `test/e2e/`: type in the composer, close and reopen the panel, and find the same text. Tests find things by role and name. Run it with `pnpm exec playwright test <your file>`, then run `make check`. No Claude account is needed, since a fake one stands in.
+**How to prove it.** Run your copy of Truing on any app, as `CONTRIBUTING.md` describes: type in the composer, close and reopen the panel, and find the same text. Say what you did in the pull request, with a screenshot. No Claude account is needed for this. Then run `make check`.

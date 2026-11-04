@@ -9,7 +9,7 @@ description: Implement a planned backlog task test-first, in small verified step
 2. **Test first for behaviour changes.**
    - For a bug, write a test that reproduces it and watch it fail before fixing it. The failure proves the test can detect the problem.
    - For a feature, write the acceptance test(s) first where practical.
-3. **Small steps.** After each step, run the narrowest check that proves it (one Vitest file or one Playwright spec; AGENTS.md has the commands), and `make check` before each commit. Fix root causes; don't suppress errors or broaden types to make them go away.
+3. **Small steps.** After each step, run the narrowest check that proves it (one Vitest file; AGENTS.md has the commands), and `make check` before each commit. Fix root causes; don't suppress errors or broaden types to make them go away.
 4. **Atomic commits.** One logical change per commit. Message: `<type>: <summary>`, then a `Refs: TRU-<n>` trailer. Never commit secrets or generated junk.
 5. **Keep the trail.** Append decisions and surprises to the task (`backlog task edit <ID> --append-notes "<note>"`). For large tasks, append to the plan's Progress and Decision Log instead. The next session, which may be another harness or model, depends on it.
 6. **Stay in scope.** Extra work you discover becomes a new task (`backlog task create …`), not part of this diff. If the plan turns out wrong, update it and tell the human.

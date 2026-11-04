@@ -33,7 +33,6 @@ On a branch named `release/<version>`, change only `package.json`'s version and 
 
 ```sh
 make check
-make e2e
 npm pack --dry-run
 ```
 

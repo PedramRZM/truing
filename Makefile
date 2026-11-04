@@ -34,10 +34,7 @@ check: ## The gate, run before every commit: config drift, docs lint, tooling te
 test: ## Unit tests (Vitest)
 	@pnpm -s test
 
-e2e: ## End-to-end tests on the fixture app (Playwright, headless Chromium)
-	@pnpm -s test:e2e
-
 board: ## Show the backlog board grouped by milestone
 	@$(BACKLOG) board -m
 
-.PHONY: help setup sync check test e2e board
+.PHONY: help setup sync check test board

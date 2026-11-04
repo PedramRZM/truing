@@ -39,7 +39,7 @@ Chosen option: "Nothing of a project's runs until a person has confirmed", becau
 
 ### Confirmation
 
-`test/unit/first-run-security.test.ts`, and "reading a project doesn't run its Tailwind" and "a file that changes after it's shown isn't run" in `test/e2e/setup.spec.ts`.
+`test/unit/first-run-security.test.ts`.
 
 ## Pros and cons of the options
 

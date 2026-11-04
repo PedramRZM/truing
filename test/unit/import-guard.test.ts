@@ -11,11 +11,10 @@ const packageRoot = path.resolve(
   '../..',
 );
 const SCANNED = ['src', 'scripts', 'test'];
-// fixture-app, edit-project and usages-project stand in for an app, so they
+// edit-project and usages-project stand in for an app, so they
 // import as one does.
 const SKIPPED = new Set([
   'node_modules',
-  'fixture-app',
   'edit-project',
   'usages-project',
   'design-system',

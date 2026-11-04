@@ -260,7 +260,6 @@ Sections that edit a value use the shell's controls (TRU-3.9), in [`src/shell/co
 - `tokenRows(tokens, namespace)` and `stepsOf(rows)` in `token-rows.ts` turn the manifest into a menu's rows and a field's scale. The project's own tokens show, or Tailwind's where the project has none.
 - Give a `ScaleField` a `key` per element, so a new pick starts it afresh.
 - `Segmented`, `IconToggle`, `AlignmentPad`, `ChoiceMenu` and the token menus take `onPreview`, called with the option under the pointer and null once there is none. Show it on the page: every option that changes the page does (`the design language`, "Point to preview").
-- `TRUING_CONTROLS=1 truing` adds a section with every control on the project's tokens, to try them. It writes nothing (`test/modules/controls/`).
 
 ### Commands: keys, the `?` sheet and the context menu
 
@@ -445,12 +444,11 @@ A module that throws stops alone; the rest of Truing keeps working:
 | the server's `setup`                                                                                         | Its ops and tools are not registered, and its section says it didn't start.                                          |
 | an op, a tool or a direct operation                                                                          | The caller gets the error message.                                                                                   |
 
-[`test/modules/broken/`](../test/modules/broken/) throws in its probe and its panel; `test/e2e/modules.spec.ts` checks that the others keep working.
+`test/unit/probes.test.ts` and `test/unit/module-host.test.ts` check that one failing keeps the others working.
 
 ## Testing a module
 
 - **Unit (Vitest):** call the server part through the host with `createModuleHost`, and the probe with `startProbes`. See `test/unit/module-host.test.ts` and `test/unit/probes.test.ts`.
-- **Through Truing (Playwright):** start Truing with your module listed and check what a designer sees; `test/e2e/modules.spec.ts` does this for the toy module.
 
 ## Not wired yet
 

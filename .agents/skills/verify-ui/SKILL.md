@@ -7,7 +7,7 @@ description: Get objective browser evidence for a UI change, as a Playwright tes
 
 Target: the URL or route, and what to verify, as the request names them.
 
-**In this repo:** `docs/design-language.md` decides the numbers. Truing's own screens are checked at 1280 and 1440 px, in light and dark, with 24 px hit areas and no phone layout, so read 412 below as 1280 and 44 px as 24 px for them. The app in the frame keeps its own rules. Drive the shell through `test/e2e/` and its fixtures, against `test/fixture-app/`.
+**In this repo:** `docs/design-language.md` decides the numbers. Truing's own screens are checked at 1280 and 1440 px, in light and dark, with 24 px hit areas and no phone layout, so read 412 below as 1280 and 44 px as 24 px for them. The app in the frame keeps its own rules. This repo keeps no browser tests, so drive the shell with a one-off script under `.scratch/` as evidence, and leave nothing in the suite.
 
 Where the project's own CLAUDE.md, AGENTS.md, test conventions or design docs say something different from this skill, the project wins. Playwright always comes from the project, at the version it pins; do not install Playwright, `@playwright/cli` or `@playwright/mcp` globally, because a second copy can pin another Playwright and browser build. Commands run from the project root. The helper scripts live in `.agents/skills/verify-ui/`: `run-craft-checks.mjs` opens a URL and prints measurements, and `craft-checks.js` is the measuring function it runs.
 

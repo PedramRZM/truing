@@ -8,7 +8,7 @@ Refs:
 
 ## How it was verified
 
-<!-- Commands you ran and their results. Paste the `make check` output, and say if you ran `make e2e` or looked at it in the browser. -->
+<!-- Commands you ran and their results. Paste the `make check` output, and say if you looked at it in the browser. -->
 
 ## Agent disclosure
 

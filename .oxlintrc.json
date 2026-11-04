@@ -11,17 +11,8 @@
   "ignorePatterns": [
     "src/vendor/**",
     "test/fixtures/**",
-    "test/fixture-app/.next/**",
     "refs/**",
     ".agents/skills/**",
     ".claude/skills/**"
-  ],
-  "overrides": [
-    {
-      "files": ["test/e2e/**"],
-      "rules": {
-        "no-empty-pattern": "off"
-      }
-    }
   ]
 }

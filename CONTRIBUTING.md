@@ -10,7 +10,7 @@ You need Node.js 20.19 or newer (CI runs 24), [pnpm](https://pnpm.io) 10, `git`,
 git clone https://github.com/PedramRZM/truing.git
 cd truing
 pnpm install
-pnpm exec playwright install chromium   # the browser Truing and the e2e tests use
+pnpm exec playwright install chromium   # the browser Truing uses
 make setup                              # once: git hooks and per-harness agent config
 make check                              # the gate that also runs on every commit and in CI
 ```
@@ -31,11 +31,7 @@ The smallest whole example is [`examples/element-count/`](examples/element-count
 
 ## You don't need a Claude account for most of this
 
-Everything runs on the repo's own fixtures, with no account and no secrets:
-
-- `test/fixture-app/` is the Next.js app the e2e tests frame. Start Truing on it, and on your change, by running a spec: `pnpm exec playwright test test/e2e/shell.spec.ts`.
-- `test/fixtures/` holds projects to edit, and `test/fixtures/fake-claude/` is a scripted `claude` for anything that talks to one.
-- CI runs the same way, so a pull request from a fork passes with no secrets.
+The unit tests need no account and no secrets, and they run on the projects in `test/fixtures/`. CI runs them the same way, so a pull request from a fork passes with no secrets.
 
 Only `pnpm check-claude` and `pnpm check-first-run` need a real `claude`, and they spend your own usage. Nobody has to run them to contribute.
 
@@ -44,9 +40,7 @@ Only `pnpm check-claude` and `pnpm check-first-run` need a real `claude`, and th
 ```sh
 make test                                           # unit tests (Vitest)
 pnpm exec vitest run test/unit/camera.test.ts       # one file; add -t "<name>" for one test
-make e2e                                            # end to end on the fixture app (Playwright)
 pnpm check-first-run                                # the first run on a real claude: spends a little of your usage
-pnpm exec playwright test test/e2e/shell.spec.ts    # one file; add -g "<title>" for one test
 ```
 
 The unit suite never starts `claude` and fails if a test does.
@@ -65,14 +59,14 @@ Numbers follow the order to do things in: `TRU-6.4` is the fourth task in the si
 
 1. Pick or open an issue. For anything larger than a small fix, agree the shape first: a hard-to-reverse choice (a protocol, the module API, a new dependency) needs an ADR in `docs/adr/`.
 2. Branch from `main`. A bug fix starts with a test that fails, and a behaviour change comes with tests.
-3. Run `make check`, then `make e2e` if you touched the shell, a module or the server. Never skip, delete or weaken a test to get green, and don't use `--no-verify`.
+3. Run `make check`, and look at anything visible on a real app. Never skip, delete or weaken a test to get green, and don't use `--no-verify`.
 4. Open a pull request using the template: what changed and why, how you verified it, and which agent helped if one did. A person approves every merge.
 
 ## Rules a contribution has to meet
 
 - **Zero config.** A feature must never need a config file or a hard-coded project path, port, framework or token location. Its acceptance criteria say how it gets what it needs from the project: read it from the saved profile, or ask Claude to read the project, and ask the person when Claude can't tell.
 - **The Claude auth rule.** Truing only ever runs the person's own unmodified `claude` binary. It never reads, stores, proxies or asks for credentials, tokens or login codes, and never shows a login form of its own.
-- **No brand of any host project** in code, config, tests, docs or the backlog. `make check` fails on it. Reduce a real app's case to `test/fixture-app/`.
+- **No brand of any host project** in code, config, tests, docs or the backlog. `make check` fails on it. Reduce a real app's case to a fixture in `test/fixtures/`.
 - **Third-party code** needs a compatible licence, its header and a row in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Report a vulnerability privately, as [`SECURITY.md`](SECURITY.md) describes, not in an issue. By taking part, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).

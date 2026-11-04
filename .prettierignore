@@ -20,7 +20,6 @@ test/fixtures/usages-project/
 .gemini/settings.json
 .vscode/mcp.json
 opencode.json
-test/fixtures/fake-claude/claude
 
 # Git worktrees that coding agents make: each is a whole copy of the repo.
 .claude/worktrees/

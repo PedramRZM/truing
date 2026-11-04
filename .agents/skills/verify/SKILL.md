@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Verify the current change in this repo before committing or declaring work done — typecheck, unit tests, e2e for shell changes, verify-ui for anything visible; confirm each acceptance criterion with evidence, inspect the diff for leftovers, and report results honestly. Use before every commit, before moving a task to Review or Done, and whenever someone asks "does it work", "is it done", "check this" or "verify".
+description: Verify the current change in this repo before committing or declaring work done — typecheck, unit tests, verify-ui for anything visible; confirm each acceptance criterion with evidence, inspect the diff for leftovers, and report results honestly. Use before every commit, before moving a task to Review or Done, and whenever someone asks "does it work", "is it done", "check this" or "verify".
 ---
 
 # Verify
@@ -9,7 +9,7 @@ Run this before committing code and before moving a task to Review or Done. Clau
 
 1. **Run the gate.** `make check` covers agent-config drift, docs lint and the brand guard, hook tests, `pnpm typecheck`, `pnpm format:check` and `pnpm test`. Read the output rather than assuming it passed.
 2. **Run what the change calls for.**
-   - The shell, a module, the probe, the server or how the app is started: `pnpm test:e2e`, or the narrowest spec first (`pnpm exec playwright test test/e2e/<file>.spec.ts`) and the whole suite before finishing.
+   - How the app is started, or anything `make check` can't reach: run it on a real app, in a throwaway folder, and say what you saw.
    - Anything a person sees: the `verify-ui` skill at 1280 and 1440 px, in light and dark, against `docs/design-language.md`. Open each screenshot and say what you see.
    - Text a person reads: the `ux-copy` skill.
    - A prompt or what Claude is handed: the `ai-features` skill, and `pnpm check-claude` where it applies. It runs the real `claude`, so say when you couldn't.

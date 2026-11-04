@@ -23,7 +23,7 @@ import {
 export type StartOptions = {
   root: string;
   config: TruingConfig;
-  /** Tests run without a window. */
+  /** Scripts run without a window. */
   headless?: boolean;
   /** Rebuild and reload the shell when its source changes. */
   watch?: boolean;

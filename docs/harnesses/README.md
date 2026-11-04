@@ -42,4 +42,4 @@ Subagents (`reviewer`, `citation-verifier`) are Claude-format files in `.claude/
 
 ## Sandboxing
 
-Claude Code's Bash sandbox is **not** enabled in the shared settings, because its Linux backend depends on the host allowing unprivileged user namespaces. To use it, enable it in `.claude/settings.local.json`. `pnpm test:e2e` needs to start Chromium and a dev server, and `make sync` must run outside it when skills are added or removed, since the sandbox protects `.claude/` from shell writes.
+Claude Code's Bash sandbox is **not** enabled in the shared settings, because its Linux backend depends on the host allowing unprivileged user namespaces. To use it, enable it in `.claude/settings.local.json`. `make sync` must run outside it when skills are added or removed, since the sandbox protects `.claude/` from shell writes.

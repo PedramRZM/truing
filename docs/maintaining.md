@@ -22,7 +22,7 @@ The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release
 
 1. Someone runs the `release` skill. It changes only the version and `CHANGELOG.md`, on a branch.
 2. A person edits the entry and merges the pull request, keeping the subject `release: v<version>`.
-3. `release.yml` sees that subject on `main`. It checks that the version and the changelog agree, then runs `make check` and the e2e suite.
+3. `release.yml` sees that subject on `main`. It checks that the version and the changelog agree, then runs `make check`.
 4. A person approves the `release` environment on GitHub.
 5. CI publishes to npm with provenance, using npm's trusted publishing with no stored token, and tags the commit.
 

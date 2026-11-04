@@ -20,7 +20,6 @@
   },
   "include": ["src", "test", "scripts", "examples", "*.ts"],
   "exclude": [
-    "test/fixture-app",
     "test/fixtures/edit-project",
     "test/fixtures/usages-project",
     "test/fixtures/design-system/src"

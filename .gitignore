@@ -1,8 +1,4 @@
 node_modules/
-test/fixture-app/.next/
-test/fixture-app/next-env.d.ts
-test-results/
-playwright-report/
 coverage/
 *.log
 *.tgz
