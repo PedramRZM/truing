@@ -57,6 +57,23 @@ function chatSchemas() {
     tokens: z.array(z.object({ className: z.string(), token: z.string() })),
   });
 
+  /** The frames on the canvas when a message was sent, for "this page". */
+  const screen = z.object({
+    frames: z.array(
+      z.object({
+        id: z.string(),
+        /** Phone, Tablet, Desktop, a device name or Custom. */
+        label: z.string(),
+        /** Its path and hash; null while it's still loading. */
+        page: z.nullable(z.string()),
+        width: z.number(),
+        height: z.number(),
+      }),
+    ),
+    /** The frame the person is working in; null when nothing marks one out. */
+    workingIn: z.nullable(z.string()),
+  });
+
   const part = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('text'), text: z.string() }),
     z.object({
@@ -142,12 +159,13 @@ function chatSchemas() {
     models: z.partialRecord(z.enum(MODELS), z.string()),
   });
 
-  return { attachment, chat, turn, part, problem, file };
+  return { attachment, screen, chat, turn, part, problem, file };
 }
 
 export const schemas = /* @__PURE__ */ chatSchemas();
 
 export type Attachment = z.infer<typeof schemas.attachment>;
+export type Screen = z.infer<typeof schemas.screen>;
 export type Chat = z.infer<typeof schemas.chat>;
 export type Turn = z.infer<typeof schemas.turn>;
 export type Part = z.infer<typeof schemas.part>;
@@ -213,6 +231,8 @@ export default defineModule({
               input: z.object({
                 text: z.string(),
                 attachments: z.array(schemas.attachment),
+                /** What's on the canvas as it's sent (TRU-10.7). */
+                screen: z.optional(schemas.screen),
                 /** A prompt on one element: the request is about that element only. */
                 scoped: z.boolean(),
                 model: z.enum(MODELS),

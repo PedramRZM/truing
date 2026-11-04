@@ -3,7 +3,9 @@
 // change over there costs a chip detail rather than the panel.
 import { z } from 'zod';
 
-import type { Attachment } from './module';
+import type { PanelFrame } from '../../module';
+
+import type { Attachment, Screen } from './module';
 
 const selected = z.object({
   id: z.number(),
@@ -45,6 +47,42 @@ export function picksFrom(reports: Readonly<Record<string, unknown>>): Pick[] {
     const parsed = selected.safeParse(value);
     return parsed.success ? [{ ...parsed.data, frame }] : [];
   });
+}
+
+function pageOf(href: string | null): string | null {
+  if (!href) return null;
+  try {
+    // A hash can be the page, in a hash-routed app. A query can hold a one-time token.
+    const { pathname, hash } = new URL(href);
+    return `${pathname}${hash}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What's on the canvas right now, so "this page" means something (TRU-10.7). The
+ * person works in the active frame, and a lone frame is the one they mean.
+ */
+export function screenOf(
+  frames: readonly PanelFrame[],
+  activeFrame: string | null,
+): Screen {
+  const active = frames.some(({ id }) => id === activeFrame);
+  return {
+    frames: frames.map(({ id, label, href, width, height }) => ({
+      id,
+      label,
+      page: pageOf(href),
+      width,
+      height,
+    })),
+    workingIn: active
+      ? activeFrame
+      : frames.length === 1
+        ? (frames[0]?.id ?? null)
+        : null,
+  };
 }
 
 /** One pick across a page's changes: its id doesn't survive a reload. */

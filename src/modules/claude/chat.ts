@@ -30,6 +30,7 @@ import {
   type Mode,
   type Model,
   type Problem,
+  type Screen,
   type Turn,
 } from './module';
 import { startRun, type Run, type StartRun } from './run';
@@ -44,6 +45,7 @@ const SETTLE_MS = 1500;
 export type SendInput = {
   text: string;
   attachments: readonly Attachment[];
+  screen?: Screen | undefined;
   scoped: boolean;
   model: Model;
   effort: Effort;

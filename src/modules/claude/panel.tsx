@@ -27,7 +27,13 @@ import {
 import { ChoiceMenu } from '../../shell/controls/choice-menu';
 import { Composer, type ComposerChip } from '../../shell/controls/composer';
 
-import { attachmentOf, type Pick, pickKey, picksFrom } from './attachments';
+import {
+  attachmentOf,
+  type Pick,
+  pickKey,
+  picksFrom,
+  screenOf,
+} from './attachments';
 import claude, {
   type Attachment,
   type Chat as ChatState,
@@ -339,7 +345,13 @@ function FirstPrompts({ props }: { props: Props }) {
   function run(text: string): void {
     markUsed();
     props
-      .call('send', { text, attachments: [], scoped: false, ...loadChoices() })
+      .call('send', {
+        text,
+        attachments: [],
+        screen: screenOf(props.frames, props.activeFrame),
+        scoped: false,
+        ...loadChoices(),
+      })
       .catch((error: unknown) => {
         props.notify(messageOf(error), { stays: true });
       });
@@ -713,6 +725,7 @@ function ChatComposer(props: Props) {
         attachments: chips.map(
           (chip) => chip.attachment ?? attachmentOf(chip.pick, null),
         ),
+        screen: screenOf(props.frames, props.activeFrame),
         scoped: false,
         ...choices,
       });
@@ -854,6 +867,7 @@ const InlinePrompt: CanvasComponent<typeof claude> = (props) => {
       await props.call('send', {
         text,
         attachments: [attachmentOf(pick, inspection)],
+        screen: screenOf(props.frames, props.activeFrame),
         scoped: true,
         ...loadChoices(),
       });
