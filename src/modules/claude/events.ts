@@ -17,6 +17,8 @@ export type TurnProgress = {
   streamed: readonly string[];
   /** The message the deltas now belong to. */
   message: string | null;
+  /** The plan Claude last wrote, in Plan mode. */
+  plan: string | null;
 };
 
 export function newProgress(sessionId: string | null): TurnProgress {
@@ -27,6 +29,7 @@ export function newProgress(sessionId: string | null): TurnProgress {
     ended: false,
     streamed: [],
     message: null,
+    plan: null,
   };
 }
 
@@ -140,6 +143,20 @@ function fileName(input: Record<string, unknown>): string | null {
   return typeof file === 'string' ? path.basename(file) : null;
 }
 
+/** Where Claude Code keeps a plan: a Markdown file in its own folder. */
+const PLAN_FILE = /[/\\]\.claude[/\\]plans[/\\][^/\\]+\.md$/;
+
+/** The text of a plan, if this call writes one (TRU-5.3). */
+function planIn(name: string, input: Record<string, unknown>): string | null {
+  const { file_path: file, content } = input;
+  return name === 'Write' &&
+    typeof file === 'string' &&
+    typeof content === 'string' &&
+    PLAN_FILE.test(file)
+    ? content
+    : null;
+}
+
 const NO_ROW = new Set(['TodoWrite', 'ToolSearch']);
 
 /** A tool call in plain words; null for what a designer has no use for. */
@@ -227,11 +244,13 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
     const { id, content } = said.data.message;
     const shown = id !== undefined && next.streamed.includes(id);
     let parts = next.parts;
+    let plan = next.plan;
     for (const block of content) {
       if (block.type === 'text' && block.text && !shown) {
         parts = appendText(parts, block.text);
       }
       if (block.type === 'tool_use' && block.name && block.id) {
+        plan = planIn(block.name, block.input ?? {}) ?? plan;
         const row = describeTool(block.name, block.input ?? {});
         if (row) {
           parts = [
@@ -241,7 +260,7 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
         }
       }
     }
-    return { ...next, parts };
+    return { ...next, parts, plan };
   }
 
   const answered = user.safeParse(event);

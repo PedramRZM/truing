@@ -195,11 +195,23 @@ export function renderTurn(
   );
 }
 
-/** What a permission prompt shows: the command or the file, in one line. */
+/**
+ * What a permission prompt shows: the command or the file, in one line. A plan's text
+ * isn't in its tool's input, so the caller has to say what it was (TRU-5.3).
+ */
 export function promptSummary(
   tool: string,
   input: Readonly<Record<string, unknown>>,
+  plan: string | null = null,
 ): string {
+  if (tool === 'ExitPlanMode') {
+    return plan
+      ? `Start on this plan: ${plan}`
+      : 'Finish planning and start on the changes.';
+  }
+  if (tool === 'Skill' && typeof input.skill === 'string') {
+    return `Use the skill ${input.skill}`;
+  }
   for (const key of ['command', 'file_path', 'notebook_path', 'url']) {
     const value = input[key];
     if (typeof value === 'string') return value;

@@ -521,6 +521,75 @@ describe('permission prompts', () => {
     await chat.close();
   });
 
+  // TRU-5.3 #38, seen on 2.1.318: ExitPlanMode's input is empty, the plan goes to a
+  // Write first, and the guard refuses that file. So the stream is where the plan is.
+  describe('at the end of a plan', () => {
+    const writes = (file_path: string, content: string) => ({
+      type: 'assistant',
+      ...SESSION,
+      message: {
+        id: `m-${file_path}`,
+        content: [
+          {
+            type: 'tool_use',
+            id: file_path,
+            name: 'Write',
+            input: { file_path, content },
+          },
+        ],
+      },
+    });
+
+    async function askedAfter(...events: unknown[]) {
+      const claude = fakeClaude();
+      const { chat, seen } = chatOn(repo(), claude.start);
+      chat.send(message('plan it'));
+      await until(() => claude.runs.length === 1);
+      for (const event of events) claude.runs[0]?.onEvent(event);
+      const args = claude.runs[0]?.args ?? [];
+      const mcp: {
+        mcpServers: Record<string, { env: Record<string, string> }>;
+      } = JSON.parse(
+        readFileSync(args[args.indexOf('--mcp-config') + 1] ?? '', 'utf8'),
+      );
+      const env = mcp.mcpServers['truing']?.env ?? {};
+      void fetch(`${env.TRUING_BRIDGE_URL}/permission`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.TRUING_BRIDGE_TOKEN}` },
+        body: JSON.stringify({ tool_name: 'ExitPlanMode', input: {} }),
+      }).catch(() => {});
+      await until(() => seen.chat?.prompts.length === 1);
+      const what = seen.chat?.prompts[0]?.what ?? '';
+      claude.runs[0]?.finish();
+      await chat.close();
+      return what;
+    }
+
+    it('shows the plan Claude wrote', async () => {
+      const what = await askedAfter(
+        writes('/home/me/.claude/plans/a-plan.md', 'Rename a to b.'),
+      );
+      expect(what).toContain('Rename a to b.');
+    });
+
+    it('takes the latest plan, and no other file', async () => {
+      const what = await askedAfter(
+        writes('/home/me/.claude/plans/a-plan.md', 'First go.'),
+        writes('/home/me/.claude/plans/a-plan.md', 'Second go.'),
+        writes('/p/src/notes.md', 'Not a plan.'),
+      );
+      expect(what).toContain('Second go.');
+      expect(what).not.toContain('First go.');
+      expect(what).not.toContain('Not a plan.');
+    });
+
+    it('says what it means, in words, with no plan to show', async () => {
+      const what = await askedAfter();
+      expect(what).not.toContain('ExitPlanMode');
+      expect(what).toMatch(/plan/i);
+    });
+  });
+
   it('refuses an answer to a question that has gone', () => {
     const { chat } = chatOn(repo(), fakeClaude().start);
     expect(() => chat.answer('nope', true)).toThrow(/gone/);
@@ -1516,6 +1585,13 @@ describe('what the designer reads', () => {
     );
     expect(named).toEqual({ opus: 'Opus 5.5' });
     expect(asked[0]).toEqual(expect.arrayContaining(['/context', '--x']));
+  });
+
+  // TRU-5.3 #5: a yes here is what lets a skill's own frontmatter run.
+  it('names the skill a prompt is about', () => {
+    expect(promptSummary('Skill', { skill: 'design-cards' })).toContain(
+      'design-cards',
+    );
   });
 
   it('shows a prompt’s command or file', () => {

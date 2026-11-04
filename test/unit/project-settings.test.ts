@@ -634,6 +634,17 @@ describe('what a review of full access found', () => {
     expect(engine.writable('src/x.tsx')).toBe(false);
   });
 
+  // TRU-5.3 #3, checked.
+  it('won’t let a direct edit follow a link to nothing out of the project', () => {
+    const root = project();
+    symlinkSync(path.join(temp(), 'nothing.tsx'), path.join(root, 'src/x.tsx'));
+    const engine = createEditEngine({
+      root,
+      config: { writable: { include: ['**'], exclude: [] } },
+    });
+    expect(engine.writable('src/x.tsx')).toBe(false);
+  });
+
   it('won’t let a direct edit follow a link to a test', () => {
     const root = project();
     writeFileSync(path.join(root, 'src/a.test.tsx'), '');

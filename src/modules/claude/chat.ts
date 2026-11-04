@@ -175,6 +175,8 @@ export function createChat(options: ChatOptions) {
   let sessionId: string | null = null;
   let current: Run | null = null;
   let stopping = false;
+  /** The turn's plan so far, for the prompt that ends Plan mode. */
+  let plan: string | null = null;
   /** A message came after Stop, before the turn ended: it's the go-ahead. */
   let carryOn = false;
   /** Each save follows the one before, so an older one can't land last. */
@@ -257,7 +259,7 @@ export function createChat(options: ChatOptions) {
           {
             id,
             tool: prompt.tool_name,
-            what: promptSummary(prompt.tool_name, prompt.input),
+            what: promptSummary(prompt.tool_name, prompt.input, plan),
           },
         ],
       });
@@ -318,6 +320,7 @@ export function createChat(options: ChatOptions) {
     session: PreparedSession,
   ): Promise<{ progress: TurnProgress; startError: string | null }> {
     let progress = newProgress(sessionId);
+    plan = null;
     const input = renderTurn(
       { ...message, notes },
       await imagesFor(message.attachments),
@@ -351,6 +354,7 @@ export function createChat(options: ChatOptions) {
       input,
       onEvent: (event) => {
         progress = applyEvent(progress, event);
+        plan = progress.plan;
         live = { ...turn, parts: progress.parts, problem: progress.problem };
         sendLiveSoon();
       },

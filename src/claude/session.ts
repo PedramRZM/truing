@@ -279,6 +279,7 @@ export function writableRules(
 export async function sessionPrompt(
   config: SessionConfig,
   hasNext = false,
+  mode: PermissionMode = 'manual',
 ): Promise<string> {
   const rules = skillBody(await readFile(DESIGN_SKILL, 'utf8'));
   const shell = plainChecks(config);
@@ -301,6 +302,12 @@ export async function sessionPrompt(
     ...(hasNext
       ? [
           `- This app runs on Next.js: its dev server's tools (mcp__${NEXT_SERVER}__*) report routes and errors, so use them to find a page or a runtime error.`,
+        ]
+      : []),
+    // The guard refuses it, as it's outside the project, and the designer still sees it.
+    ...(mode === 'plan'
+      ? [
+          "- In Plan mode the designer sees your plan as you write it, and its file isn't saved. That's expected, so don't mention it.",
         ]
       : []),
   ].join('\n\n');
@@ -406,7 +413,7 @@ export async function prepareSession(options: {
       '--permission-prompt-tool',
       PROMPT_TOOL,
       '--append-system-prompt',
-      await sessionPrompt(config, hasNext),
+      await sessionPrompt(config, hasNext, options.mode),
     ],
     env: {
       ...sessionEnv(dropEnv, options.env),

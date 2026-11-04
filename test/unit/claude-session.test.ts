@@ -649,6 +649,22 @@ describe('the session', () => {
     }
   });
 
+  // TRU-5.3 #38: the guard refuses a plan's file, and Claude told the designer so.
+  it('says a plan’s file isn’t saved, only in Plan mode', async () => {
+    const said = /Plan mode.*isn't saved/;
+    expect(await sessionPrompt(config, false, 'plan')).toMatch(said);
+    expect(await sessionPrompt(config, false, 'manual')).not.toMatch(said);
+    const session = await prepareSession({
+      root: project(),
+      config,
+      mode: 'plan',
+    });
+    expect(
+      session.args[session.args.indexOf('--append-system-prompt') + 1],
+    ).toMatch(said);
+    await session.dispose();
+  });
+
   it('knows nothing of one project', () => {
     for (const file of [
       'claude/session.ts',
