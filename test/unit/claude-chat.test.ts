@@ -3,11 +3,15 @@
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -459,6 +463,290 @@ describe('undo', () => {
         encoding: 'utf8',
       }),
     ).toBe(head);
+  });
+
+  /** A file committed in the repo, as `change` then finds it. */
+  function commit(root: string, files: Record<string, string>): void {
+    for (const [file, text] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), text);
+    }
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'more'], { cwd: root });
+  }
+
+  async function turnIn(root: string, change: () => void) {
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(root, claude.start);
+    chat.send(message('change it'));
+    await until(() => claude.runs.length === 1);
+    change();
+    claude.runs[0]?.finish();
+    await until(() => seen.chat?.working === false);
+    return { chat, seen, claude };
+  }
+
+  // TRU-5.3 #6: someone's edit to package.json during the turn went back with it.
+  describe('stays to the files Claude may write', () => {
+    it('leaves another file alone, and names it', async () => {
+      const root = repo();
+      commit(root, { 'package.json': '{}\n' });
+      const { chat, seen, claude } = await turnIn(root, () => {
+        writeFileSync(path.join(root, 'a.tsx'), 'two\n');
+        writeFileSync(path.join(root, 'package.json'), '{"later":1}\n');
+      });
+      expect(
+        seen.chat?.turns[0]?.files.map((file) => file.path).sort(),
+      ).toEqual(['a.tsx', 'package.json']);
+
+      await chat.undo(seen.chat?.turns[0]?.id ?? '');
+      expect(readFileSync(path.join(root, 'a.tsx'), 'utf8')).toBe('one\n');
+      expect(readFileSync(path.join(root, 'package.json'), 'utf8')).toBe(
+        '{"later":1}\n',
+      );
+      expect(seen.chat?.turns[0]?.decision).toBe('undone');
+      expect(seen.chat?.turns[0]?.undoNote).toContain('package.json');
+
+      // Claude's memory has to match what's on disk.
+      chat.send(message('next'));
+      await until(() => claude.runs.length === 2);
+      const note: string = JSON.parse(claude.runs[1]?.input ?? '{}').message
+        .content[0].text;
+      expect(note).toMatch(/undid your changes.*a\.tsx/);
+      expect(note).toMatch(/package\.json/);
+      claude.runs[1]?.finish();
+    });
+
+    it('isn’t stopped by a later change to a file it leaves', async () => {
+      const root = repo();
+      commit(root, { 'package.json': '{}\n' });
+      const { chat, seen } = await turnIn(root, () => {
+        writeFileSync(path.join(root, 'a.tsx'), 'two\n');
+        writeFileSync(path.join(root, 'package.json'), '{"a":1}\n');
+      });
+      writeFileSync(path.join(root, 'package.json'), '{"a":2}\n');
+      await chat.undo(seen.chat?.turns[0]?.id ?? '');
+      expect(seen.chat?.turns[0]?.decision).toBe('undone');
+      expect(readFileSync(path.join(root, 'a.tsx'), 'utf8')).toBe('one\n');
+    });
+
+    it('says so, and stays open, when there’s nothing it may put back', async () => {
+      const root = repo();
+      commit(root, { 'package.json': '{}\n' });
+      const { chat, seen } = await turnIn(root, () => {
+        writeFileSync(path.join(root, 'package.json'), '{"a":1}\n');
+      });
+      await chat.undo(seen.chat?.turns[0]?.id ?? '');
+      expect(readFileSync(path.join(root, 'package.json'), 'utf8')).toBe(
+        '{"a":1}\n',
+      );
+      expect(seen.chat?.turns[0]?.decision).toBe('open');
+      expect(seen.chat?.turns[0]?.undoProblem).toContain('package.json');
+    });
+
+    it('won’t write through a link that now leaves the project', async () => {
+      const root = repo();
+      commit(root, { 'sub/a.tsx': 'one\n' });
+      const outside = mkdtempSync(path.join(os.tmpdir(), 'ds-outside-'));
+      writeFileSync(path.join(outside, 'a.tsx'), 'theirs\n');
+      const { chat, seen } = await turnIn(root, () => {
+        rmSync(path.join(root, 'sub'), { recursive: true });
+        symlinkSync(outside, path.join(root, 'sub'));
+      });
+      await chat.undo(seen.chat?.turns[0]?.id ?? '');
+      expect(readFileSync(path.join(outside, 'a.tsx'), 'utf8')).toBe(
+        'theirs\n',
+      );
+    });
+  });
+
+  // TRU-5.3 #7: paths came from the repository's root, and `hash-object` ran from the project.
+  it('undoes a turn in a project below the repository’s root', async () => {
+    const top = repo();
+    commit(top, { 'packages/app/b.tsx': 'one\n', 'other/c.tsx': 'one\n' });
+    const root = path.join(top, 'packages/app');
+    const { chat, seen } = await turnIn(root, () => {
+      writeFileSync(path.join(root, 'b.tsx'), 'two\n');
+      writeFileSync(path.join(root, 'new.tsx'), 'new\n');
+    });
+    const turn = seen.chat?.turns[0];
+    expect(turn?.files.map((file) => file.path).sort()).toEqual([
+      'b.tsx',
+      'new.tsx',
+    ]);
+    expect(turn?.diff).toContain('b.tsx');
+
+    await chat.undo(turn?.id ?? '');
+    expect(seen.chat?.turns[0]?.undoProblem).toBeNull();
+    expect(seen.chat?.turns[0]?.decision).toBe('undone');
+    expect(readFileSync(path.join(root, 'b.tsx'), 'utf8')).toBe('one\n');
+    expect(existsSync(path.join(root, 'new.tsx'))).toBe(false);
+    expect(status(top)).toBe('');
+  });
+
+  // TRU-5.3 #8: a write that failed partway left a partial undo, which blocked a retry.
+  describe('all or none', () => {
+    /** Two files changed in a turn, as trees. */
+    async function twoFiles() {
+      const root = repo();
+      commit(root, { 'b.tsx': 'old b\n' });
+      const before = (await snapshot(root)) ?? '';
+      writeFileSync(path.join(root, 'a.tsx'), 'two\n');
+      writeFileSync(path.join(root, 'b.tsx'), 'two\n');
+      writeFileSync(path.join(root, 'c.tsx'), 'new\n');
+      const after = (await snapshot(root)) ?? '';
+      const read = (file: string) =>
+        readFileSync(path.join(root, file), 'utf8');
+      return { root, before, after, read };
+    }
+    const FILES = ['a.tsx', 'b.tsx', 'c.tsx'];
+
+    it('changes nothing when it can’t read a file’s old text', async () => {
+      const { root, before, after, read } = await twoFiles();
+      const blob = execFileSync('git', ['rev-parse', `${before}:b.tsx`], {
+        cwd: root,
+        encoding: 'utf8',
+      }).trim();
+      // Git collects what nothing refers to, in time.
+      rmSync(path.join(root, '.git/objects', blob.slice(0, 2), blob.slice(2)), {
+        force: true,
+      });
+
+      const result = await undoTurn(root, before, after, FILES);
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'failed',
+        files: ['b.tsx'],
+        rolledBack: true,
+      });
+      expect(read('a.tsx')).toBe('two\n');
+      expect(read('b.tsx')).toBe('two\n');
+      expect(read('c.tsx')).toBe('new\n');
+    });
+
+    it('puts everything back when a write fails, so a retry works', async () => {
+      const { root, before, after, read } = await twoFiles();
+      const failOn = (name: string): typeof writeFile =>
+        ((file, data) =>
+          String(file).endsWith(name)
+            ? Promise.reject(new Error('disk full'))
+            : writeFile(file, data)) as typeof writeFile;
+
+      const result = await undoTurn(
+        root,
+        before,
+        after,
+        FILES,
+        failOn('b.tsx'),
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        reason: 'failed',
+        files: ['b.tsx'],
+        rolledBack: true,
+      });
+      expect(read('a.tsx')).toBe('two\n');
+      expect(read('b.tsx')).toBe('two\n');
+      // The new file went first, and came back.
+      expect(read('c.tsx')).toBe('new\n');
+
+      expect(await undoTurn(root, before, after, FILES)).toEqual({ ok: true });
+      expect(read('a.tsx')).toBe('one\n');
+      expect(read('b.tsx')).toBe('old b\n');
+      expect(existsSync(path.join(root, 'c.tsx'))).toBe(false);
+    });
+
+    it('says plainly when it couldn’t put them back either', async () => {
+      const { root, before, after } = await twoFiles();
+      let writes = 0;
+      const failing = ((file, data) => {
+        writes += 1;
+        return writes === 1
+          ? writeFile(file, data)
+          : Promise.reject(new Error('disk full'));
+      }) as typeof writeFile;
+      expect(await undoTurn(root, before, after, FILES, failing)).toMatchObject(
+        { ok: false, reason: 'failed', rolledBack: false },
+      );
+    });
+
+    it('says what went wrong on the turn', async () => {
+      const root = repo();
+      commit(root, { 'b.tsx': 'one\n' });
+      const before = (await snapshot(root)) ?? '';
+      const { chat, seen } = await turnIn(root, () => {
+        writeFileSync(path.join(root, 'b.tsx'), 'two\n');
+      });
+      const blob = execFileSync('git', ['rev-parse', `${before}:b.tsx`], {
+        cwd: root,
+        encoding: 'utf8',
+      }).trim();
+      rmSync(path.join(root, '.git/objects', blob.slice(0, 2), blob.slice(2)), {
+        force: true,
+      });
+      await chat.undo(seen.chat?.turns[0]?.id ?? '');
+      expect(seen.chat?.turns[0]?.decision).toBe('open');
+      expect(seen.chat?.turns[0]?.undoProblem).toMatch(
+        /b\.tsx.*nothing changed/i,
+      );
+    });
+  });
+
+  // TRU-5.3 #9: outside git there was silently no Undo.
+  describe('outside git', () => {
+    const editing = {
+      type: 'assistant',
+      ...SESSION,
+      message: {
+        id: 'm-edit',
+        content: [
+          {
+            type: 'tool_use',
+            id: 'e',
+            name: 'Edit',
+            input: { file_path: 'a.tsx' },
+          },
+        ],
+      },
+    };
+
+    it('says so on a turn that may have changed something', async () => {
+      const plain = mkdtempSync(path.join(os.tmpdir(), 'ds-plain-'));
+      const claude = fakeClaude();
+      const { chat, seen } = chatOn(plain, claude.start);
+      chat.send(message('change it'));
+      await until(() => claude.runs.length === 1);
+      claude.runs[0]?.onEvent(editing);
+      claude.runs[0]?.finish();
+      await until(() => seen.chat?.working === false);
+      const turn = seen.chat?.turns[0];
+      expect(turn?.decision).toBe('none');
+      expect(turn?.undoNote).toMatch(/git/);
+    });
+
+    it('says nothing on a turn that only answered', async () => {
+      const plain = mkdtempSync(path.join(os.tmpdir(), 'ds-plain-'));
+      const claude = fakeClaude();
+      const { chat, seen } = chatOn(plain, claude.start);
+      chat.send(message('what is this?'));
+      await until(() => claude.runs.length === 1);
+      claude.runs[0]?.onEvent(say('A button.'));
+      claude.runs[0]?.finish();
+      await until(() => seen.chat?.working === false);
+      expect(seen.chat?.turns[0]?.undoNote).toBeUndefined();
+    });
+
+    it('says nothing inside git', async () => {
+      const root = repo();
+      const claude = fakeClaude();
+      const { chat, seen } = chatOn(root, claude.start);
+      chat.send(message('change it'));
+      await until(() => claude.runs.length === 1);
+      claude.runs[0]?.onEvent(editing);
+      claude.runs[0]?.finish();
+      await until(() => seen.chat?.working === false);
+      expect(seen.chat?.turns[0]?.undoNote).toBeUndefined();
+    });
   });
 
   it('says nothing changed for the same tree, and works outside git', async () => {

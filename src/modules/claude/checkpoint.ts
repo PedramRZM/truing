@@ -4,7 +4,14 @@
 // the change counts: Claude's edit, the formatter after it, a command the
 // designer allowed. Files git ignores aren't seen.
 import { execFile } from 'node:child_process';
-import { copyFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import {
+  copyFile,
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -64,6 +71,8 @@ export async function changedFiles(
     'diff-tree',
     '-r',
     '-z',
+    // From the project, which may be below the repository's root (TRU-5.3).
+    '--relative',
     '--no-renames',
     '--numstat',
     before,
@@ -86,6 +95,7 @@ export async function diffOf(
     'diff-tree',
     '-r',
     '-p',
+    '--relative',
     '--no-renames',
     '--no-color',
     before,
@@ -105,7 +115,8 @@ async function blobAt(
     'rev-parse',
     '--verify',
     '--quiet',
-    `${tree}:${file}`,
+    // `./` is from the project; a bare path would be from the repository's root.
+    `${tree}:./${file}`,
   ]).then(
     (id) => id.trim(),
     () => null,
@@ -120,17 +131,66 @@ async function hashNow(root: string, file: string): Promise<string | null> {
   );
 }
 
-export type UndoResult = { ok: true } | { ok: false; files: readonly string[] };
+export type UndoResult =
+  | { ok: true }
+  /** These hold someone's later work. */
+  | { ok: false; reason: 'moved'; files: readonly string[] }
+  /** These couldn't be put back; `rolledBack` says everything else is as it was. */
+  | {
+      ok: false;
+      reason: 'failed';
+      files: readonly string[];
+      rolledBack: boolean;
+    };
+
+async function blobText(root: string, blob: string): Promise<Buffer> {
+  const { stdout } = await exec('git', ['cat-file', 'blob', blob], {
+    cwd: root,
+    encoding: 'buffer',
+    maxBuffer: MAX_OUTPUT,
+  });
+  return stdout;
+}
+
+async function putFile(
+  full: string,
+  text: Buffer | null,
+  write: typeof writeFile,
+): Promise<void> {
+  if (text === null) {
+    await rm(full, { force: true });
+    return;
+  }
+  await mkdir(path.dirname(full), { recursive: true });
+  await write(full, text);
+}
+
+/** Whether every step went back. It tries them all, whatever one of them does. */
+async function rollBack(
+  steps: readonly { full: string; current: Buffer | null }[],
+  write: typeof writeFile,
+): Promise<boolean> {
+  let whole = true;
+  for (const { full, current } of steps.toReversed()) {
+    await putFile(full, current, write).catch(() => {
+      whole = false;
+    });
+  }
+  return whole;
+}
 
 /**
- * Puts the turn's files back as they were before it. All or none: a file that
- * has moved on since the turn holds someone's later work, so it stops the undo.
+ * Puts the turn's files back as they were before it. All or none (TRU-5.3): a file
+ * that has moved on since the turn holds someone's later work, so it stops the undo.
+ * Every old text is read before anything is written, and a write that fails puts back
+ * what went before it, so nothing is left to block a retry. `write` is for the tests.
  */
 export async function undoTurn(
   root: string,
   before: string,
   after: string,
   files: readonly string[],
+  write: typeof writeFile = writeFile,
 ): Promise<UndoResult> {
   const plans = await Promise.all(
     files.map(async (file) => ({
@@ -142,24 +202,47 @@ export async function undoTurn(
   );
   const moved = plans.filter(({ left, now }) => left !== now);
   if (moved.length > 0) {
-    return { ok: false, files: moved.map(({ file }) => file) };
+    return { ok: false, reason: 'moved', files: moved.map(({ file }) => file) };
   }
 
-  await Promise.all(
-    plans.map(async ({ file, was }) => {
-      const full = path.join(root, file);
-      if (was === null) {
-        await rm(full, { force: true });
-        return;
-      }
-      const { stdout } = await exec('git', ['cat-file', 'blob', was], {
-        cwd: root,
-        encoding: 'buffer',
-        maxBuffer: MAX_OUTPUT,
+  const steps: {
+    file: string;
+    full: string;
+    old: Buffer | null;
+    current: Buffer | null;
+  }[] = [];
+  for (const { file, was, left } of plans) {
+    const full = path.join(root, file);
+    try {
+      steps.push({
+        file,
+        full,
+        old: was === null ? null : await blobText(root, was),
+        current: left === null ? null : await readFile(full),
       });
-      await mkdir(path.dirname(full), { recursive: true });
-      await writeFile(full, stdout);
-    }),
-  );
+    } catch {
+      return { ok: false, reason: 'failed', files: [file], rolledBack: true };
+    }
+  }
+
+  // Removals first: a turn can swap a file for a folder of that name.
+  const ordered = [
+    ...steps.filter(({ old }) => old === null),
+    ...steps.filter(({ old }) => old !== null),
+  ];
+  const done: typeof steps = [];
+  for (const step of ordered) {
+    try {
+      await putFile(step.full, step.old, write);
+      done.push(step);
+    } catch {
+      return {
+        ok: false,
+        reason: 'failed',
+        files: [step.file],
+        rolledBack: await rollBack(done, write),
+      };
+    }
+  }
   return { ok: true };
 }

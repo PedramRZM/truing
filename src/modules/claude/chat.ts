@@ -9,17 +9,25 @@ import {
   type RunClaude,
   runClaude,
 } from '../../claude/cli';
+import { refusal } from '../../claude/path-guard.mjs';
 import {
   prepareSession,
   type PreparedSession,
   sessionEnv,
+  writableRules,
 } from '../../claude/session';
 import type { TruingConfig } from '../../config';
 import { messageOf, type ScreenshotControl } from '../../module';
 
 import { type Bridge, type Decision, startBridge } from './bridge';
 import { chatTitle, createChatStore, defaultChatsDir } from './chat-store';
-import { changedFiles, diffOf, snapshot, undoTurn } from './checkpoint';
+import {
+  changedFiles,
+  diffOf,
+  snapshot,
+  undoTurn,
+  type UndoResult,
+} from './checkpoint';
 import { applyEvent, newProgress, type TurnProgress } from './events';
 import { promptSummary, renderMessage, renderText } from './message';
 import {
@@ -41,6 +49,31 @@ const MAX_TURNS = 40;
 const LIVE_EVERY_MS = 50;
 /** Long enough for hot reload to show the change before the frames are captured. */
 const SETTLE_MS = 1500;
+
+/** On a turn that may have changed files, when there's no way to undo them (TRU-5.3). */
+const NO_UNDO =
+  "This project isn't in git, so there's no Undo for this message.";
+
+/** Anything but reading and searching could have changed a file. */
+function mayHaveChanged(parts: Turn['parts']): boolean {
+  return parts.some(
+    (part) =>
+      part.kind === 'activity' &&
+      part.verb !== 'read' &&
+      part.verb !== 'searched',
+  );
+}
+
+/** Why Undo didn't run, in the designer's terms. */
+function undoWords(result: Exclude<UndoResult, { ok: true }>): string {
+  const files = result.files.join(', ');
+  if (result.reason === 'moved') {
+    return `${files} changed after this turn. Undo the later change first.`;
+  }
+  return result.rolledBack
+    ? `Couldn't put ${files} back, so nothing changed. Try Undo again.`
+    : `Couldn't put ${files} back, and some files may already be undone. Check them before you go on.`;
+}
 
 export type SendInput = {
   text: string;
@@ -197,6 +230,18 @@ export function createChat(options: ChatOptions) {
         ],
       });
     });
+  }
+
+  /**
+   * Whether Undo may put this file back (TRU-5.3). A turn sees whatever changed while it
+   * ran, and a change to anything else may be someone's own.
+   */
+  function mayWrite(file: string): boolean {
+    try {
+      return refusal(writableRules(root, config), file, root) === null;
+    } catch {
+      return false;
+    }
   }
 
   /** A run that ended leaves no prompt to answer. */
@@ -368,6 +413,9 @@ export function createChat(options: ChatOptions) {
         };
       }
     }
+    if (!after && mayHaveChanged(finished.parts)) {
+      finished = { ...finished, undoNote: NO_UNDO };
+    }
 
     live = null;
     sendLive();
@@ -537,26 +585,38 @@ export function createChat(options: ChatOptions) {
         throw new Error("This turn can't be undone anymore.");
       }
       await exclusive(async () => {
+        const paths = turn.files.map((file) => file.path);
+        const mine = paths.filter(mayWrite);
+        const left = paths.filter((file) => !mine.includes(file)).join(', ');
+        if (mine.length === 0) {
+          replaceTurn(id, {
+            undoProblem: `Undo covers only the files Claude may write, so ${left} stayed as they are.`,
+          });
+          return;
+        }
         const result = await undoTurn(
           root,
           checkpoint.before,
           checkpoint.after,
-          turn.files.map((file) => file.path),
+          mine,
         );
         if (!result.ok) {
-          replaceTurn(id, {
-            undoProblem: `${result.files.join(', ')} changed after this turn. Undo the later change first.`,
-          });
+          replaceTurn(id, { undoProblem: undoWords(result) });
           return;
         }
         checkpoints.delete(id);
         notes.push(
-          `The designer undid your changes from an earlier message, to ${turn.files.map((file) => file.path).join(', ')}. Those files are back as they were before it.`,
+          `The designer undid your changes from an earlier message, to ${mine.join(', ')}. Those files are back as they were before it.${left ? ` Undo left these as they are: ${left}.` : ''}`,
         );
         replaceTurn(id, {
           decision: 'undone',
           frames: [],
           undoProblem: null,
+          ...(left
+            ? {
+                undoNote: `Left as they are: ${left}. Undo covers only the files Claude may write.`,
+              }
+            : {}),
         });
         await saveChat();
       });

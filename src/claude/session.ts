@@ -257,6 +257,18 @@ function skillBody(text: string): string {
   return text.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
 }
 
+/** What the path guard holds a write to, for the guard and for Undo. */
+export function writableRules(
+  root: string,
+  config: Pick<TruingConfig, 'writable'>,
+): { root: string; include: string[]; exclude: string[] } {
+  return {
+    root,
+    include: [...config.writable.include, ...DESIGN_CONFIG_PATHS],
+    exclude: config.writable.exclude,
+  };
+}
+
 /** What every turn is told: the rules, and this project's facts from its config. */
 export async function sessionPrompt(config: SessionConfig): Promise<string> {
   const rules = skillBody(await readFile(DESIGN_SKILL, 'utf8'));
@@ -321,11 +333,7 @@ export async function prepareSession(options: {
     return file;
   };
 
-  const rules = await write('writable.json', {
-    root,
-    include: [...config.writable.include, ...DESIGN_CONFIG_PATHS],
-    exclude: config.writable.exclude,
-  });
+  const rules = await write('writable.json', writableRules(root, config));
   const settings = await write('settings.json', {
     // The person's own helper would beat the subscription.
     apiKeyHelper: '',

@@ -328,6 +328,7 @@ function TurnView({
       {turn.decision !== 'none' ? (
         <TurnDiff turn={turn} props={props} frameLabel={frameLabel} />
       ) : null}
+      {turn.undoNote ? <p className="chat-activity">{turn.undoNote}</p> : null}
     </li>
   );
 }
