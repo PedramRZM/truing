@@ -19,7 +19,7 @@ import {
   type SourceAt,
   type StagedChange,
 } from '../../module';
-import { tokenRows } from '../../shell/controls/token-rows';
+import { spacingRows } from '../../shell/controls/token-rows';
 import { loadTokens, type TokenTable } from '../../tokens/table';
 
 import {
@@ -896,7 +896,7 @@ export default defineServer(selection, (ctx) => {
       'layout-tokens': async () => {
         const table = await tokenTable();
         return {
-          spacing: tokenRows(table?.manifest.tokens ?? [], '--spacing'),
+          spacing: spacingRows(table?.manifest.tokens ?? []),
         };
       },
       'style-tokens': async () => {

@@ -64,6 +64,40 @@ export function tokenRows(
   ];
 }
 
+/** Tailwind's documented spacing steps: each is a multiple of `--spacing`. */
+const TAILWIND_SPACING = [
+  0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28,
+  32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96,
+];
+
+/** Tailwind's own, when nothing says otherwise. */
+const TAILWIND_SPACING_PX = 4;
+
+/**
+ * The spacing a project offers: its named steps, or Tailwind's own multiples of
+ * `--spacing` where it has none. Default Tailwind v4 names none, and `px-6` is still
+ * how its classes read. With no stylesheet to go on, Tailwind's default stands in: a
+ * project that isn't on Tailwind can't take a class edit anyway.
+ */
+export function spacingRows(tokens: readonly Token[]): TokenRow[] {
+  const named = tokenRows(tokens, '--spacing');
+  if (named.length > 0) return named;
+  const base = tokens.find((token) => token.key === '--spacing');
+  const unit = base?.light.px ?? TAILWIND_SPACING_PX;
+  return TAILWIND_SPACING.map((multiple) => {
+    const px = multiple * unit;
+    return {
+      key: '--spacing',
+      name: String(multiple),
+      value: String(px),
+      kind: 'spacing',
+      hex: null,
+      px,
+      family: null,
+    };
+  });
+}
+
 /** The scale a field steps through: its tokens' lengths, with 0, which needs none. */
 export function stepsOf(rows: readonly TokenRow[]): Step[] {
   return scaleOf([
