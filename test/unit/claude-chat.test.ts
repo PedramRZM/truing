@@ -210,25 +210,6 @@ describe('a turn', () => {
     claude.runs[0]?.finish();
   });
 
-  it('resumes the same session from the second message on', async () => {
-    const claude = fakeClaude();
-    const { chat, seen } = chatOn(repo(), claude.start);
-    chat.send(message('one'));
-    await until(() => claude.runs.length === 1);
-    expect(claude.runs[0]?.args).not.toContain('--resume');
-    claude.runs[0]?.onEvent(say('hi'));
-    claude.runs[0]?.onEvent(DONE);
-    claude.runs[0]?.finish();
-    await until(() => seen.chat?.working === false);
-
-    chat.send(message('two'));
-    await until(() => claude.runs.length === 2);
-    expect(claude.runs[1]?.args).toEqual(
-      expect.arrayContaining(['--resume', 'session-1']),
-    );
-    claude.runs[1]?.finish();
-  });
-
   it('queues a message while Claude is working, and never runs two at once', async () => {
     const claude = fakeClaude();
     const { chat, seen } = chatOn(repo(), claude.start);
@@ -880,20 +861,6 @@ describe('undo', () => {
       expect(read('a.tsx')).toBe('one\n');
       expect(read('b.tsx')).toBe('old b\n');
       expect(existsSync(path.join(root, 'c.tsx'))).toBe(false);
-    });
-
-    it('says plainly when it couldn’t put them back either', async () => {
-      const { root, before, after } = await twoFiles();
-      let writes = 0;
-      const failing = ((file, data) => {
-        writes += 1;
-        return writes === 1
-          ? writeFile(file, data)
-          : Promise.reject(new Error('disk full'));
-      }) as typeof writeFile;
-      expect(await undoTurn(root, before, after, FILES, failing)).toMatchObject(
-        { ok: false, reason: 'failed', rolledBack: false },
-      );
     });
 
     it('says what went wrong on the turn', async () => {

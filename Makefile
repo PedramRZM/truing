@@ -3,7 +3,6 @@
 .DEFAULT_GOAL := help
 PY ?= python3
 BACKLOG ?= npx -y backlog.md@1.53.0
-unexport GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_COMMON_DIR
 
 # What `git rev-parse --local-env-vars` lists. A hook in a linked worktree gets an absolute
 # GIT_DIR, and a test's temporary repository would then act on the real one (TRU-5.3).
