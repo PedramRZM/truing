@@ -42,53 +42,56 @@ export function lineSplitter(onLine: (line: string) => void) {
   };
 }
 
-/** A run of this command; the tests start one that isn't Claude. */
-export const processStarter =
-  (command: string, graceMs = INTERRUPT_MS): StartRun =>
-  ({ args, cwd, env, input, onEvent }) => {
-    const child = spawn(command, [...args], {
-      cwd,
-      env,
-      stdio: ['pipe', 'pipe', 'ignore'],
-    });
-    const split = lineSplitter((line) => {
-      try {
-        onEvent(JSON.parse(line));
-      } catch {
-        // Not an event: the stream's readers ignore what they don't know.
-      }
-    });
-    child.stdout.setEncoding('utf8').on('data', split);
-    // A process that died early closes stdin under the write.
-    child.stdin.on('error', () => {});
-    child.stdin.end(input);
+/** One process; the tests start one that isn't Claude, with a short `graceMs`. */
+export function startProcess(
+  command: string,
+  graceMs: number,
+  { args, cwd, env, input, onEvent }: RunOptions,
+): Run {
+  const child = spawn(command, [...args], {
+    cwd,
+    env,
+    stdio: ['pipe', 'pipe', 'ignore'],
+  });
+  const split = lineSplitter((line) => {
+    try {
+      onEvent(JSON.parse(line));
+    } catch {
+      // Not an event: the stream's readers ignore what they don't know.
+    }
+  });
+  child.stdout.setEncoding('utf8').on('data', split);
+  // A process that died early closes stdin under the write.
+  child.stdin.on('error', () => {});
+  child.stdin.end(input);
 
-    let killers: ReturnType<typeof setTimeout>[] = [];
-    const done = new Promise<RunEnd>((resolve) => {
-      child.once('error', (error: NodeJS.ErrnoException) => {
-        resolve({ code: null, startError: error.code ?? error.message });
-      });
-      child.once('close', (code) => {
-        killers.forEach(clearTimeout);
-        resolve({ code, startError: null });
-      });
+  let killers: ReturnType<typeof setTimeout>[] = [];
+  const done = new Promise<RunEnd>((resolve) => {
+    child.once('error', (error: NodeJS.ErrnoException) => {
+      resolve({ code: null, startError: error.code ?? error.message });
     });
+    child.once('close', (code) => {
+      killers.forEach(clearTimeout);
+      resolve({ code, startError: null });
+    });
+  });
 
-    return {
-      done,
-      interrupt: () => {
-        child.kill('SIGINT');
-        if (killers.length > 0) return;
-        // Each step asks harder, as a hung run holds every direct edit behind it
-        // (TRU-5.3). A dead process's helper can still hold its output, and only the
-        // end of that ends the run, so the last step lets go of it.
-        killers = [
-          () => child.kill('SIGTERM'),
-          () => child.kill('SIGKILL'),
-          () => child.stdout.destroy(),
-        ].map((step, at) => setTimeout(step, graceMs * (at + 1)));
-      },
-    };
+  return {
+    done,
+    interrupt: () => {
+      child.kill('SIGINT');
+      if (killers.length > 0) return;
+      // Each step asks harder, as a hung run holds every direct edit behind it
+      // (TRU-5.3). A dead process's helper can still hold its output, and only the
+      // end of that ends the run, so the last step lets go of it.
+      killers = [
+        () => child.kill('SIGTERM'),
+        () => child.kill('SIGKILL'),
+        () => child.stdout.destroy(),
+      ].map((step, at) => setTimeout(step, graceMs * (at + 1)));
+    },
   };
+}
 
-export const startRun = processStarter('claude');
+export const startRun: StartRun = (options) =>
+  startProcess('claude', INTERRUPT_MS, options);

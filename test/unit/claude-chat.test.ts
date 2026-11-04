@@ -44,7 +44,7 @@ import {
 } from '../../src/modules/claude/message';
 import type { Attachment, Chat, Turn } from '../../src/modules/claude/module';
 import type { RunEnd, RunOptions } from '../../src/modules/claude/run';
-import { lineSplitter, processStarter } from '../../src/modules/claude/run';
+import { lineSplitter, startProcess } from '../../src/modules/claude/run';
 import {
   activityRows,
   answerBlocks,
@@ -1439,10 +1439,7 @@ describe('the stream', () => {
       const started = new Promise<void>((resolve) => {
         up = resolve;
       });
-      const run = processStarter(
-        process.execPath,
-        20,
-      )({
+      const run = startProcess(process.execPath, 20, {
         args: ['-e', script],
         cwd: os.tmpdir(),
         env: process.env,
