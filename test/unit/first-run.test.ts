@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ensureApp, findFreePort, systemPort } from '../../src/app-process';
 import { truingConfigSchema } from '../../src/config';
 import { doctorReport } from '../../src/doctor';
+import { browserIsComplete } from '../../src/setup/browser';
 import { checkConnection, type Connection } from '../../src/setup/connection';
 import {
   checkedTokens,
@@ -47,7 +48,6 @@ import {
   type Spawner,
 } from '../../src/setup/read-project';
 import { trustConfig } from '../../src/setup/trust';
-import { browserIsComplete } from '../../src/setup/window';
 import { tokensReport } from '../../src/tokens/cli';
 
 const here = path.dirname(new URL(import.meta.url).pathname);

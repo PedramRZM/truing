@@ -4,17 +4,12 @@ import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { AppStartError } from './app-process';
 import {
   findProjectRoot,
   hasProjectRoot,
   loadConfig,
   type TruingConfig,
 } from './config';
-import { doctorReport } from './doctor';
-import { askClaude } from './modules/claude-config/ask-claude';
-import { runSetup } from './modules/claude-config/setup';
-import { checkConnection } from './setup/connection';
 import { chooseOpening } from './setup/opening';
 import {
   loadProfile,
@@ -24,9 +19,9 @@ import {
   withAppPort,
 } from './setup/profile';
 import { isConfigTrusted } from './setup/trust';
-import { browserIsReady, ensureChromium, runSetupWindow } from './setup/window';
-import { tokensReport } from './tokens/cli';
-import { startTruing } from './truing';
+
+// TRU-7.8: a command imports what it uses when it runs. All of Truing took 1.5s to
+// load, for `--help` too. `test/unit/cli-startup.test.ts` keeps it that way.
 
 const HELP = `Truing: refine your real app visually. No config.
 
@@ -61,6 +56,12 @@ function targetOf(args: readonly string[], from: string): string {
 }
 
 async function doctor(from: string): Promise<number> {
+  const [{ doctorReport }, { checkConnection }, { browserIsReady }] =
+    await Promise.all([
+      import('./doctor'),
+      import('./setup/connection'),
+      import('./setup/browser'),
+    ]);
   const { lines, code } = await doctorReport(from, {
     connection: await checkConnection(),
     browserReady: browserIsReady(),
@@ -115,12 +116,17 @@ async function tokens(args: readonly string[], from: string): Promise<void> {
     );
     return;
   }
+  const { tokensReport } = await import('./tokens/cli');
   console.log(await tokensReport(saved.root, sheet, mergeOut));
 }
 
 async function setup(from: string): Promise<string> {
   const saved = await savedSettings(from);
   if ('problem' in saved) return saved.problem;
+  const [{ askClaude }, { runSetup }] = await Promise.all([
+    import('./modules/claude-config/ask-claude'),
+    import('./modules/claude-config/setup'),
+  ]);
   return runSetup(saved.root, () =>
     askClaude(saved.root, { config: saved.config }),
   );
@@ -132,6 +138,17 @@ function browserProfile(root: string): string {
 }
 
 async function open(args: readonly string[], from: string): Promise<void> {
+  const [
+    { AppStartError },
+    { ensureChromium },
+    { runSetupWindow },
+    { startTruing },
+  ] = await Promise.all([
+    import('./app-process'),
+    import('./setup/browser'),
+    import('./setup/window'),
+    import('./truing'),
+  ]);
   const watch = args.includes('--watch');
   const target = targetOf(args, from);
   const reconfigure = args.includes('--reconfigure');
