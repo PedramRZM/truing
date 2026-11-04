@@ -28,7 +28,14 @@ The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release
 
 Nobody publishes from a laptop, except for the first version.
 
-**The first publish.** npm needs a package to exist before it can trust a workflow. So the owner publishes `0.1.0` once by hand from a clean checkout of a commit CI passed, then sets `release.yml` as the trusted publisher on npm, and creates the `release` environment with themselves as required reviewer. Every later version goes through the steps above.
+**The first publish.** npm's trusted publisher is set in a package's own settings, so the package has to exist first. The owner publishes `0.1.0` once by hand from a clean clone of a commit CI passed. Every later version goes through the steps above.
+
+**Before the first release through CI**, in this order:
+
+1. Make the repository public. GitHub only offers required reviewers on public repositories on its Free, Pro and Team plans, and npm generates no provenance for a private one.
+2. On GitHub, create the `release` environment with yourself as required reviewer. Do this before any `release:` commit lands.
+3. On npm, in the package's settings, add a trusted publisher: your user, the repository, `release.yml` and the `release` environment, with direct `npm publish` allowed. npm doesn't check it when you save it, and it expires unless it publishes within 2 days, so set it up just before you cut the release.
+4. After that release works, set Publishing access to require two-factor authentication and disallow tokens.
 
 ## Re-recording the demo
 
