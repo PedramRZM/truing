@@ -106,7 +106,7 @@ Truing's own Chromium window (opened by `truing`)
 
 - **Configuration.** The session runs in the repository with its project configuration loaded: AGENTS.md (through CLAUDE.md), `.claude/skills`, the project's Claude Code rules and the `.claude/settings.json` hooks. Their Claude must behave like a developer's.
 - **Billing.** It runs on the person's own claude.ai login. The bridge never reads, stores or relays a credential; the terms forbid that. When a login exists, it removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `apiKeyHelper` from Claude's environment, because any of them silently takes priority over the subscription (TRU-19.1 covers people with no login). It never passes `--bare`, which ignores the login.
-- **Permissions.** UI files only, from the profile, plus design-scoped configuration for TRU-17.2. A `PreToolUse` path guard backs the allow-list up. A headless run starts in Manual mode, so anything not pre-approved is denied or routed to Truing through `--permission-prompt-tool`.
+- **Permissions.** UI files only, from the profile. Design-scoped configuration for TRU-17.2 asks each time, and the guard limits it to Markdown. A `PreToolUse` path guard backs the allow-list up. A headless run starts in Manual mode, so anything not pre-approved is denied or routed to Truing through `--permission-prompt-tool`.
 - **One run at a time.** One active Claude run per person, serialised with the direct edits. Sessions in the same directory can collide on files.
 - **Design tools.** Claude gets design tools over MCP (TRU-12.1): the selection, the token table, screenshots at a viewport, and the direct edit operations. It prefers tokens and exact edits to free-form rewriting.
 

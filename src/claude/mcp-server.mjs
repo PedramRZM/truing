@@ -4,6 +4,7 @@
 // through the bridge. TRU-12.1 adds the design tools here. Its token reaches it only
 // through the session's MCP config, never Claude's environment, and can ask a
 // prompt but never answer one. With no bridge to ask, every call is denied.
+import { request } from 'node:http';
 import { createInterface } from 'node:readline';
 
 const BRIDGE = process.env.TRUING_BRIDGE_URL;
@@ -34,22 +35,43 @@ const DENY = {
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
 
-/** The reply is the bridge's, as it holds the rule on what an allow may carry. */
-async function approve(args) {
-  if (!BRIDGE || !TOKEN) return DENY;
-  try {
-    const response = await fetch(`${BRIDGE}/permission`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${TOKEN}`,
-        'content-type': 'application/json',
+/**
+ * The reply is the bridge's, as it holds the rule on what an allow may carry. Node's
+ * own client, as `fetch` gives up on a reply after five minutes, which answered no
+ * for a designer who was still deciding (TRU-5.3). This one waits for as long as the
+ * connection lasts.
+ */
+function approve(args) {
+  if (!BRIDGE || !TOKEN) return Promise.resolve(DENY);
+  return new Promise((resolve) => {
+    const asking = request(
+      `${BRIDGE}/permission`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${TOKEN}`,
+          'content-type': 'application/json',
+        },
       },
-      body: JSON.stringify(args),
-    });
-    return response.ok ? await response.json() : DENY;
-  } catch {
-    return DENY;
-  }
+      (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('error', () => resolve(DENY));
+        response.on('end', () => {
+          try {
+            resolve(response.statusCode === 200 ? JSON.parse(body) : DENY);
+          } catch {
+            resolve(DENY);
+          }
+        });
+      },
+    );
+    asking.on('error', () => resolve(DENY));
+    asking.end(JSON.stringify(args));
+  });
 }
 
 async function handle({ id, method, params }) {
@@ -95,11 +117,15 @@ async function handle({ id, method, params }) {
   }
 }
 
-createInterface({ input: process.stdin }).on('line', (line) => {
-  if (!line.trim()) return;
-  try {
-    void handle(JSON.parse(line));
-  } catch {
-    // Not JSON: nothing to answer.
-  }
-});
+createInterface({ input: process.stdin })
+  .on('line', (line) => {
+    if (!line.trim()) return;
+    try {
+      void handle(JSON.parse(line));
+    } catch {
+      // Not JSON: nothing to answer.
+    }
+  })
+  // Claude has gone, so a prompt still waiting has nobody to answer: the connection
+  // closing takes it off the screen.
+  .on('close', () => process.exit(0));

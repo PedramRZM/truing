@@ -17,7 +17,6 @@ const SKILL_FILE = /^\.claude\/skills\/design-[^/]+\/SKILL\.md$/;
 export function isDesignerFile(shown: string | null): boolean {
   return (
     shown !== null &&
-    shown.endsWith('.md') &&
     DESIGN_CONFIG_PATHS.some((glob) => matchesGlob(shown, glob))
   );
 }

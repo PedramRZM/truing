@@ -17,6 +17,8 @@ export type TurnProgress = {
   streamed: readonly string[];
   /** The message the deltas now belong to. */
   message: string | null;
+  /** The plan Claude last wrote, in Plan mode. */
+  plan: string | null;
 };
 
 export function newProgress(sessionId: string | null): TurnProgress {
@@ -27,6 +29,7 @@ export function newProgress(sessionId: string | null): TurnProgress {
     ended: false,
     streamed: [],
     message: null,
+    plan: null,
   };
 }
 
@@ -98,6 +101,19 @@ const result = z.object({
   is_error: z.boolean().optional(),
 });
 
+/** The stop with no reason given: on a resumed chat it may mean the record has gone. */
+export const GENERIC_STOP =
+  'Claude stopped before finishing. Send it again to retry.';
+
+/** A limit with no time says less than one that has it, so it doesn't replace it. */
+function worseProblem(known: Problem | null, next: Problem): Problem {
+  return next.kind === 'limit' &&
+    next.resetsAt === null &&
+    known?.kind === 'limit'
+    ? known
+    : next;
+}
+
 /** A category Claude Code reports, as what the designer can do about it. */
 function problemOf(category: string | undefined): Problem | null {
   switch (category) {
@@ -125,6 +141,20 @@ function problemOf(category: string | undefined): Problem | null {
 function fileName(input: Record<string, unknown>): string | null {
   const file = input.file_path ?? input.notebook_path;
   return typeof file === 'string' ? path.basename(file) : null;
+}
+
+/** Where Claude Code keeps a plan: a Markdown file in its own folder. */
+const PLAN_FILE = /[/\\]\.claude[/\\]plans[/\\][^/\\]+\.md$/;
+
+/** The text of a plan, if this call writes one (TRU-5.3). */
+function planIn(name: string, input: Record<string, unknown>): string | null {
+  const { file_path: file, content } = input;
+  return name === 'Write' &&
+    typeof file === 'string' &&
+    typeof content === 'string' &&
+    PLAN_FILE.test(file)
+    ? content
+    : null;
 }
 
 const NO_ROW = new Set(['TodoWrite', 'ToolSearch']);
@@ -208,15 +238,19 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
     if (said.data.parent_tool_use_id) return next;
     // A failure arrives as a made-up assistant message: its text isn't Claude's answer.
     const failure = problemOf(said.data.error);
-    if (failure) return { ...next, problem: failure };
+    if (failure) {
+      return { ...next, problem: worseProblem(next.problem, failure) };
+    }
     const { id, content } = said.data.message;
     const shown = id !== undefined && next.streamed.includes(id);
     let parts = next.parts;
+    let plan = next.plan;
     for (const block of content) {
       if (block.type === 'text' && block.text && !shown) {
         parts = appendText(parts, block.text);
       }
       if (block.type === 'tool_use' && block.name && block.id) {
+        plan = planIn(block.name, block.input ?? {}) ?? plan;
         const row = describeTool(block.name, block.input ?? {});
         if (row) {
           parts = [
@@ -226,7 +260,7 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
         }
       }
     }
-    return { ...next, parts };
+    return { ...next, parts, plan };
   }
 
   const answered = user.safeParse(event);
@@ -263,7 +297,10 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
 
   const retry = apiRetry.safeParse(event);
   if (retry.success) {
-    return { ...next, problem: problemOf(retry.data.error) ?? next.problem };
+    const failure = problemOf(retry.data.error);
+    return failure
+      ? { ...next, problem: worseProblem(next.problem, failure) }
+      : next;
   }
 
   const ended = result.safeParse(event);
@@ -283,11 +320,7 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
               message:
                 'Claude reached its limit of steps for one message. Send another to continue.',
             }
-          : {
-              kind: 'other',
-              message:
-                'Claude stopped before finishing. Send it again to retry.',
-            }),
+          : { kind: 'other', message: GENERIC_STOP }),
     };
   }
 

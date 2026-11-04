@@ -28,11 +28,12 @@ const SECRETS = [
 /**
  * What runs later with no prompt, so editing it would undo every other limit: Git's
  * own files and hook managers, the servers Claude connects, and Claude Code's settings,
- * hooks, agents and skills. A designer's own rules and skills are the one exception.
+ * hooks, agents and skills. A designer's own rules and skills are the one exception,
+ * and only their Markdown: a script beside a skill would run later too (TRU-5.3).
  */
 const RUNS_LATER = [
   /(^|\/)\.git(\/|$)/,
-  /(^|\/)\.claude\/(?!rules\/design-[^/]*\.md$|skills\/design-[^/]*\/)/,
+  /(^|\/)\.claude\/(?!rules\/design-[^/]*\.md$|skills\/design-[^/]*\/(?:[^/]+\/)*[^/]*\.md$)/,
   /(^|\/)\.mcp\.json$/,
   /(^|\/)\.(husky|githooks)\//,
   /(^|\/)lefthook(-local)?\.ya?ml$/,

@@ -24,7 +24,7 @@ export type Run = {
 
 export type StartRun = (options: RunOptions) => Run;
 
-/** How long a turn gets to end by itself once it's asked to. */
+/** How long a turn gets at each step of being stopped. */
 const INTERRUPT_MS = 5000;
 
 /** Splits a stream into its lines, and leaves a half line for next time. */
@@ -42,8 +42,13 @@ export function lineSplitter(onLine: (line: string) => void) {
   };
 }
 
-export const startRun: StartRun = ({ args, cwd, env, input, onEvent }) => {
-  const child = spawn('claude', [...args], {
+/** One process; the tests start one that isn't Claude, with a short `graceMs`. */
+export function startProcess(
+  command: string,
+  graceMs: number,
+  { args, cwd, env, input, onEvent }: RunOptions,
+): Run {
+  const child = spawn(command, [...args], {
     cwd,
     env,
     stdio: ['pipe', 'pipe', 'ignore'],
@@ -60,13 +65,13 @@ export const startRun: StartRun = ({ args, cwd, env, input, onEvent }) => {
   child.stdin.on('error', () => {});
   child.stdin.end(input);
 
-  let killer: ReturnType<typeof setTimeout> | null = null;
+  let killers: ReturnType<typeof setTimeout>[] = [];
   const done = new Promise<RunEnd>((resolve) => {
     child.once('error', (error: NodeJS.ErrnoException) => {
       resolve({ code: null, startError: error.code ?? error.message });
     });
     child.once('close', (code) => {
-      if (killer) clearTimeout(killer);
+      killers.forEach(clearTimeout);
       resolve({ code, startError: null });
     });
   });
@@ -75,7 +80,18 @@ export const startRun: StartRun = ({ args, cwd, env, input, onEvent }) => {
     done,
     interrupt: () => {
       child.kill('SIGINT');
-      killer ??= setTimeout(() => child.kill('SIGTERM'), INTERRUPT_MS);
+      if (killers.length > 0) return;
+      // Each step asks harder, as a hung run holds every direct edit behind it
+      // (TRU-5.3). A dead process's helper can still hold its output, and only the
+      // end of that ends the run, so the last step lets go of it.
+      killers = [
+        () => child.kill('SIGTERM'),
+        () => child.kill('SIGKILL'),
+        () => child.stdout.destroy(),
+      ].map((step, at) => setTimeout(step, graceMs * (at + 1)));
     },
   };
-};
+}
+
+export const startRun: StartRun = (options) =>
+  startProcess('claude', INTERRUPT_MS, options);

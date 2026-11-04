@@ -5,6 +5,13 @@ PY ?= python3
 BACKLOG ?= npx -y backlog.md@1.53.0
 unexport GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_COMMON_DIR
 
+# What `git rev-parse --local-env-vars` lists. A hook in a linked worktree gets an absolute
+# GIT_DIR, and a test's temporary repository would then act on the real one (TRU-5.3).
+unexport GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+unexport GIT_OBJECT_DIRECTORY GIT_DIR GIT_WORK_TREE GIT_IMPLICIT_WORK_TREE GIT_GRAFT_FILE
+unexport GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS GIT_REPLACE_REF_BASE GIT_PREFIX
+unexport GIT_SHALLOW_FILE GIT_COMMON_DIR
+
 help: ## List targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-8s %s\n", $$1, $$2}'
 

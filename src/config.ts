@@ -78,9 +78,10 @@ export const truingConfigSchema = z.object({
       /**
        * Shell rules for a design session, in Claude Code's `Bash(...)` syntax
        * without the wrapper. `allow` runs unasked: the project's checks, which
-       * run none of the code Claude writes. `ask` always asks the designer, even
-       * for something `allow` covers (a flag that writes files). Every other
-       * shell rule the project allows its developers asks too.
+       * run none of the code Claude writes. Only a plain command does: a wildcard
+       * would also take a flag that runs a file, so it asks (TRU-5.3). `ask` always
+       * asks the designer, even for something `allow` covers (a flag that writes
+       * files). Every other shell rule the project allows its developers asks too.
        */
       shell: z
         .object({
@@ -113,6 +114,14 @@ export function isWholeProject(writable: TruingConfig['writable']): boolean {
     writable.include[0] === '**' &&
     writable.exclude.length === 0
   );
+}
+
+/**
+ * A check runs with no prompt, so it's one plain command: no wildcard, which an
+ * allow rule would take as anything, and nothing that chains or expands.
+ */
+export function isSafeCheck(command: string): boolean {
+  return command.trim() !== '' && !/[*?;&|$`<>()\n]/.test(command);
 }
 
 export const CONFIG_FILE = 'truing.config.ts';

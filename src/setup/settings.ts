@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { CONFIG_FILE, type TruingConfig } from '../config';
+import { CONFIG_FILE, isSafeCheck, type TruingConfig } from '../config';
 
 import {
   checkedTokens,
@@ -21,7 +21,6 @@ import { loadProfile, type Profile, saveProfile } from './profile';
 import {
   checkReading,
   type Draft,
-  isSafeCheck,
   isSafeGlob,
   isVisibleCommand,
   readProject,

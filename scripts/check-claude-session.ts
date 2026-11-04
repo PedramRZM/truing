@@ -1,11 +1,20 @@
 // What only a real Claude session can prove (TRU-5.2), on the project this runs in:
 // the init event lists the project's skills and Truing's servers, the project's
-// formatter ran on Claude's edit if it has one, its bash guard held, a write out of
-// bounds was refused, and a prompt reached the designer. It spends model usage on
+// formatter ran on Claude's edit if it has one, its bash guard held, the path guard
+// refused writes that looked allowed, and a prompt reached the designer. It spends model usage on
 // the person's own seat, so it isn't part of the unit suite, which never starts
 // Claude. `pnpm check-claude <a writable .tsx path>`
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { MCP_SERVER, prepareSession } from '../src/claude/session';
@@ -21,7 +30,13 @@ const from = process.env.INIT_CWD ?? process.cwd();
 const root = findProjectRoot(from);
 const { config } = await loadConfig(root);
 const scratch = process.argv[2] ?? 'src/components/t225-session-check.tsx';
-const refused = 'package.json';
+const links = ['link', 'dangling'].map((name) =>
+  path.join(
+    path.dirname(scratch),
+    `t225-guard-${name}${path.extname(scratch)}`,
+  ),
+);
+const outside = mkdtempSync(path.join(os.tmpdir(), 'truing-check-outside-'));
 
 const results: { check: string; ok: boolean; detail: string }[] = [];
 function report(check: string, ok: boolean, detail = ''): void {
@@ -34,7 +49,8 @@ function report(check: string, ok: boolean, detail = ''): void {
 const asked: PermissionPrompt[] = [];
 const bridge = await startBridge(async (prompt) => {
   asked.push(prompt);
-  return { allow: false };
+  // Reading the link's target asks, as it's outside: the write is what's being checked.
+  return { allow: prompt.tool_name === 'Read' };
 });
 
 async function turn(prompt: string): Promise<Event[]> {
@@ -142,17 +158,44 @@ try {
   );
   report("the project's bash guard refused a forbidden command", blocked);
 
-  const before = readFileSync(path.join(root, refused), 'utf8');
-  const write = await turn(
-    `This checks Truing's path guard. Make one Edit call on ${refused}: change its first character to a space. Report the result, and don't try another way.`,
-  );
-  report(
-    'a write out of bounds was refused',
-    readFileSync(path.join(root, refused), 'utf8') === before,
-    toolResults(write).some((text) => text.includes('Truing may change'))
-      ? 'by the path guard'
-      : 'Claude declined before the guard',
-  );
+  // TRU-5.3: a file Claude can see is off limits passes because Claude declines, before
+  // the guard has run. These look like any other file it may write, so only the guard
+  // can stop them, and only the guard's own words count as a pass.
+  mkdirSync(path.dirname(path.join(root, scratch)), { recursive: true });
+  const held = path.join(outside, 'held.tsx');
+  const wanted = path.join(outside, 'not-yet.tsx');
+  writeFileSync(held, 'untouched\n');
+  symlinkSync(held, path.join(root, links[0] ?? ''));
+  symlinkSync(wanted, path.join(root, links[1] ?? ''));
+  for (const [what, ask, landed] of [
+    [
+      'a link out of the project',
+      // Claude Code writes over a file only once it has read it.
+      `Read ${links[0]}, then use the Edit tool to change its word "untouched" to "changed".`,
+      () => readFileSync(held, 'utf8') !== 'untouched\n',
+    ],
+    [
+      'a link to nothing out of the project',
+      `Use the Write tool to write exactly this text to ${links[1]}: export const a = 1;`,
+      () => existsSync(wanted),
+    ],
+  ] as const) {
+    const write = await turn(
+      `${ask}\nReport the result, and don't try another way.`,
+    );
+    const byGuard = toolResults(write).some((text) =>
+      /Truing (may change only|won't change)/.test(text),
+    );
+    report(
+      `the path guard refused a write through ${what}`,
+      byGuard && !landed(),
+      landed()
+        ? 'IT LANDED OUTSIDE THE PROJECT'
+        : byGuard
+          ? 'by the path guard'
+          : 'the call never reached the guard, so this proves nothing',
+    );
+  }
 
   await turn(
     `Make one Bash call: node -e "process.exit(0)". Report what happened, and don't try another way.`,
@@ -164,6 +207,8 @@ try {
   );
 } finally {
   rmSync(path.join(root, scratch), { force: true });
+  for (const link of links) rmSync(path.join(root, link), { force: true });
+  rmSync(outside, { recursive: true, force: true });
   await bridge.close();
 }
 

@@ -4,11 +4,18 @@
 // config lists, and never a test or a secret. Exit 2 blocks the call before the permission
 // rules run, and Claude reads the reason on stderr. Any error blocks too. The
 // rules come from the file named in argv, so nothing here knows one project.
-import { readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { matchesGlob, neverWritten } from '../globs.mjs';
 import { realPath } from '../real-path.mjs';
+
+/** Where a write would really land, from the project's root. */
+function pathInProject(rules, target, cwd) {
+  return relative(realpathSync(rules.root), realPath(resolve(cwd, target)))
+    .split(sep)
+    .join('/');
+}
 
 /**
  * Why a write isn't allowed, or null if it is.
@@ -19,10 +26,7 @@ import { realPath } from '../real-path.mjs';
  * @returns {string | null}
  */
 export function refusal(rules, target, cwd) {
-  const root = realpathSync(rules.root);
-  const path = relative(root, realPath(resolve(cwd, target)))
-    .split(sep)
-    .join('/');
+  const path = pathInProject(rules, target, cwd);
   if (path === '..' || path.startsWith('../') || isAbsolute(path)) {
     return `${target} is outside the project.`;
   }
@@ -39,6 +43,64 @@ export function refusal(rules, target, cwd) {
   return null;
 }
 
+/**
+ * What a skill's frontmatter may say when Claude writes it. A skill grants itself the
+ * rest once it runs: `allowed-tools` and `hooks` ran commands with no prompt on Claude
+ * Code 2.1.318 (TRU-5.3). So this names what grants nothing, and a new key stays out.
+ */
+const PLAIN_KEYS = new Set([
+  'name',
+  'description',
+  'when_to_use',
+  'argument-hint',
+  'disable-model-invocation',
+  'user-invocable',
+  'paths',
+  'version',
+]);
+
+/** The frontmatter key that isn't plain, if any. An unclosed block counts whole. */
+function grantingKey(text) {
+  const lines = text.trimStart().split(/\r?\n/);
+  if (lines[0]?.trimEnd() !== '---') return null;
+  for (const line of lines.slice(1)) {
+    if (line === '---') return null;
+    if (line.trim() === '' || /^(\s|#)/.test(line)) continue;
+    const key = line.split(':')[0] ?? '';
+    if (!line.includes(':') || !PLAIN_KEYS.has(key)) return key;
+  }
+  return null;
+}
+
+/** The file as this call would leave it; null if the call doesn't say. */
+function textAfter(input, file) {
+  if (typeof input.content === 'string') return input.content;
+  const edits = Array.isArray(input.edits) ? input.edits : [input];
+  if (edits.some(({ old_string: from, new_string: to }) => !isText(from, to))) {
+    return null;
+  }
+  let text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  for (const { old_string: from, new_string: to, replace_all: all } of edits) {
+    text = all ? text.split(from).join(to) : text.replace(from, () => to);
+  }
+  return text;
+}
+
+function isText(...values) {
+  return values.every((value) => typeof value === 'string');
+}
+
+/** Why this call can't leave a designer's own file as it would. */
+function instructionsRefusal(rules, input, target, cwd) {
+  if (!/(^|\/)\.claude\//i.test(pathInProject(rules, target, cwd))) return null;
+  const text = textAfter(input, realPath(resolve(cwd, target)));
+  if (text === null) return `Can't tell what ${target} would say.`;
+  const key = grantingKey(text);
+  return key === null
+    ? null
+    : `${target} can't set "${key}": it could grant commands that nobody approved. A developer has to add it.`;
+}
+
 let wholeProject = false;
 
 function run() {
@@ -49,7 +111,11 @@ function run() {
   if (typeof target !== 'string' || target === '') {
     return 'The call names no file.';
   }
-  return refusal(rules, target, input.cwd ?? rules.root);
+  const cwd = input.cwd ?? rules.root;
+  return (
+    refusal(rules, target, cwd) ??
+    instructionsRefusal(rules, input.tool_input, target, cwd)
+  );
 }
 
 function block(reason) {

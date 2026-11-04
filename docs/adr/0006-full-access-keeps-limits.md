@@ -32,7 +32,7 @@ Chosen option: "every file except tests, secret files, and what runs later witho
 
 - **Tests:** test files and snapshots, and under full access any `test/` or `tests/` folder.
 - **Secret files:** neither read nor written.
-- **What runs later:** Git's own files and hook managers, `.mcp.json`, and `.claude/` apart from a designer's own rules and skills.
+- **What runs later:** Git's own files and hook managers, `.mcp.json`, and `.claude/` apart from the Markdown of a designer's own rules and skills, which Claude writes only when the designer says yes each time (TRU-5.3).
 - **Outside the project:** refused, following links.
 
 The owner decided the test question on 2026-11-04.

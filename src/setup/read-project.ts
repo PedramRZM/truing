@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 import { DENIED_READS, sessionEnv } from '../claude/session';
+import { isSafeCheck } from '../config';
 
 import { scrubSecrets } from './profile';
 import type { SettingField } from './setting-fields';
@@ -446,14 +447,6 @@ function dropMissing(
 }
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-/**
- * A check runs with no prompt, so it's one plain command: no wildcard, which an
- * allow rule would take as anything, and nothing that chains or expands.
- */
-export function isSafeCheck(command: string): boolean {
-  return command.trim() !== '' && !/[*?;&|$`<>()\n]/.test(command);
-}
 
 /** Control characters, and the zero-width and direction marks that hide text. */
 function isControl(character: string): boolean {

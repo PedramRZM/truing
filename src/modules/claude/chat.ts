@@ -9,19 +9,37 @@ import {
   type RunClaude,
   runClaude,
 } from '../../claude/cli';
+import { refusal } from '../../claude/path-guard.mjs';
 import {
   prepareSession,
   type PreparedSession,
   sessionEnv,
+  writableRules,
 } from '../../claude/session';
 import type { TruingConfig } from '../../config';
 import { messageOf, type ScreenshotControl } from '../../module';
 
 import { type Bridge, type Decision, startBridge } from './bridge';
-import { chatTitle, createChatStore, defaultChatsDir } from './chat-store';
-import { changedFiles, diffOf, snapshot, undoTurn } from './checkpoint';
-import { applyEvent, newProgress, type TurnProgress } from './events';
-import { promptSummary, renderMessage, renderText } from './message';
+import {
+  chatTitle,
+  type ChatStore,
+  createChatStore,
+  defaultChatsDir,
+} from './chat-store';
+import {
+  changedFiles,
+  diffOf,
+  snapshot,
+  undoTurn,
+  type UndoResult,
+} from './checkpoint';
+import {
+  applyEvent,
+  GENERIC_STOP,
+  newProgress,
+  type TurnProgress,
+} from './events';
+import { promptSummary, renderTurn } from './message';
 import {
   type Attachment,
   type Chat,
@@ -41,6 +59,31 @@ const MAX_TURNS = 40;
 const LIVE_EVERY_MS = 50;
 /** Long enough for hot reload to show the change before the frames are captured. */
 const SETTLE_MS = 1500;
+
+/** On a turn that may have changed files, when there's no way to undo them (TRU-5.3). */
+const NO_UNDO =
+  "This project isn't in git, so there's no Undo for this message.";
+
+/** Anything but reading and searching could have changed a file. */
+function mayHaveChanged(parts: Turn['parts']): boolean {
+  return parts.some(
+    (part) =>
+      part.kind === 'activity' &&
+      part.verb !== 'read' &&
+      part.verb !== 'searched',
+  );
+}
+
+/** Why Undo didn't run, in the designer's terms. */
+function undoWords(result: Exclude<UndoResult, { ok: true }>): string {
+  const files = result.files.join(', ');
+  if (result.reason === 'moved') {
+    return `${files} changed after this turn. Undo the later change first.`;
+  }
+  return result.rolledBack
+    ? `Couldn't put ${files} back, so nothing changed. Try Undo again.`
+    : `Couldn't put ${files} back, and some files may already be undone. Check them before you go on.`;
+}
 
 export type SendInput = {
   text: string;
@@ -77,6 +120,8 @@ export type ChatOptions = {
   settleMs?: number;
   /** Where its chats are kept; the tests pass a temporary folder. */
   chatsDir?: string;
+  /** The tests pass a slow one. */
+  store?: ChatStore;
 };
 
 function newTurn(message: Queued): Turn {
@@ -103,9 +148,9 @@ export function createChat(options: ChatOptions) {
   const start = options.start ?? startRun;
   const runCli = options.runCli ?? runClaude;
   const settleMs = options.settleMs ?? SETTLE_MS;
-  const store = createChatStore(
-    options.chatsDir ?? defaultChatsDir(config.name),
-  );
+  const store =
+    options.store ??
+    createChatStore(options.chatsDir ?? defaultChatsDir(config.name));
 
   // Random, as a chat brought back keeps the ids it was saved with.
   const newId = (kind: string): string => `${kind}-${randomUUID().slice(0, 8)}`;
@@ -130,6 +175,12 @@ export function createChat(options: ChatOptions) {
   let sessionId: string | null = null;
   let current: Run | null = null;
   let stopping = false;
+  /** The turn's plan so far, for the prompt that ends Plan mode. */
+  let plan: string | null = null;
+  /** A message came after Stop, before the turn ended: it's the go-ahead. */
+  let carryOn = false;
+  /** Each save follows the one before, so an older one can't land last. */
+  let saves: Promise<void> = Promise.resolve();
   let live: Turn | null = null;
   let liveTimer: ReturnType<typeof setTimeout> | null = null;
   let bridge: Promise<Bridge> | null = null;
@@ -141,22 +192,29 @@ export function createChat(options: ChatOptions) {
   }
 
   /** Writes the chat as it stands, and lists it. A failure here doesn't stop the turn. */
-  async function saveChat(): Promise<void> {
-    if (chat.turns.length === 0) return;
+  function saveChat(): Promise<void> {
+    if (chat.turns.length === 0) return saves;
+    // Named and copied now (TRU-5.3): by the time it's written, the designer may have
+    // started a new chat, and this one's id must not come back.
     const id = chat.chatId ?? newId('chat');
-    try {
-      await store.save({
-        id,
-        title: chatTitle(chat.turns),
-        updatedAt: new Date().toISOString(),
-        sessionId,
-        // Pictures are for the turn in front of the designer.
-        turns: chat.turns.map((turn) => ({ ...turn, frames: [] })),
-      });
-      update({ chatId: id, sessions: await store.list() });
-    } catch (error) {
-      log(`Couldn't save this chat: ${messageOf(error)}`);
-    }
+    if (chat.chatId === null) update({ chatId: id });
+    const saved = {
+      id,
+      title: chatTitle(chat.turns),
+      updatedAt: new Date().toISOString(),
+      sessionId,
+      // Pictures are for the turn in front of the designer.
+      turns: chat.turns.map((turn) => ({ ...turn, frames: [] })),
+    };
+    saves = saves.then(async () => {
+      try {
+        await store.save(saved);
+        update({ sessions: await store.list() });
+      } catch (error) {
+        log(`Couldn't save this chat: ${messageOf(error)}`);
+      }
+    });
+    return saves;
   }
 
   function sendLive(): void {
@@ -179,24 +237,45 @@ export function createChat(options: ChatOptions) {
     });
   }
 
-  function askDesigner(prompt: {
-    tool_name: string;
-    input: Record<string, unknown>;
-  }): Promise<Decision> {
+  function askDesigner(
+    prompt: {
+      tool_name: string;
+      input: Record<string, unknown>;
+    },
+    gone: AbortSignal,
+  ): Promise<Decision> {
     const id = newId('prompt');
     return new Promise<Decision>((resolve) => {
       answers.set(id, resolve);
+      // Nobody is waiting for this answer any more, so it can't stay clickable (TRU-5.3).
+      gone.addEventListener('abort', () => {
+        if (!answers.delete(id)) return;
+        resolve({ allow: false });
+        update({ prompts: chat.prompts.filter((entry) => entry.id !== id) });
+      });
       update({
         prompts: [
           ...chat.prompts,
           {
             id,
             tool: prompt.tool_name,
-            what: promptSummary(prompt.tool_name, prompt.input),
+            what: promptSummary(prompt.tool_name, prompt.input, plan),
           },
         ],
       });
     });
+  }
+
+  /**
+   * Whether Undo may put this file back (TRU-5.3). A turn sees whatever changed while it
+   * ran, and a change to anything else may be someone's own.
+   */
+  function mayWrite(file: string): boolean {
+    try {
+      return refusal(writableRules(root, config), file, root) === null;
+    } catch {
+      return false;
+    }
   }
 
   /** A run that ended leaves no prompt to answer. */
@@ -241,13 +320,16 @@ export function createChat(options: ChatOptions) {
     session: PreparedSession,
   ): Promise<{ progress: TurnProgress; startError: string | null }> {
     let progress = newProgress(sessionId);
-    const text = renderText({ ...message, notes });
-    notes = [];
-    const input = renderMessage(
-      text,
+    plan = null;
+    const input = renderTurn(
+      { ...message, notes },
       await imagesFor(message.attachments),
       sessionId,
     );
+    // Stopped while it was getting ready (TRU-5.3): nothing has run, and Claude still
+    // has the notes to hear.
+    if (stopping) return { progress, startError: null };
+    notes = [];
     const run = start({
       args: [
         '-p',
@@ -272,6 +354,7 @@ export function createChat(options: ChatOptions) {
       input,
       onEvent: (event) => {
         progress = applyEvent(progress, event);
+        plan = progress.plan;
         live = { ...turn, parts: progress.parts, problem: progress.problem };
         sendLiveSoon();
       },
@@ -285,7 +368,8 @@ export function createChat(options: ChatOptions) {
     if (
       resumed &&
       progress.parts.length === 0 &&
-      progress.problem?.kind === 'other'
+      progress.problem?.kind === 'other' &&
+      progress.problem.message === GENERIC_STOP
     ) {
       progress = {
         ...progress,
@@ -368,6 +452,9 @@ export function createChat(options: ChatOptions) {
         };
       }
     }
+    if (!after && mayHaveChanged(finished.parts)) {
+      finished = { ...finished, undoNote: NO_UNDO };
+    }
 
     live = null;
     sendLive();
@@ -382,9 +469,8 @@ export function createChat(options: ChatOptions) {
     if (finished.decision === 'open') void captureFrames(turn.id);
 
     // Waits for the next message, rather than fail each one in the queue.
-    const blocked = stopping || finished.problem !== null;
+    const blocked = stopping ? !carryOn : finished.problem !== null;
     if (blocked) update({ paused: true });
-    stopping = false;
   }
 
   function showQueue(): Chat['queue'] {
@@ -407,7 +493,7 @@ export function createChat(options: ChatOptions) {
         live = null;
         sendLive();
         update({
-          paused: true,
+          paused: !carryOn,
           turns: [
             ...chat.turns,
             {
@@ -419,6 +505,8 @@ export function createChat(options: ChatOptions) {
         });
       })
       .finally(() => {
+        stopping = false;
+        carryOn = false;
         update({ working: false });
         pump();
       });
@@ -460,6 +548,7 @@ export function createChat(options: ChatOptions) {
       }
       queue.push({ ...input, id: newId('turn') });
       // A new message is the designer saying to carry on.
+      if (stopping) carryOn = true;
       update({ paused: false, queue: showQueue() });
       pump();
     },
@@ -502,10 +591,11 @@ export function createChat(options: ChatOptions) {
     },
 
     stop(): void {
-      if (!current) return;
+      if (!chat.working) return;
       stopping = true;
+      carryOn = false;
       refusePrompts();
-      current.interrupt();
+      current?.interrupt();
     },
 
     unqueue(id: string): void {
@@ -537,26 +627,38 @@ export function createChat(options: ChatOptions) {
         throw new Error("This turn can't be undone anymore.");
       }
       await exclusive(async () => {
+        const paths = turn.files.map((file) => file.path);
+        const mine = paths.filter(mayWrite);
+        const left = paths.filter((file) => !mine.includes(file)).join(', ');
+        if (mine.length === 0) {
+          replaceTurn(id, {
+            undoProblem: `Undo covers only the files Claude may write, so ${left} stayed as they are.`,
+          });
+          return;
+        }
         const result = await undoTurn(
           root,
           checkpoint.before,
           checkpoint.after,
-          turn.files.map((file) => file.path),
+          mine,
         );
         if (!result.ok) {
-          replaceTurn(id, {
-            undoProblem: `${result.files.join(', ')} changed after this turn. Undo the later change first.`,
-          });
+          replaceTurn(id, { undoProblem: undoWords(result) });
           return;
         }
         checkpoints.delete(id);
         notes.push(
-          `The designer undid your changes from an earlier message, to ${turn.files.map((file) => file.path).join(', ')}. Those files are back as they were before it.`,
+          `The designer undid your changes from an earlier message, to ${mine.join(', ')}. Those files are back as they were before it.${left ? ` Undo left these as they are: ${left}.` : ''}`,
         );
         replaceTurn(id, {
           decision: 'undone',
           frames: [],
           undoProblem: null,
+          ...(left
+            ? {
+                undoNote: `Left as they are: ${left}. Undo covers only the files Claude may write.`,
+              }
+            : {}),
         });
         await saveChat();
       });
@@ -564,6 +666,8 @@ export function createChat(options: ChatOptions) {
 
     async close(): Promise<void> {
       closed = true;
+      // A turn still getting ready mustn't start Claude after this.
+      if (chat.working) stopping = true;
       if (liveTimer) clearTimeout(liveTimer);
       refusePrompts();
       current?.interrupt();

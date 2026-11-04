@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-import { isWholeProject, type TruingConfig } from '../config';
+import { isSafeCheck, isWholeProject, type TruingConfig } from '../config';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,6 +64,12 @@ export function modeArgs(mode: PermissionMode): string[] {
     : args;
 }
 
+/**
+ * How long Claude Code waits for an MCP tool, which is how long a prompt can wait for
+ * the designer (TRU-5.3).
+ */
+const PROMPT_WAIT_MS = 24 * 60 * 60 * 1000;
+
 /** Keeps a session on the person's own login, and not nested in another. */
 const DROPPED_ENV = [
   'ANTHROPIC_API_KEY',
@@ -76,11 +82,13 @@ const DROPPED_ENV = [
 
 /**
  * Where a designer's own rules may go in any project (TRU-17.2): they change every
- * later session, so the design PR flags them for a developer.
+ * later session, so the design PR flags them for a developer. Claude may write them
+ * only when the designer says yes each time, as text from a page could otherwise
+ * persist (TRU-5.3). The guard passes them, and the ask rules hold the question.
  */
 export const DESIGN_CONFIG_PATHS = [
   '.claude/rules/design-*.md',
-  '.claude/skills/design-*/**',
+  '.claude/skills/design-*/**/*.md',
 ] as const;
 
 /** Claude never commits or pushes: the designer keeps a turn, and TRU-13.2 commits it. */
@@ -156,7 +164,17 @@ async function projectShellRules(root: string): Promise<string[]> {
       }
     }),
   );
-  return rules.flat().filter((rule) => rule.startsWith('Bash('));
+  // A bare `Bash` allows every command (TRU-5.3).
+  return rules.flat().filter((rule) => /^Bash(\(|$)/.test(rule));
+}
+
+/**
+ * What runs unasked. Claude Code matches a plain rule whole, so a flag, a variable
+ * in front or a second command makes it ask (seen on 2.1.318). A wildcard takes all
+ * of those, and `eslint *` ran `-c` on a file Claude had written (TRU-5.3).
+ */
+function plainChecks(config: SessionConfig): string[] {
+  return (config.claude?.shell?.allow ?? []).filter(isSafeCheck);
 }
 
 export type SessionPermissions = {
@@ -182,13 +200,10 @@ export function sessionPermissions(
   hasNext: boolean,
   mode: PermissionMode = 'manual',
 ): SessionPermissions {
-  const shell = config.claude?.shell;
-  const allowedShell = (shell?.allow ?? []).map((rule) => `Bash(${rule})`);
+  const allowedShell = plainChecks(config).map((rule) => `Bash(${rule})`);
   return {
     allow: [
-      ...[...config.writable.include, ...DESIGN_CONFIG_PATHS].map(
-        (glob) => `Edit(${glob})`,
-      ),
+      ...config.writable.include.map((glob) => `Edit(${glob})`),
       ...allowedShell,
       ...(hasNext ? [`mcp__${NEXT_SERVER}`] : []),
     ],
@@ -197,7 +212,9 @@ export function sessionPermissions(
         ? []
         : [
             ...projectShell.filter((rule) => !allowedShell.includes(rule)),
-            ...(shell?.ask ?? []).map((rule) => `Bash(${rule})`),
+            ...(config.claude?.shell?.ask ?? []).map((rule) => `Bash(${rule})`),
+            // An ask, as the allow list may reach them: full access is `**`.
+            ...DESIGN_CONFIG_PATHS.map((glob) => `Edit(${glob})`),
           ],
     deny: [
       ...DENIED_SHELL.map((rule) => `Bash(${rule})`),
@@ -246,10 +263,26 @@ function skillBody(text: string): string {
   return text.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
 }
 
+/** What the path guard holds a write to, for the guard and for Undo. */
+export function writableRules(
+  root: string,
+  config: Pick<TruingConfig, 'writable'>,
+): { root: string; include: string[]; exclude: string[] } {
+  return {
+    root,
+    include: [...config.writable.include, ...DESIGN_CONFIG_PATHS],
+    exclude: config.writable.exclude,
+  };
+}
+
 /** What every turn is told: the rules, and this project's facts from its config. */
-export async function sessionPrompt(config: SessionConfig): Promise<string> {
+export async function sessionPrompt(
+  config: SessionConfig,
+  hasNext = false,
+  mode: PermissionMode = 'manual',
+): Promise<string> {
   const rules = skillBody(await readFile(DESIGN_SKILL, 'utf8'));
-  const shell = config.claude?.shell?.allow ?? [];
+  const shell = plainChecks(config);
   return [
     'You are working in Truing, a visual editor, with a designer, on the running app.',
     rules,
@@ -264,7 +297,19 @@ export async function sessionPrompt(config: SessionConfig): Promise<string> {
           `- You may write: ${config.writable.include.join(', ')}`,
           `- Never: ${config.writable.exclude.join(', ')}`,
         ]),
+    `- When the designer asks you to keep a rule or a skill for later: ${DESIGN_CONFIG_PATHS.join(', ')}. Markdown only, each write asks the designer first, and a skill's frontmatter stays to its name and description.`,
     `- Shell commands that run without asking: ${shell.length > 0 ? shell.join(', ') : 'none'}`,
+    ...(hasNext
+      ? [
+          `- This app runs on Next.js: its dev server's tools (mcp__${NEXT_SERVER}__*) report routes and errors, so use them to find a page or a runtime error.`,
+        ]
+      : []),
+    // The guard refuses it, as it's outside the project, and the designer still sees it.
+    ...(mode === 'plan'
+      ? [
+          "- In Plan mode the designer sees your plan as you write it, and its file isn't saved. That's expected, so don't mention it.",
+        ]
+      : []),
   ].join('\n\n');
 }
 
@@ -310,11 +355,7 @@ export async function prepareSession(options: {
     return file;
   };
 
-  const rules = await write('writable.json', {
-    root,
-    include: [...config.writable.include, ...DESIGN_CONFIG_PATHS],
-    exclude: config.writable.exclude,
-  });
+  const rules = await write('writable.json', writableRules(root, config));
   const settings = await write('settings.json', {
     // The person's own helper would beat the subscription.
     apiKeyHelper: '',
@@ -372,9 +413,12 @@ export async function prepareSession(options: {
       '--permission-prompt-tool',
       PROMPT_TOOL,
       '--append-system-prompt',
-      await sessionPrompt(config),
+      await sessionPrompt(config, hasNext, options.mode),
     ],
-    env: sessionEnv(dropEnv, options.env),
+    env: {
+      ...sessionEnv(dropEnv, options.env),
+      MCP_TOOL_TIMEOUT: String(PROMPT_WAIT_MS),
+    },
     permissions,
     servers: [MCP_SERVER, ...(hasNext ? [NEXT_SERVER] : [])],
     dispose: () => rm(dir, { recursive: true, force: true }),

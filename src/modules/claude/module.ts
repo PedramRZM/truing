@@ -119,6 +119,8 @@ function chatSchemas() {
     decision: z.enum(['none', 'open', 'kept', 'undone']),
     /** Why Undo couldn't run, if it couldn't. */
     undoProblem: z.nullable(z.string()),
+    /** What the turn should say about Undo: what it left, or that there is none. */
+    undoNote: z.optional(z.string()),
   });
 
   const queued = z.object({

@@ -1,6 +1,7 @@
 // From what setup learned to what Truing runs on.
 import {
   DEFAULT_MODULES,
+  isSafeCheck,
   isWholeProject,
   type TruingConfig,
   truingConfigSchema,
@@ -11,7 +12,7 @@ import path from 'node:path';
 import { loadTokens } from '../tokens/table';
 
 import type { Profile } from './profile';
-import { type Draft, isSafeCheck, type KeptValue } from './read-project';
+import { type Draft, type KeptValue } from './read-project';
 import { SETTING_FIELDS, type SettingField } from './setting-fields';
 
 /** Flags that write files always ask, even on a check Claude may run unasked. */

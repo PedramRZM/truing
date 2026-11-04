@@ -66,8 +66,9 @@ function sameSecret(given: string, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** `gone` fires when nobody is left to hear the answer. */
 export async function startBridge(
-  ask: (prompt: PermissionPrompt) => Promise<Decision>,
+  ask: (prompt: PermissionPrompt, gone: AbortSignal) => Promise<Decision>,
 ): Promise<Bridge> {
   const token = randomBytes(32).toString('hex');
   let host = '';
@@ -97,8 +98,14 @@ export async function startBridge(
     void bodyOf(request)
       .then(async (body) => {
         const prompt = promptSchema.parse(JSON.parse(body));
+        const asking = new AbortController();
+        response.once('close', () => {
+          if (!response.writableEnded) asking.abort();
+        });
         // Refused or gone, the answer is no.
-        const decision = await ask(prompt).catch(() => ({ allow: false }));
+        const decision = await ask(prompt, asking.signal).catch(() => ({
+          allow: false,
+        }));
         reply(200, permissionReply(prompt, decision));
       })
       .catch(() => reply(400, { error: 'Bad request.' }));
