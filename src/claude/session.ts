@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-import { isWholeProject, type TruingConfig } from '../config';
+import { isSafeCheck, isWholeProject, type TruingConfig } from '../config';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -76,11 +76,13 @@ const DROPPED_ENV = [
 
 /**
  * Where a designer's own rules may go in any project (TRU-17.2): they change every
- * later session, so the design PR flags them for a developer.
+ * later session, so the design PR flags them for a developer. Claude may write them
+ * only when the designer says yes each time, as text from a page could otherwise
+ * persist (TRU-5.3). The guard passes them, and the ask rules hold the question.
  */
 export const DESIGN_CONFIG_PATHS = [
   '.claude/rules/design-*.md',
-  '.claude/skills/design-*/**',
+  '.claude/skills/design-*/**/*.md',
 ] as const;
 
 /** Claude never commits or pushes: the designer keeps a turn, and TRU-13.2 commits it. */
@@ -156,7 +158,17 @@ async function projectShellRules(root: string): Promise<string[]> {
       }
     }),
   );
-  return rules.flat().filter((rule) => rule.startsWith('Bash('));
+  // A bare `Bash` allows every command (TRU-5.3).
+  return rules.flat().filter((rule) => /^Bash(\(|$)/.test(rule));
+}
+
+/**
+ * What runs unasked. Claude Code matches a plain rule whole, so a flag, a variable
+ * in front or a second command makes it ask (seen on 2.1.318). A wildcard takes all
+ * of those, and `eslint *` ran `-c` on a file Claude had written (TRU-5.3).
+ */
+function plainChecks(config: SessionConfig): string[] {
+  return (config.claude?.shell?.allow ?? []).filter(isSafeCheck);
 }
 
 export type SessionPermissions = {
@@ -182,13 +194,10 @@ export function sessionPermissions(
   hasNext: boolean,
   mode: PermissionMode = 'manual',
 ): SessionPermissions {
-  const shell = config.claude?.shell;
-  const allowedShell = (shell?.allow ?? []).map((rule) => `Bash(${rule})`);
+  const allowedShell = plainChecks(config).map((rule) => `Bash(${rule})`);
   return {
     allow: [
-      ...[...config.writable.include, ...DESIGN_CONFIG_PATHS].map(
-        (glob) => `Edit(${glob})`,
-      ),
+      ...config.writable.include.map((glob) => `Edit(${glob})`),
       ...allowedShell,
       ...(hasNext ? [`mcp__${NEXT_SERVER}`] : []),
     ],
@@ -197,7 +206,9 @@ export function sessionPermissions(
         ? []
         : [
             ...projectShell.filter((rule) => !allowedShell.includes(rule)),
-            ...(shell?.ask ?? []).map((rule) => `Bash(${rule})`),
+            ...(config.claude?.shell?.ask ?? []).map((rule) => `Bash(${rule})`),
+            // An ask, as the allow list may reach them: full access is `**`.
+            ...DESIGN_CONFIG_PATHS.map((glob) => `Edit(${glob})`),
           ],
     deny: [
       ...DENIED_SHELL.map((rule) => `Bash(${rule})`),
@@ -249,7 +260,7 @@ function skillBody(text: string): string {
 /** What every turn is told: the rules, and this project's facts from its config. */
 export async function sessionPrompt(config: SessionConfig): Promise<string> {
   const rules = skillBody(await readFile(DESIGN_SKILL, 'utf8'));
-  const shell = config.claude?.shell?.allow ?? [];
+  const shell = plainChecks(config);
   return [
     'You are working in Truing, a visual editor, with a designer, on the running app.',
     rules,

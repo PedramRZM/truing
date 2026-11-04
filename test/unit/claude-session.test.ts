@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { refusal } from '../../src/claude/path-guard.mjs';
 import {
+  DESIGN_CONFIG_PATHS,
   modeArgs,
   PERMISSION_MODES,
   prepareSession,
@@ -144,6 +145,155 @@ describe('the path guard', () => {
       );
       expect(denied.status).toBe(2);
       expect(denied.stderr).toMatch(/off limits/);
+    });
+
+    // TRU-5.3 #3, checked: a link to nothing counts as where it points.
+    it('blocks a write through a link to nothing outside the project', () => {
+      const root = project({ 'src/a.tsx': '' });
+      const outside = path.join(
+        mkdtempSync(path.join(os.tmpdir(), 'ds-')),
+        'x',
+      );
+      symlinkSync(outside, path.join(root, 'src/link.tsx'));
+      const denied = run(
+        JSON.stringify({
+          cwd: root,
+          tool_input: { file_path: 'src/link.tsx' },
+        }),
+        rulesFile(root),
+      );
+      expect(denied.status).toBe(2);
+      expect(denied.stderr).toMatch(/outside the project/);
+    });
+
+    it('blocks a write through a loop of links', () => {
+      const root = project({ 'src/a.tsx': '' });
+      symlinkSync('loop-b.tsx', path.join(root, 'src/loop-a.tsx'));
+      symlinkSync('loop-a.tsx', path.join(root, 'src/loop-b.tsx'));
+      const denied = run(
+        JSON.stringify({
+          cwd: root,
+          tool_input: { file_path: 'src/loop-a.tsx' },
+        }),
+        rulesFile(root),
+      );
+      expect(denied.status).toBe(2);
+    });
+
+    // TRU-5.3 #5: seen on 2.1.318. Once the designer says yes to the Skill prompt, these
+    // run with no further prompt, so text from a page could grant itself a shell.
+    describe('on the instructions a designer keeps', () => {
+      const SKILL = '.claude/skills/design-a/SKILL.md';
+      const guarded = (root: string) => {
+        const file = path.join(root, 'design-rules.json');
+        writeFileSync(
+          file,
+          JSON.stringify({
+            root,
+            include: [...DESIGN_CONFIG_PATHS],
+            exclude: [],
+          }),
+        );
+        return (tool_input: Record<string, unknown>) =>
+          run(JSON.stringify({ cwd: root, tool_input }), file);
+      };
+
+      it.each([
+        ['allowed-tools', 'allowed-tools: Bash(curl *)'],
+        ['a quoted allowed-tools', '"allowed-tools": Bash(curl *)'],
+        ['its other spelling', 'allowed_tools: Bash(curl *)'],
+        ['hooks', 'hooks:\n  PreToolUse: []'],
+        ['a helper to run it', 'agent: general-purpose'],
+        ['a key in flow style', '{name: a, allowed-tools: Bash}'],
+      ])('refuses a skill that sets %s', (_what, line) => {
+        const write = guarded(project());
+        const result = write({
+          file_path: SKILL,
+          content: `---\nname: design-a\n${line}\n---\n\n# A\n`,
+        });
+        expect(result.status).toBe(2);
+        expect(result.stderr).toMatch(/developer/);
+      });
+
+      it('refuses them behind a leading blank line or byte order mark', () => {
+        const write = guarded(project());
+        const mark = String.fromCodePoint(0xfeff);
+        for (const start of ['\n', mark]) {
+          expect(
+            write({
+              file_path: SKILL,
+              content: `${start}---\nhooks: {}\n---\n`,
+            }).status,
+          ).toBe(2);
+        }
+      });
+
+      it('judges what an edit leaves, not only what it adds', () => {
+        const root = project({
+          [SKILL]: '---\nname: a\nallowed-XX: Bash(curl *)\n---\n',
+        });
+        const write = guarded(root);
+        expect(
+          write({
+            file_path: SKILL,
+            old_string: 'allowed-XX',
+            new_string: 'allowed-tools',
+          }).status,
+        ).toBe(2);
+        expect(
+          write({
+            file_path: SKILL,
+            edits: [{ old_string: 'allowed-XX', new_string: 'allowed-tools' }],
+          }).status,
+        ).toBe(2);
+      });
+
+      it('fails closed on a call whose text it can’t work out', () => {
+        const write = guarded(project());
+        expect(write({ file_path: SKILL }).status).toBe(2);
+      });
+
+      it('lets words, and the keys that grant nothing, through', () => {
+        const root = project();
+        const write = guarded(root);
+        expect(
+          write({
+            file_path: SKILL,
+            content:
+              '---\nname: design-a\ndescription: |\n  Buttons.\n  More.\n---\n\nallowed-tools: is a word here.\n',
+          }).status,
+        ).toBe(0);
+        expect(
+          write({
+            file_path: '.claude/rules/design-a.md',
+            content: '---\npaths:\n  - "src/**"\n---\n\n# A\n',
+          }).status,
+        ).toBe(0);
+        expect(
+          write({ file_path: SKILL, content: '# No frontmatter\n' }).status,
+        ).toBe(0);
+      });
+
+      it('leaves an ordinary Markdown file alone', () => {
+        const root = project();
+        const file = rulesFile(root);
+        writeFileSync(
+          file,
+          JSON.stringify({ root, include: ['**'], exclude: [] }),
+        );
+        expect(
+          run(
+            JSON.stringify({
+              cwd: root,
+              tool_input: {
+                file_path: 'docs/a.md',
+                content: '---\nallowed-tools: x\n---\n',
+              },
+            }),
+            file,
+          ).status,
+        ).toBe(0);
+      });
     });
 
     it('fails closed: bad input, no path, or no rules all block', () => {
@@ -298,6 +448,111 @@ describe('the session', () => {
     });
     expect(session.permissions.ask).toContain('Bash(pnpm test *)');
     expect(session.permissions.ask).not.toContain('Read(x)');
+    await session.dispose();
+  });
+
+  // TRU-5.3 #2: `eslint *` ran `-c evil.mjs`, `--output-file=x` and `--fix=true` unasked.
+  it('runs only a plain command unasked: a wildcard would take any flag', async () => {
+    const wild = {
+      ...config,
+      claude: {
+        shell: {
+          allow: ['eslint *', 'pnpm exec eslint src/*', 'pnpm typecheck'],
+        },
+      },
+    };
+    const { allow, ask } = sessionPermissions(
+      wild,
+      ['Bash(eslint *)', 'Bash(pnpm typecheck)'],
+      false,
+    );
+    expect(allow).toContain('Bash(pnpm typecheck)');
+    expect(allow.filter((rule) => rule.startsWith('Bash('))).toEqual([
+      'Bash(pnpm typecheck)',
+    ]);
+    // Naming it in the config doesn't lift the project's own rule off the ask list.
+    expect(ask).toContain('Bash(eslint *)');
+    expect(ask).not.toContain('Bash(pnpm typecheck)');
+
+    const prompt = await sessionPrompt(wild);
+    expect(prompt).toContain(
+      'Shell commands that run without asking: pnpm typecheck',
+    );
+    expect(prompt).not.toContain('eslint');
+  });
+
+  // TRU-5.3 #5: text from a page could persist across sessions.
+  it('asks before Claude writes a designer’s own rules and skills', () => {
+    const { allow, ask } = sessionPermissions(config, [], false);
+    for (const glob of DESIGN_CONFIG_PATHS) {
+      expect(allow).not.toContain(`Edit(${glob})`);
+      expect(ask).toContain(`Edit(${glob})`);
+    }
+  });
+
+  it('asks about them under full access too, where `**` would allow them', () => {
+    const whole = {
+      ...config,
+      writable: { include: ['**'], exclude: [] },
+    };
+    const { allow, ask } = sessionPermissions(whole, [], false);
+    expect(allow).toContain('Edit(**)');
+    for (const glob of DESIGN_CONFIG_PATHS) {
+      expect(ask).toContain(`Edit(${glob})`);
+    }
+  });
+
+  it('lets the guard pass only their Markdown, whatever the list', () => {
+    const root = project();
+    const lists = [
+      { root, include: [...DESIGN_CONFIG_PATHS], exclude: [] },
+      { root, include: ['**', ...DESIGN_CONFIG_PATHS], exclude: [] },
+    ];
+    for (const rules of lists) {
+      for (const file of [
+        '.claude/rules/design-a.md',
+        '.claude/skills/design-a/SKILL.md',
+        '.claude/skills/design-a/notes/more.md',
+      ]) {
+        expect(refusal(rules, file, root), file).toBeNull();
+      }
+      for (const file of [
+        '.claude/skills/design-a/run.sh',
+        '.claude/skills/design-a/hook.py',
+        '.claude/skills/design-a/notes/run.mjs',
+        '.claude/skills/design-a/settings.json',
+        '.claude/rules/design-a.sh',
+      ]) {
+        expect(refusal(rules, file, root), file).not.toBeNull();
+      }
+    }
+  });
+
+  // TRU-5.3 #4: only `Bash(` matched, so a bare rule stayed an allow.
+  it.each(['.claude/settings.json', '.claude/settings.local.json'])(
+    'asks about a bare Bash rule in %s',
+    async (file) => {
+      const session = await prepareSession({
+        root: project({
+          [file]: JSON.stringify({ permissions: { allow: ['Bash'] } }),
+        }),
+        config,
+      });
+      expect(session.permissions.ask).toContain('Bash');
+      await session.dispose();
+    },
+  );
+
+  it('leaves a tool whose name only starts like Bash alone', async () => {
+    const session = await prepareSession({
+      root: project({
+        '.claude/settings.json': JSON.stringify({
+          permissions: { allow: ['BashOutput'] },
+        }),
+      }),
+      config,
+    });
+    expect(session.permissions.ask).not.toContain('BashOutput');
     await session.dispose();
   });
 
