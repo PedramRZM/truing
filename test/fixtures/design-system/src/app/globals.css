@@ -1,0 +1,1081 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* @source "../node_modules/streamdown/dist/index.js"; */
+
+/* Kept as three lines: the token tests assert line numbers
+   in this file. */
+
+
+@layer utilities {
+  .hide-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * Design tokens. Colours, shadows and type styles are the Figma design
+ * system's (the fixture's design system file: the Colors
+ * frame and the variables the Search frame binds, read 2026-10-17);
+ * src/app/_lib/styles/tokens.json is an older export and no longer matches.
+ * A colour that is not in that file is not a token.
+ *
+ * - Primitive colors are emitted as real CSS vars via @theme so they cascade
+ *   and can be referenced by the shadcn semantic vars below.
+ * - shadcn semantic vars (--background, --primary, ...) are aligned to the
+ *   `app.cnt.*`, `app.bg.*`, `app.br.*` semantic tokens from tokens.json.
+ * - `@theme inline` exposes the semantic vars as Tailwind utilities
+ *   (bg-background, text-primary, border-border, ...) that reference the vars
+ *   inline, so .dark overrides work automatically.
+ * -------------------------------------------------------------------------- */
+
+@theme {
+  /* ---- Primitive: brand-1 = Figma Primary (blue) ---- */
+  --color-brand-1-100: #e9f5ff;
+  --color-brand-1-200: #cae6ff;
+  --color-brand-1-300: #97c6ff;
+  --color-brand-1-400: #71aaff;
+  --color-brand-1-500: #3d82f2;
+  --color-brand-1-600: #1c68d4;
+  --color-brand-1-700: #125ec9;
+  --color-brand-1-800: #0b4dab;
+  --color-brand-1-900: #053b88;
+
+  /* ---- Primitive: brand-2 = Figma Secondary (purple) ---- */
+  --color-brand-2-100: #eee7ff;
+  --color-brand-2-200: #dccdff;
+  --color-brand-2-300: #c8b0ff;
+  --color-brand-2-400: #a47eff;
+  --color-brand-2-500: #7f54e8;
+  --color-brand-2-600: #6336cf;
+  --color-brand-2-700: #582cc1;
+  --color-brand-2-800: #40189f;
+  --color-brand-2-900: #2b0e71;
+
+  /* ---- Primitive: grey = Figma Grey (neutral) ---- */
+  --color-grey-100: #ffffff;
+  --color-grey-200: #f7f7f9;
+  --color-grey-300: #f2f2f5;
+  --color-grey-400: #e9e9ef;
+  --color-grey-500: #c5c8cf;
+  --color-grey-600: #7d8394;
+  --color-grey-700: #595e6c;
+  --color-grey-800: #313441;
+  --color-grey-900: #181b24;
+
+  /* ---- Primitive: red = Figma Red (Error) ---- */
+  --color-red-100: #ffebe9;
+  --color-red-200: #ffd1cd;
+  --color-red-300: #ffa9a1;
+  --color-red-400: #ff5d5d;
+  --color-red-500: #f23030;
+  --color-red-600: #d31b31;
+  --color-red-700: #b91a3c;
+  --color-red-800: #a3183f;
+  --color-red-900: #690c31;
+
+  /* ---- Primitive: blue = Figma Blue (Info) ---- */
+  --color-blue-100: #eefcff;
+  --color-blue-200: #d0f6ff;
+  --color-blue-300: #7cdff7;
+  --color-blue-400: #33d1f7;
+  --color-blue-500: #03b4e0;
+  --color-blue-600: #0580b4;
+  --color-blue-700: #046198;
+  --color-blue-800: #034a80;
+  --color-blue-900: #023267;
+
+  /* ---- Primitive: green = Figma Green (Success) ---- */
+  --color-green-100: #edfff8;
+  --color-green-200: #c1ffee;
+  --color-green-300: #7eeed0;
+  --color-green-400: #55d6b2;
+  --color-green-500: #1bc897;
+  --color-green-600: #11937f;
+  --color-green-700: #0c7c76;
+  --color-green-800: #086268;
+  --color-green-900: #054a58;
+
+  /* ---- Primitive: yellow = Figma Yellow (Warning) ---- */
+  --color-yellow-100: #fffcee;
+  --color-yellow-200: #fff5c7;
+  --color-yellow-300: #ffeea7;
+  --color-yellow-400: #fede5d;
+  --color-yellow-500: #fdd017;
+  --color-yellow-600: #c09702;
+  --color-yellow-700: #b38700;
+  --color-yellow-800: #a17701;
+  --color-yellow-900: #916801;
+
+  /* ---- Primitive: orange = Figma Tertiary (Pending) ---- */
+  --color-orange-100: #fff5e9;
+  --color-orange-200: #ffead0;
+  --color-orange-300: #f9ca90;
+  --color-orange-400: #f6b058;
+  --color-orange-500: #f28907;
+  --color-orange-600: #de7c02;
+  --color-orange-700: #c36c02;
+  --color-orange-800: #a25a00;
+  --color-orange-900: #814700;
+
+  /* ---- Radius (tokens/radius.tokens.json) ---- */
+  --radius-none: 0px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+  --radius-full: 9999px;
+
+  /* ---- Spacing: legacy custom scale (keep for backward compat) ---- */
+  --spacing-50: 2px;
+  --spacing-100: 4px;
+  --spacing-200: 6px;
+  --spacing-300: 8px;
+  --spacing-400: 12px;
+  --spacing-500: 16px;
+  --spacing-600: 18px;
+  --spacing-650: 20px;
+  --spacing-700: 24px;
+  --spacing-750: 28px;
+  --spacing-800: 30px;
+  --spacing-850: 36px;
+  --spacing-900: 48px;
+  --spacing-1000: 60px;
+  --spacing-1100: 72px;
+  --spacing-1200: 96px;
+  --spacing-1300: 180px;
+
+  /* ---- Font family ---- */
+  --font-sans: var(--font-inter), var(--font-vazirmatn),
+    var(--font-noto-sans-arabic), var(--font-pretendard), system-ui,
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  /* The same stack for text marked lang="ar" (app/fonts.css): Arabic in Noto
+   * Sans Arabic, where Persian and unmarked Arabic script take Vazirmatn. */
+  --font-sans-arabic: var(--font-inter), var(--font-noto-sans-arabic),
+    var(--font-vazirmatn), var(--font-pretendard), system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+
+  /* ---- Research-space workspace: the two faces the reading UI needs ----
+   * Both lead with Vazirmatn (see app/fonts.css): its face carries a
+   * unicode-range, so it only answers for Arabic script and every Latin glyph
+   * falls through to the face named after it, exactly as it would without the
+   * entry. Leading with it is what keeps U+200C — the نیم‌فاصله — in the same
+   * shaping run as the letters around it; behind a system face it is never
+   * reached and Persian words come apart at the half-space. */
+  --font-paper: 'Vazirmatn', 'Iowan Old Style', 'Source Serif 4', Georgia,
+    'Times New Roman', serif;
+  /* Separate from Tailwind's own `font-mono` because none of the monospace
+   * faces carry Arabic: a Persian search string, or a Persian word inside a
+   * code span, would otherwise be the one run on the page the researcher
+   * cannot read. */
+  --font-code: 'Vazirmatn', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo,
+    Consolas, monospace;
+
+  /* The reading column. Questions, answers and the composer all sit inside it,
+   * centred in the pane, so the eye keeps one measure and one left edge the
+   * whole way down. In `ch` so it tracks the type rather than the viewport. */
+  /* The measure of a research-space thread, and of the composer under it.
+     Counted rather than estimated, because `ch` is the width of a zero and
+     says nothing across two fonts: at 88ch the answer ran 704px and 91
+     characters a line in a 1263px pane, so 44% of the pane was gutter.
+     860px at the answer's 17px comes to 96 characters — the measure
+     Consensus sets its own answers at (768px of a wider face, also 96). */
+  --container-reading: 860px;
+
+  /* Pane elevation — a hairline lift for resting surfaces, a deeper one for
+   * anything that floats over the workspace. */
+  --shadow-pane: 0 1px 2px rgb(23 26 33 / 0.05), 0 8px 24px rgb(23 26 33 / 0.07);
+
+  /* Figma's two effect styles, both Grey/900 at 5%: cards and the filters
+   * panel float; the search box sits like navigation. */
+  --shadow-floating-card: 0 4px 12px 0 rgb(24 27 36 / 0.05);
+  --shadow-navigation: 0 4px 6px 0 rgb(24 27 36 / 0.05);
+
+  /* ---- Figma's text styles (Inter). Body/large and Body/medium are
+   * Tailwind's text-base and text-sm, so they are not repeated here. ---- */
+  --text-title-2xl: 24px;
+  --text-title-2xl--line-height: 30px;
+  --text-title-2xl--font-weight: 700;
+  --text-title-m: 16px;
+  --text-title-m--line-height: 18px;
+  --text-title-m--font-weight: 700;
+  --text-title-s: 14px;
+  --text-title-s--line-height: 16px;
+  --text-title-s--font-weight: 700;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 20px;
+  --text-label-md: 14px;
+  --text-label-md--line-height: 1.3;
+  --text-label-md--font-weight: 600;
+  --text-label-xs: 12px;
+  --text-label-xs--line-height: 1.3;
+  --text-label-xs--font-weight: 600;
+  --text-button-sm: 14px;
+  --text-button-sm--line-height: 20px;
+  --text-button-sm--font-weight: 600;
+  --text-button-md: 16px;
+  --text-button-md--line-height: 24px;
+  --text-button-md--font-weight: 600;
+
+  /* The page body's width in Figma's search frames. */
+  --container-page: 1200px;
+  --shadow-pane-lg: 0 12px 28px rgb(23 26 33 / 0.14),
+    0 2px 8px rgb(23 26 33 / 0.08);
+
+  /* ---- Animations ---- */
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-status-pulse: statusPulse 2s ease-out infinite;
+  --animate-rotate-stroke: rotateStroke 2s ease-in-out infinite;
+  --animate-fade-opacity: fadeOpacity 2s ease-in-out infinite;
+  --animate-scale-logo: scaleLogo 2s ease-in-out infinite;
+  --animate-float-5: float-5 3.5s ease-in-out infinite;
+  --animate-float-6: float-6 4.5s ease-in-out infinite;
+  --animate-float-7: float-7 4s ease-in-out infinite;
+  --animate-float-8: float-8 4s ease-in-out infinite;
+  --animate-float-9: float-9 5s ease-in-out infinite;
+  --animate-float-10: float-10 3.5s ease-in-out infinite;
+  --animate-float-15: float-15 4s ease-in-out infinite;
+  --animate-float-16: float-16 3.7s ease-in-out infinite;
+  --animate-float-19: float-19 4.1s ease-in-out infinite;
+  --animate-float-20: float-20 3.6s ease-in-out infinite;
+  --animate-float-23: float-23 3.9s ease-in-out infinite;
+  --animate-float-24: float-24 4.6s ease-in-out infinite;
+  --animate-float-25: float-25 3.8s ease-in-out infinite;
+  --animate-float-26: float-26 4.2s ease-in-out infinite;
+  --animate-references-restyled-a: referencesRestyledA 1100ms ease-out;
+  --animate-references-restyled-b: referencesRestyledB 1100ms ease-out;
+
+  /* The research workspace's own arrivals: the thinking block easing in under
+     a question, the jump-to-latest pill rising over the thread, and the mark
+     turning while a turn is still being worked on. */
+  --animate-think-in: thinkIn 0.22s ease-out both;
+  --animate-jump-in: jumpIn 0.18s ease-out both;
+  --animate-mark-spin: markSpin 1.5s linear infinite;
+  --animate-up-in: upIn 0.18s ease-out;
+
+  /* A step that finishes while its turn is on screen. One choreographed change
+     on one row, not three effects: the check pops in where the spinner was and
+     draws its stroke (the glyph finishing, not a swapped icon), the row's
+     brand tint fades out over the same 1100 ms as the references restyle — a
+     Yellow Fade in the app's own colour, saying "this just changed" — and on a
+     row that opens a result the chevron slides in last, the one signifier that
+     says it can now be opened. Durations sit in NN/g's 100–400 ms for state
+     feedback; the curves are Material 3's emphasized decelerate (entering) and
+     standard (the stroke). */
+  --animate-row-settle: rowSettle 1100ms ease-out;
+  --animate-check-pop: checkPop 240ms cubic-bezier(0.05, 0.7, 0.1, 1) both;
+  --animate-check-draw: checkDraw 300ms cubic-bezier(0.2, 0, 0, 1) 60ms both;
+  --animate-chevron-in: chevronIn 250ms cubic-bezier(0.05, 0.7, 0.1, 1) 150ms
+    both;
+}
+
+/* A table in an answer. It is as wide as the answer it sits in and scrolls
+   sideways inside that, everywhere: the thread, the artifact panel, a shared
+   chat.
+
+   It used to break out of the reading column to the pane's full width, on the
+   reasoning that seven columns crushed into 88ch is a column of one-word
+   cells. What that actually produced was a table that ignored the answer it
+   belonged to and ran the width of the workspace, which reads as a different
+   document rather than as part of the reply. A table the width of the answer,
+   scrolling, keeps the column of prose intact and keeps the table's own
+   columns at their natural width. */
+.rsc-table-box {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Twin keyframes so back-to-back citation-style switches restart the pulse
+   (the References paper alternates between the two). */
+@keyframes referencesRestyledA {
+  from {
+    background-color: color-mix(
+      in srgb,
+      var(--color-brand-1-500) 10%,
+      transparent
+    );
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes referencesRestyledB {
+  from {
+    background-color: color-mix(
+      in srgb,
+      var(--color-brand-1-500) 10%,
+      transparent
+    );
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes thinkIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Centring is the pill's own `-translate-x-1/2`, which rides the `translate`
+   property — so this animates `transform` alone and the two compose. */
+@keyframes jumpIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* One turn, one speed. A spinner that eases is a spinner that stops, and a
+   loader that stops twice a cycle reads as a hung one. */
+/* A file joining the upload queue, which grows downwards from its header — so
+   each new row comes from above, where the one before it went. */
+@keyframes upIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes markSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Only a `from`: the row fades back to its own background and border, so the
+   keyframe never has to know what those are. Colour alone, so it stays under
+   reduced motion — a highlight fade is the alternative Apple's guidance names
+   for motion that carries a status change, and WCAG 2.3.3 does not count a
+   colour change as motion. */
+@keyframes rowSettle {
+  from {
+    background-color: color-mix(
+      in srgb,
+      var(--color-brand-1-500) 10%,
+      transparent
+    );
+    border-color: color-mix(in srgb, var(--color-brand-1-500) 45%, transparent);
+  }
+}
+
+@keyframes checkPop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The path carries `pathLength="1"` and `stroke-dasharray: 1`, so one unit is
+   the whole stroke whatever its drawn length. */
+@keyframes checkDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Rides `transform`, so it composes with the chevron's own `translate` on
+   hover and `rotate` when a shared chat opens the row in place. */
+@keyframes chevronIn {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+    transform: translateZ(0);
+  }
+  100% {
+    background-position: 100% 0;
+    transform: translateZ(0);
+  }
+}
+
+@keyframes statusPulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--secondary) 28%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--secondary) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--secondary) 0%, transparent);
+  }
+}
+
+@keyframes rotateStroke {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(720deg);
+  }
+}
+
+@keyframes fadeOpacity {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes scaleLogo {
+  0% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0.9);
+  }
+}
+
+@keyframes float-5 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(300px, 10px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(550px, 15px) scale(1);
+  }
+}
+
+@keyframes float-6 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(750px, 5px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(500px, 8px) scale(1);
+  }
+}
+
+@keyframes float-7 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(280px, 12px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(560px, 15px) scale(1);
+  }
+}
+
+@keyframes float-8 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(900px, 0px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(650px, 5px) scale(1);
+  }
+}
+
+@keyframes float-9 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(400px, 15px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(680px, 18px) scale(1);
+  }
+}
+
+@keyframes float-10 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(920px, 8px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(670px, 12px) scale(1);
+  }
+}
+
+@keyframes float-15 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(10px, 12px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(260px, 15px) scale(1);
+  }
+}
+
+@keyframes float-16 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(270px, 8px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(20px, 11px) scale(1);
+  }
+}
+
+@keyframes float-19 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(900px, 7px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(1150px, 10px) scale(1);
+  }
+}
+
+@keyframes float-20 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(1180px, 12px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(930px, 15px) scale(1);
+  }
+}
+
+@keyframes float-23 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(200px, 10px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(470px, 13px) scale(1);
+  }
+}
+
+@keyframes float-24 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(530px, 5px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(800px, 8px) scale(1);
+  }
+}
+
+@keyframes float-25 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(40px, 14px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(310px, 17px) scale(1);
+  }
+}
+
+@keyframes float-26 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(1050px, 9px) scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(780px, 12px) scale(1);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * shadcn semantic tokens — aligned to tokens.json semantic layer (troweb-light)
+ * -------------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    /* surfaces — app.bg.neutral.* */
+    --background: var(
+      --color-grey-100
+    ); /* app.bg.neutral.main = core.grey.100 */
+    --foreground: var(
+      --color-grey-900
+    ); /* app.cnt.neutral.default = core.grey.900 */
+    --card: var(--color-grey-100); /* app.bg.neutral.modal */
+    --card-foreground: var(--color-grey-900);
+    --popover: var(--color-grey-100); /* app.bg.neutral.more-option */
+    --popover-foreground: var(--color-grey-900);
+
+    /* brand — app.cnt.{primary,secondary,tertiary}.default */
+    /* Figma's solid buttons are Primary/500, but white on it is 3.7:1, under
+       the 4.5:1 a 14-16 px label needs. Primary/600 is the first step that
+       passes (5.3:1); Primary/500 stays the focus ring and the chart blue. */
+    --primary: var(--color-brand-1-600);
+    --primary-foreground: var(--color-grey-100); /* reverse */
+    --secondary: var(
+      --color-brand-2-500
+    ); /* app.cnt.secondary.default = core.brand.2.500 */
+    --secondary-foreground: var(--color-grey-100);
+    --accent: var(--color-orange-500); /* Figma Tertiary/500 */
+    --accent-foreground: var(--color-grey-100);
+
+    /* feedback — app.cnt.{success,info,danger,warning,pending}.default */
+    --destructive: var(
+      --color-red-500
+    ); /* app.cnt.danger.default = core.red.500 */
+    --destructive-foreground: var(--color-grey-100);
+    --success: var(
+      --color-green-500
+    ); /* app.cnt.success.default = core.green.500 */
+    --success-foreground: var(--color-grey-100);
+    --info: var(--color-blue-500); /* app.cnt.info.default = core.blue.500 */
+    --info-foreground: var(--color-grey-100);
+    --warning: var(
+      --color-yellow-500
+    ); /* app.cnt.warning.default = core.yellow.500 */
+    --warning-foreground: var(--color-grey-900);
+    --pending: var(
+      --color-orange-500
+    ); /* app.cnt.pending.default = core.orange.500 */
+    --pending-foreground: var(--color-grey-100);
+
+    /* muted — app.bg.neutral.secondary + app.cnt.neutral.weak */
+    --muted: var(
+      --color-grey-200
+    ); /* app.bg.neutral.secondary = core.grey.200 */
+    /* Figma's app/cnt/neutral/medium. Its weak-1, Grey/600, is 3.8:1 on
+       white: too light for text, so it is for chevrons and borders only. */
+    --muted-foreground: var(--color-grey-700);
+
+    /* borders — app.br.neutral.* */
+    --border: var(--color-grey-300); /* app.br.neutral.weak = core.grey.300 */
+    --input: var(--color-grey-400); /* app.br.neutral.medium = core.grey.400 */
+    --ring: var(
+      --color-brand-1-500
+    ); /* app.br.primary.main = core.brand.1.500 */
+
+    /* charts */
+    --chart-1: var(--color-brand-1-500);
+    --chart-2: var(--color-brand-2-500);
+    --chart-3: var(--color-blue-500);
+    --chart-4: var(--color-green-500);
+    --chart-5: var(--color-orange-500);
+
+    /* sidebar (shadcn v4 convention) */
+    --sidebar: var(--color-grey-100);
+    --sidebar-foreground: var(--color-grey-900);
+    --sidebar-primary: var(--color-brand-1-600);
+    --sidebar-primary-foreground: var(--color-grey-100);
+    --sidebar-accent: var(--color-grey-200);
+    --sidebar-accent-foreground: var(--color-grey-900);
+    --sidebar-border: var(--color-grey-300);
+    --sidebar-ring: var(--color-brand-1-500);
+
+    /* legacy alias still referenced by components */
+    --color-app-br-neutral-static: var(--color-grey-100);
+
+    --radius: 0.75rem; /* = 12px = radius-xl */
+  }
+
+  .dark {
+    /* ---- Primitive overrides (dark mode) ---- */
+    /* grey scale is inverted in dark */
+    --color-grey-100: #1e1d26;
+    --color-grey-200: #22232c;
+    --color-grey-300: #393947;
+    --color-grey-400: #4e4e63;
+    --color-grey-500: #dadee8;
+    --color-grey-600: #e9e9ef;
+    --color-grey-700: #f2f2f5;
+    --color-grey-800: #f7f7f9;
+    --color-grey-900: #ffffff;
+
+    /* red main is darkened for dark surfaces */
+    --color-red-500: #b72e2e;
+
+    /* surfaces — auto-resolve via var() refs to primitives above */
+    --background: var(--color-grey-100);
+    --foreground: var(--color-grey-900);
+    --card: var(--color-grey-100);
+    --card-foreground: var(--color-grey-900);
+    --popover: var(--color-grey-100);
+    --popover-foreground: var(--color-grey-900);
+
+    /* brand — keep vivid, force light foreground */
+    --primary: var(--color-brand-1-500);
+    --primary-foreground: #ffffff;
+    --secondary: var(--color-brand-2-500);
+    --secondary-foreground: #ffffff;
+    --accent: var(--color-orange-500);
+    --accent-foreground: #ffffff;
+
+    /* feedback — keep vivid, force light foreground */
+    --destructive: var(--color-red-500);
+    --destructive-foreground: #ffffff;
+    --success: var(--color-green-500);
+    --success-foreground: #ffffff;
+    --info: var(--color-blue-500);
+    --info-foreground: #ffffff;
+    --warning: var(--color-yellow-500);
+    --warning-foreground: #14113e; /* stays dark: yellow is vivid in both modes */
+    --pending: var(--color-orange-500);
+    --pending-foreground: #ffffff;
+
+    /* muted */
+    --muted: var(--color-grey-200);
+    --muted-foreground: var(--color-grey-600);
+
+    /* borders */
+    --border: var(--color-grey-300);
+    --input: var(--color-grey-400);
+    --ring: var(--color-brand-1-500);
+
+    /* charts */
+    --chart-1: var(--color-brand-1-500);
+    --chart-2: var(--color-brand-2-500);
+    --chart-3: var(--color-blue-500);
+    --chart-4: var(--color-green-500);
+    --chart-5: var(--color-orange-500);
+
+    /* sidebar */
+    --sidebar: var(--color-grey-100);
+    --sidebar-foreground: var(--color-grey-900);
+    --sidebar-primary: var(--color-brand-1-600);
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: var(--color-grey-200);
+    --sidebar-accent-foreground: var(--color-grey-900);
+    --sidebar-border: var(--color-grey-300);
+    --sidebar-ring: var(--color-brand-1-500);
+
+    /* legacy */
+    --color-app-br-neutral-static: var(--color-grey-900);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * Expose shadcn semantic vars as Tailwind utilities (v4 @theme inline).
+ * Utilities like `bg-primary`, `text-foreground`, `border-border` resolve to
+ * the CSS vars above, so .dark overrides apply automatically.
+ * -------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-pending: var(--pending);
+  --color-pending-foreground: var(--pending-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* shadcn v4 radius helpers (button.tsx, dialog.tsx, etc. use these) */
+  --radius-lg: var(--radius);
+  /* Figma draws 8, 12 and 16 px corners: md is 8 like sm, not 10. */
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    line-height: 25px;
+    font-family: var(--font-sans);
+  }
+  input {
+    font-family: inherit !important;
+  }
+}
+
+/* Chat answer markdown rendering. Streamdown emits plain HTML elements we
+   don't class individually, so the chat answer container scopes the styling. */
+@layer components {
+  .chat-markdown {
+    font-size: 16px;
+    line-height: 24px;
+    background: var(--color-grey-100);
+    padding: 16px;
+    border-radius: 16px;
+    color: var(--color-grey-800);
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    overflow-x: hidden;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 400px;
+  }
+  .chat-markdown.is-chat-page {
+    padding: 0;
+  }
+  /* `plaintext` is what the browser gives an element with dir="auto": each
+     block reads its own first strong character and lays itself out from that.
+     The container's dir can only decide once, for all of it — so an English
+     heading over a Persian answer, or a paragraph that opens with a citation
+     or a number, used to drag the whole report the wrong way round. */
+  .chat-markdown p,
+  .chat-markdown div,
+  .chat-markdown h1,
+  .chat-markdown h2,
+  .chat-markdown h3,
+  .chat-markdown h4,
+  .chat-markdown h5,
+  .chat-markdown h6,
+  .chat-markdown li,
+  .chat-markdown td,
+  .chat-markdown th,
+  .chat-markdown blockquote,
+  .chat-markdown code,
+  .chat-markdown table {
+    unicode-bidi: plaintext;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  /* Code is the exception: a block that happens to open with a Persian comment
+     is still code, and reading it right to left would be nonsense. */
+  .chat-markdown pre,
+  .chat-markdown pre code {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: left;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .chat-markdown table {
+    max-width: none;
+    width: max-content;
+    min-width: 100%;
+    word-break: normal;
+  }
+  .chat-markdown th,
+  .chat-markdown td {
+    min-width: 120px;
+    max-width: 360px;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+  .chat-markdown pre,
+  .chat-markdown code {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .chat-markdown ol,
+  .chat-markdown ul,
+  .chat-markdown menu {
+    list-style: auto;
+    margin: revert;
+    padding: revert;
+  }
+  .chat-markdown p {
+    line-height: 26px;
+  }
+  .chat-markdown h1 {
+    font-size: 24px;
+    margin: 1em 0 0.3em;
+    font-weight: 600;
+    line-height: 32px;
+  }
+  .chat-markdown h2 {
+    font-size: 20px;
+    margin: 1em 0 0.3em;
+    font-weight: 600;
+    line-height: 24px;
+  }
+  .chat-markdown h3 {
+    font-size: 18px;
+    margin: 1em 0 0.3em;
+    font-weight: 600;
+    line-height: 24px;
+  }
+  .chat-markdown h4,
+  .chat-markdown h5,
+  .chat-markdown h6 {
+    font-size: 1em;
+    margin: 1em 0 0.3em;
+    font-weight: 600;
+    line-height: 24px;
+  }
+  /* Each block aligns to the side its own text starts on, so an English
+     paragraph inside a Persian report stays left and vice versa. The old rule
+     keyed off the container's dir, which meant a report the model wrote in
+     Persian but opened with a Latin term was set flush left throughout. */
+  .chat-markdown p,
+  .chat-markdown div,
+  .chat-markdown h1,
+  .chat-markdown h2,
+  .chat-markdown h3,
+  .chat-markdown h4,
+  .chat-markdown h5,
+  .chat-markdown h6,
+  .chat-markdown li,
+  .chat-markdown blockquote {
+    text-align: start;
+  }
+  .chat-markdown .md-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 1em 0;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    background-color: var(--color-grey-100);
+  }
+  .chat-markdown .md-table-wrapper table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: max-content;
+    min-width: 100%;
+    margin: 0;
+  }
+  .chat-markdown .md-table-wrapper th {
+    border-style: solid;
+    border-width: 1px;
+    border-color: var(--color-grey-400);
+    padding: 12px 16px;
+    text-align: start;
+    background-color: var(--color-grey-300);
+    color: var(--color-grey-900);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .chat-markdown .md-table-wrapper th:first-child {
+    border-left-style: solid;
+  }
+  .chat-markdown .md-table-wrapper th:last-child {
+    border-right-style: solid;
+  }
+  .chat-markdown .md-table-wrapper td {
+    border-style: none;
+    border-bottom: 1px solid var(--color-grey-400);
+    text-align: start;
+    color: var(--color-grey-700);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 16px;
+    transition: background-color 0.2s ease;
+  }
+  .chat-markdown .md-table-wrapper td[align='right'] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .chat-markdown .md-table-wrapper td code {
+    font-size: 13px;
+    padding: 2px 6px;
+    background-color: var(--color-grey-300);
+    border-radius: 4px;
+  }
+  .chat-markdown .md-table-wrapper tr:last-child td {
+    border-bottom: none;
+  }
+  @media (max-width: 768px) {
+    .chat-markdown .md-table-wrapper {
+      margin: 1em -16px;
+      width: calc(100% + 32px);
+      border-radius: 0;
+    }
+  }
+}
+
+/* Keep toasts on the snackbar layer (1400): below tooltips (1500), above overlays (1350) */
+[data-sonner-toaster] {
+  z-index: 1400 !important;
+}

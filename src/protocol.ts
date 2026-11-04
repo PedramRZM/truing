@@ -1,0 +1,332 @@
+// zod/mini, not zod: this module is bundled into the runtime, an init script
+// that runs in every frame, and zod's full build is half a megabyte.
+import * as z from 'zod/mini';
+
+import { changeSchemas } from './module';
+
+/**
+ * Messages on Truing's one bus. The shell and every frame's runtime
+ * connect to Truing server's WebSocket; the server relays between them.
+ * Every message is parsed on arrival, on both ends.
+ */
+
+export const MODES = { select: 'select', interact: 'interact' } as const;
+export type Mode = (typeof MODES)[keyof typeof MODES];
+const modeSchema = z.enum([MODES.select, MODES.interact]);
+
+/**
+ * How the shell shows the frames, which the probes draw for (TRU-2.5): the
+ * canvas's zoom, so labels stay at screen size, and the Spacing toggle.
+ */
+export const viewSchema = z.object({
+  /** The camera's scale: a frame's CSS pixel is this many screen pixels. */
+  scale: z.number(),
+  /** Spacing is on: hovering shows the box model and distances without Alt. */
+  spacing: z.boolean(),
+});
+export type View = z.infer<typeof viewSchema>;
+export const DEFAULT_VIEW: View = { scale: 1, spacing: false };
+
+/** What the init script compiles into the runtime's closure, per session. */
+export type Session = {
+  token: string;
+  wsUrl: string;
+  appOrigin: string;
+  shellOrigin: string;
+};
+
+/** The iframe `name` the shell gives each frame; the runtime reads it as `window.name`. */
+export const FRAME_NAME_PREFIX = 'truing-frame:';
+
+export const CANVAS_SHORTCUTS = [
+  'zoom-in',
+  'zoom-out',
+  'zoom-reset',
+  'fit',
+  'hand-tool',
+  'spacing',
+  'collapse-panels',
+  'hide-ui',
+  'tab-design',
+  'tab-theme',
+  'view-claude',
+  // Not a key of its own: a frame's Esc that nothing in the frame used.
+  'leave-fill',
+] as const;
+export type CanvasShortcut = (typeof CANVAS_SHORTCUTS)[number];
+
+export function isCanvasShortcut(id: string): id is CanvasShortcut {
+  return (CANVAS_SHORTCUTS as readonly string[]).includes(id);
+}
+
+/** A canvas shortcut pressed with focus inside a frame; the runtime hands it to the shell. */
+const shortcutMessage = z.object({
+  type: z.literal('shortcut'),
+  action: z.enum(CANVAS_SHORTCUTS),
+});
+
+/** Ctrl or ⌘ and the wheel (or a pinch) over a frame, at a point in the frame's own pixels. */
+const wheelZoomMessage = z.object({
+  type: z.literal('wheel-zoom'),
+  frame: z.string().check(z.minLength(1)),
+  deltaY: z.number(),
+  x: z.number(),
+  y: z.number(),
+});
+
+/** A right-click over a frame in Select mode, at a point in the frame's own pixels: the shell opens its menu there. */
+const contextMenuMessage = z.object({
+  type: z.literal('context-menu'),
+  frame: z.string().check(z.minLength(1)),
+  x: z.number(),
+  y: z.number(),
+});
+
+/** Space held or released inside a frame in Select mode: the canvas pans while it is held. */
+const panKeyMessage = z.object({
+  type: z.literal('pan-key'),
+  down: z.boolean(),
+});
+
+/** A middle-button drag that started over a frame: the movement, in screen pixels. */
+const panDragMessage = z.object({
+  type: z.literal('pan-drag'),
+  dx: z.number(),
+  dy: z.number(),
+});
+
+// Module traffic (TRU-1.6). Payloads are checked against the module's own
+// schemas by Truing server, which knows them; the bus only carries them.
+const id = z.string().check(z.minLength(1));
+
+/** A probe's report, from a frame; the server stamps the frame. */
+const moduleReport = z.object({
+  type: z.literal('module-report'),
+  module: id,
+  name: id,
+  payload: z.unknown(),
+});
+
+/** The answer to a probe command or a server op. `error` is set when it failed. */
+const moduleResult = z.object({
+  type: z.literal('module-result'),
+  id: z.number(),
+  value: z.unknown(),
+  error: z.optional(z.string()),
+});
+
+export const runtimeMessageSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('hello'),
+    frame: z.string().check(z.minLength(1)),
+    href: z.string(),
+    title: z.string(),
+    runtime: z.string(),
+    /** The modules whose probe runs in this frame. */
+    probes: z.array(z.string()),
+  }),
+  z.object({ type: z.literal('pong'), id: z.number() }),
+  z.object({
+    type: z.literal('location'),
+    frame: z.string().check(z.minLength(1)),
+    href: z.string(),
+    title: z.string(),
+  }),
+  z.object({ type: z.literal('mode-request'), mode: modeSchema }),
+  /** The designer clicked or typed in this frame: it leads navigation. */
+  z.object({
+    type: z.literal('interaction'),
+    frame: z.string().check(z.minLength(1)),
+  }),
+  shortcutMessage,
+  wheelZoomMessage,
+  contextMenuMessage,
+  panKeyMessage,
+  panDragMessage,
+  moduleReport,
+  moduleResult,
+  /** A probe threw: it is stopped in this frame. */
+  z.object({
+    type: z.literal('module-failed'),
+    module: id,
+    message: z.string(),
+  }),
+]);
+export type RuntimeMessage = z.infer<typeof runtimeMessageSchema>;
+
+export const shellMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('hello') }),
+  z.object({ type: z.literal('set-mode'), mode: modeSchema }),
+  /** The zoom or the Spacing toggle changed: every frame gets it. */
+  z.object({ type: z.literal('set-view'), view: viewSchema }),
+  z.object({ type: z.literal('reload'), frames: z.array(z.string()) }),
+  /** Esc in Select mode, caught by the shell: every frame's probes get it. */
+  z.object({ type: z.literal('escape') }),
+  /** A panel calls one of its module's server ops. */
+  z.object({
+    type: z.literal('module-call'),
+    id: z.number(),
+    module: id,
+    op: id,
+    input: z.unknown(),
+  }),
+  /** A panel asks one frame's probe. */
+  z.object({
+    type: z.literal('module-command'),
+    id: z.number(),
+    module: id,
+    frame: id,
+    name: id,
+    input: z.unknown(),
+  }),
+]);
+export type ShellMessage = z.infer<typeof shellMessageSchema>;
+
+export const toRuntimeSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('welcome'),
+    mode: modeSchema,
+    view: viewSchema,
+  }),
+  z.object({ type: z.literal('ping'), id: z.number() }),
+  z.object({ type: z.literal('mode'), mode: modeSchema }),
+  z.object({ type: z.literal('view'), view: viewSchema }),
+  z.object({ type: z.literal('reload') }),
+  z.object({ type: z.literal('escape') }),
+  z.object({
+    type: z.literal('module-command'),
+    id: z.number(),
+    module: id,
+    name: id,
+    input: z.unknown(),
+  }),
+]);
+export type ToRuntime = z.infer<typeof toRuntimeSchema>;
+
+export const MODULE_PARTS = ['probe', 'panel', 'server'] as const;
+export type ModulePart = (typeof MODULE_PARTS)[number];
+
+const reportEntry = z.object({
+  module: z.string(),
+  frame: z.string(),
+  name: z.string(),
+  payload: z.unknown(),
+});
+export type ReportEntry = z.infer<typeof reportEntry>;
+
+/** What a module's server part last told its panel (TRU-5.2). */
+const stateEntry = z.object({
+  module: z.string(),
+  name: z.string(),
+  value: z.unknown(),
+});
+export type StateEntry = z.infer<typeof stateEntry>;
+
+/** A module that stopped: in one frame (its probe) or on the server. */
+const moduleFailure = z.object({
+  module: z.string(),
+  part: z.enum(MODULE_PARTS),
+  frame: z.nullable(z.string()),
+  message: z.string(),
+});
+export type ModuleFailure = z.infer<typeof moduleFailure>;
+
+// Built only where it is read (the shell, the tests): the runtime in every
+// frame never parses a message to the shell, and /* @__PURE__ */ lets the
+// bundler leave it, and the change set it carries, out of the runtime.
+export const toShellSchema = /* @__PURE__ */ (() =>
+  z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('welcome'),
+      mode: modeSchema,
+      appOrigin: z.string(),
+      /** The config's `name`, shown at the top of the left panel. */
+      projectName: z.string(),
+      hasTokens: z.boolean(),
+      startRoute: z.string(),
+      frames: z.array(
+        z.object({
+          frame: z.string(),
+          href: z.string(),
+          title: z.string(),
+        }),
+      ),
+      modules: z.object({
+        reports: z.array(reportEntry),
+        failures: z.array(moduleFailure),
+        changes: z.array(changeSchemas.stagedChange),
+        state: z.array(stateEntry),
+      }),
+    }),
+    z.object({ type: z.literal('mode'), mode: modeSchema }),
+    z.object({
+      type: z.literal('runtime-hello'),
+      frame: z.string(),
+      href: z.string(),
+      title: z.string(),
+    }),
+    z.object({
+      type: z.literal('runtime-ping'),
+      frame: z.string(),
+      ms: z.number(),
+    }),
+    z.object({
+      type: z.literal('location'),
+      frame: z.string(),
+      href: z.string(),
+      title: z.string(),
+    }),
+    z.object({ type: z.literal('runtime-gone'), frame: z.string() }),
+    z.object({ type: z.literal('interaction'), frame: z.string() }),
+    shortcutMessage,
+    wheelZoomMessage,
+    contextMenuMessage,
+    panKeyMessage,
+    panDragMessage,
+    z.object({ type: z.literal('shell-reload') }),
+    z.object({
+      type: z.literal('module-frame-reset'),
+      /** The frame reloaded or closed: what its probes reported is gone with it. */
+      frame: z.string(),
+    }),
+    z.object({
+      type: z.literal('module-report'),
+      module: z.string(),
+      frame: z.string(),
+      name: z.string(),
+      payload: z.unknown(),
+    }),
+    moduleResult,
+    z.object({ type: z.literal('module-failed'), failure: moduleFailure }),
+    z.object({
+      type: z.literal('module-state'),
+      module: z.string(),
+      name: z.string(),
+      value: z.unknown(),
+    }),
+    /** A short line for whoever is looking, from the server side (TRU-5.2). */
+    z.object({ type: z.literal('notice'), text: z.string() }),
+    /** The whole change set, after any change to it. */
+    z.object({
+      type: z.literal('changes'),
+      changes: z.array(changeSchemas.stagedChange),
+    }),
+  ]))();
+export type ToShell = z.infer<typeof toShellSchema>;
+
+/** Parses one WebSocket payload with a schema; `null` for anything else. */
+export function parseMessage<T>(
+  schema: z.ZodMiniType<T>,
+  raw: unknown,
+): T | null {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsed = schema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}

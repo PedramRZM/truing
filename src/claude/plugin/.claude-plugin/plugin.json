@@ -1,0 +1,5 @@
+{
+  "name": "truing",
+  "version": "1.0.0",
+  "description": "How Claude applies a designer's changes in Truing. Loaded only in Truing's own sessions, with --plugin-dir."
+}

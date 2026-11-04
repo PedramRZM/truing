@@ -1,0 +1,8 @@
+{
+  "name": "design-system-fixture",
+  "private": true,
+  "devDependencies": {
+    "tailwindcss": "4.3.3",
+    "@tailwindcss/postcss": "4.3.3"
+  }
+}

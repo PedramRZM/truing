@@ -1,0 +1,18 @@
+project_name: "Truing"
+default_status: "To Do"
+statuses: ["To Do", "In Progress", "Review", "Done"]
+labels: ["epic", "zero-config", "onboarding", "inspector", "panels", "claude", "tokens", "adapters", "infra", "docs", "spike", "debt"]
+date_format: yyyy-mm-dd
+max_column_width: 20
+default_editor: "vim"
+auto_open_browser: false
+default_port: 6420
+remote_operations: false
+auto_commit: false
+filesystem_only: false
+bypass_git_hooks: false
+check_active_branches: true
+active_branch_days: 30
+task_prefix: "TRU"
+types: ["epic", "feature", "bug", "spike", "research", "decision", "chore", "docs"]
+definition_of_done: ["`make check` passes and its output is quoted in the final summary", "Tests added or updated for changed behaviour (watched fail first for bug fixes)", "Acceptance criteria say how the feature gets what it needs from the project, with no config", "Docs, ADRs and learnings updated if affected"]

@@ -1,0 +1,32 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxc": "explicit"
+  },
+  "[python]": {
+    "editor.formatOnSave": false
+  },
+  "[makefile]": {
+    "editor.formatOnSave": false
+  },
+  "prettier.requireConfig": true,
+  "files.eol": "\n",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "npm.packageManager": "pnpm",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "refs": true,
+    "test-results": true,
+    "playwright-report": true,
+    "pnpm-lock.yaml": true
+  },
+  "files.watcherExclude": {
+    "**/.next/**": true,
+    "refs/**": true,
+    "test-results/**": true
+  }
+}

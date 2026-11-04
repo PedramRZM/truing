@@ -1,0 +1,3803 @@
+/*
+ * Truing's own chrome, after Paper's light and dark themes (docs/design-language.md is
+ * the source). One set of tokens, each colour a light-dark() pair, so the
+ * theme follows the system. It shares nothing with the app it frames.
+ */
+/* Truing's own fonts, inlined by build.ts: no network and no installed font. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-ext-wght-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  color-scheme: light dark;
+  --ds-canvas: light-dark(#eee, #282828);
+  --ds-panel: light-dark(#f2f2f2, #2a2a2a);
+  /* A field or a raised button, and the pressed part of a segmented control. */
+  --ds-control-fill: light-dark(#f9f9f9, #373737);
+  /* The panel colour at 92%: a menu floats over what it opened on. */
+  --ds-menu: light-dark(rgb(242 242 242 / 0.92), rgb(42 42 42 / 0.92));
+  --ds-border: light-dark(#e2e2e2, #373737);
+  --ds-hover: light-dark(#eaeaea, #333);
+  --ds-selected: light-dark(#e0e0e0, #3c3c3c);
+  /* Hovering what has no fill of its own. */
+  --ds-ghost-hover: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.06));
+  /* A segmented control's track. In dark, white at 0.06 is the pressed part's own colour. */
+  --ds-track: light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.2));
+  /* Behind the app's page, until it paints. */
+  --ds-frame: light-dark(#fff, #fff);
+  --ds-text: light-dark(rgb(0 0 0 / 0.8), rgb(255 255 255 / 0.9));
+  /* In light, Paper's 0.5 and 0.425 are 3.89:1 and 3.04:1 on the panel. */
+  --ds-text-2: light-dark(rgb(0 0 0 / 0.6), rgb(255 255 255 / 0.65));
+  --ds-text-3: light-dark(rgb(0 0 0 / 0.6), rgb(255 255 255 / 0.575));
+  /* In dark it holds 4.5:1 on the panel and the canvas only, not on a hover. */
+  --ds-text-4: light-dark(rgb(0 0 0 / 0.6), rgb(255 255 255 / 0.5));
+  /* In light, Paper's 0.35 is 2.41:1; icons hold 3:1. */
+  --ds-icon: light-dark(rgb(0 0 0 / 0.5), rgb(255 255 255 / 0.4));
+  /* The one action that confirms. */
+  --ds-confirm: light-dark(#1e1e1e, #f2f2f2);
+  --ds-confirm-hover: light-dark(#333, #d4d4d4);
+  --ds-on-confirm: light-dark(#fff, #1e1e1e);
+  /* overlay.ts repeats the accent and its fill: the frame can't read this file. */
+  --ds-accent: light-dark(oklch(67% 0.17 258), oklch(67% 0.17 258));
+  /* Behind white text: --ds-accent gives only 3.03:1. */
+  --ds-accent-fill: light-dark(oklch(55% 0.145 258), oklch(55% 0.145 258));
+  --ds-on-accent: light-dark(#fff, #fff);
+  /*
+   * A line on the chrome: focus, the active frame, the current row. In light,
+   * Paper's oklch(74% .12 258) is 2.07:1 on the panel; outlines hold 3:1.
+   */
+  --ds-focus: light-dark(oklch(55% 0.145 258), oklch(60% 0.15 258));
+  --ds-selection: light-dark(
+    oklch(78% 0.12 258 / 0.5),
+    oklch(74% 0.3 258 / 0.3)
+  );
+  --ds-success: light-dark(oklch(62% 0.16 150), oklch(74% 0.18 150));
+  --ds-warning: light-dark(oklch(81% 0.18 67), oklch(81% 0.18 67));
+  --ds-error: light-dark(oklch(59% 0.25 20), oklch(71% 0.23 20));
+  /* A transparent colour's square: the two checks under it. */
+  --ds-check-a: light-dark(#fff, #fff);
+  --ds-check-b: light-dark(#c6c6c6, #c6c6c6);
+  /* Paper's in light. Its dark isn't recorded, and white at 0.53 glows on #373737. */
+  --ds-shadow-control:
+    inset 0 1px light-dark(#fff8, #fff1),
+    inset 0 0 1px 1px light-dark(#fff8, #fff1),
+    0 0.5px 1px light-dark(#00000018, #0003), 0 0 1px light-dark(#0001, #0003),
+    0 0 4px -1px light-dark(#0001, #0003);
+  --ds-shadow-float: 0 2px 8px light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.4));
+  --ds-shadow-modal: 0 8px 32px light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.5));
+  /* The frame on the canvas: the ring holds a dark app apart from a dark canvas. */
+  --ds-shadow-frame:
+    0 0 0 1px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08)),
+    0 1px 3px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.4)),
+    0 8px 24px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.28));
+  --ds-radius: 6px;
+  --ds-radius-swatch: 2px;
+  --ds-radius-dialog: 8px;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-control: 24px;
+  --ds-row: 28px;
+  /* An empty section's one line, with the line under it. */
+  --ds-section-empty: 33px;
+  /* A value's label in the properties panel. */
+  --ds-design-label: 88px;
+  /* A slider's thumb and track (TRU-3.9), Paper's measures. */
+  --ds-slider-thumb: 22px;
+  --ds-slider-track: 12px;
+  /* Its number: label, four digits, the token's mark and the dropdown. */
+  --ds-slider-field: 104px;
+  /* A checkbox's square, inside its 24 px line. */
+  --ds-check: 16px;
+  /* The alignment pad: 3 × 3 cells, Paper's measures. */
+  --ds-pad-width: 112px;
+  --ds-gradient-at: 72px;
+  --ds-image-fill: 96px;
+  --ds-pad-height: 88px;
+  /* The token menu, and a colour's swatch in it. */
+  --ds-token-menu: 240px;
+  --ds-token-menu-height: 420px;
+  --ds-token-swatch-width: 32px;
+  --ds-token-swatch-height: 18px;
+  /* Content kept on screen while its update loads. */
+  --ds-stale: 0.6;
+  /* A colour token's square, beside its hex. */
+  --ds-swatch: 12px;
+  /* The inspector's property names, beside their tokens. */
+  --ds-property-column: 9em;
+  /* A menu row's and a segmented button's padding: 24 px tall rows at 16 px lines. */
+  --ds-row-pad-block: 4px;
+  --ds-segment-pad-inline: 10px;
+  /* A device row's indent: past the group's chevron and its gap. */
+  --ds-menu-indent: 30px;
+  /* A four-digit size field in the viewport menu. */
+  --ds-field-size: 62px;
+  /* 13 px for a panel's name. JetBrains Mono's zero closes up at 10 px and reads as an 8. */
+  --ds-text-12: 12px;
+  --ds-text-13: 13px;
+  --ds-leading: 16px;
+  --ds-weight-regular: 400;
+  /* A button's or a segment's label. */
+  --ds-weight-label: 465;
+  /* A title. */
+  --ds-weight-strong: 500;
+  --ds-font: 'Inter', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --ds-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* The context menu: its longest title and shortcut on one 24 px row. */
+  --ds-menu-width: 264px;
+  --ds-sheet-width: 400px;
+  /* The closed right panel's pill, and its gap: the sheet opens under it. */
+  --ds-pill: 40px;
+  /* Room at the filter field's end for "12 of 48". */
+  --ds-filter-count: 64px;
+  /* What the panels take from the window now; .truing sets them. */
+  --ds-canvas-left: 0px;
+  --ds-canvas-right: 0px;
+  --ds-canvas-top: var(--ds-canvas-bar);
+  /* panels.ts LEFT_PANEL, RIGHT_PANEL, TOOL_RAIL and CANVAS_BAR match. */
+  --ds-dock-left: 240px;
+  --ds-dock-right: 280px;
+  --ds-dock-right-claude: 360px;
+  --ds-rail: 42px;
+  /* A right panel's header row with its line, so the two lines meet. */
+  --ds-canvas-bar: 41px;
+  /* The layers tree: a full indent step, and the room every row keeps for its name. */
+  --ds-layer-step: 12px;
+  --ds-layer-name: 120px;
+  --ds-layer-fade: 16px;
+  --ds-layer-faded: 0.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--ds-canvas);
+  color: var(--ds-text);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-font);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+strong {
+  font-weight: var(--ds-weight-strong);
+}
+
+::placeholder {
+  color: var(--ds-text-2);
+  opacity: 1;
+}
+
+::selection {
+  background: var(--ds-selection);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 1px;
+}
+
+/* What the panels leave for the canvas. */
+.truing {
+  display: contents;
+}
+
+.truing[data-left='true'] {
+  --ds-canvas-left: calc(var(--ds-dock-left) + var(--ds-rail));
+}
+
+.truing[data-right='true'] {
+  --ds-canvas-right: var(--ds-dock-right);
+}
+
+/* The chat needs the room (TRU-5.2), and the canvas gives it up. */
+.truing[data-right-view='claude'],
+.truing[data-right-view='claude-config'] {
+  --ds-dock-right: var(--ds-dock-right-claude);
+}
+
+.truing[data-chrome='hidden'] {
+  --ds-canvas-left: 0px;
+  --ds-canvas-right: 0px;
+  --ds-canvas-top: 0px;
+}
+
+.truing[data-chrome='hidden'] .dock,
+.truing[data-chrome='hidden'] .rail,
+.truing[data-chrome='hidden'] .canvas-bar {
+  display: none;
+}
+
+/* Canvas: flat, in the room the panels leave */
+.canvas {
+  position: fixed;
+  inset: var(--ds-canvas-top) var(--ds-canvas-right) 0 var(--ds-canvas-left);
+  overflow: hidden;
+  background-color: var(--ds-canvas);
+}
+
+.canvas[data-pan='ready'] {
+  cursor: grab;
+}
+
+.canvas[data-pan='dragging'] {
+  cursor: grabbing;
+}
+
+/* While panning or resizing, frames ignore the pointer so the drag isn't lost to them. */
+.canvas[data-inert] .frame-card iframe {
+  pointer-events: none;
+}
+
+.frame-handle {
+  position: absolute;
+}
+
+.frame-handle[data-grip='n'],
+.frame-handle[data-grip='s'] {
+  cursor: ns-resize;
+}
+
+.frame-handle[data-grip='e'],
+.frame-handle[data-grip='w'] {
+  cursor: ew-resize;
+}
+
+.frame-handle[data-grip='nw'],
+.frame-handle[data-grip='se'] {
+  cursor: nwse-resize;
+}
+
+.frame-handle[data-grip='ne'],
+.frame-handle[data-grip='sw'] {
+  cursor: nesw-resize;
+}
+
+/* A 2 px accent line on the hovered edge; a small square on a corner. */
+.frame-handle[data-grip='n']:hover::after,
+.frame-handle[data-grip='s']:hover::after {
+  inset: 3px 0;
+}
+
+.frame-handle[data-grip='e']:hover::after,
+.frame-handle[data-grip='w']:hover::after {
+  inset: 0 3px;
+}
+
+.frame-handle[data-grip='nw']:hover::after,
+.frame-handle[data-grip='ne']:hover::after,
+.frame-handle[data-grip='sw']:hover::after,
+.frame-handle[data-grip='se']:hover::after {
+  inset: 2px;
+  border-radius: 2px;
+}
+
+.canvas[data-pan] .frame-handle {
+  pointer-events: none;
+}
+
+.canvas-message {
+  position: absolute;
+  inset: 40% 0 auto;
+  margin: 0;
+  text-align: center;
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-13);
+}
+
+.world {
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* At the canvas's origin, without a size of its own: what's in it sits relative to it. */
+.canvas-chrome {
+  position: absolute;
+  inset: 0 auto auto 0;
+  will-change: transform;
+}
+
+.frame-card {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--ds-frame);
+  box-shadow: var(--ds-shadow-frame);
+}
+
+.frame-card[data-active='true'] {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 1px;
+}
+
+.frame-card iframe {
+  display: block;
+  border: 0;
+}
+
+/* Fill (TRU-2.3): the frame is the canvas, without device chrome. */
+.canvas[data-fill] .frame-card {
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+}
+
+.canvas:focus {
+  outline: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.frame-label {
+  position: absolute;
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.frame-name {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-12);
+  line-height: var(--ds-leading);
+  cursor: pointer;
+}
+
+/* A 24 px tall hit area without moving the label. */
+.frame-name::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.frame-name:hover,
+.frame-label[data-active='true'] .frame-name {
+  color: var(--ds-text);
+}
+
+.frame-size,
+.frame-route {
+  color: var(--ds-text-4);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.frame-size {
+  flex-shrink: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.frame-route {
+  margin-inline-start: auto;
+  /* Never narrower than its status dot. */
+  min-width: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.frame-route::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: var(--ds-space-1);
+  border-radius: 50%;
+  background: var(--ds-warning);
+  /* Orange and green fall short of 3:1 on the light canvas; the ring doesn't. */
+  box-shadow: 0 0 0 1px var(--ds-icon);
+  vertical-align: 1px;
+}
+
+.frame-route[data-live='true']::before {
+  background: var(--ds-success);
+}
+
+/* Panels: beside the canvas, full height; closed, a small pill floating over it, under its bar */
+.dock {
+  position: fixed;
+  top: calc(var(--ds-canvas-bar) + var(--ds-space-3));
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-panel);
+  box-shadow: 0 0 0 1px var(--ds-border);
+}
+
+.dock[data-open='false'] {
+  max-width: var(--ds-dock-left);
+}
+
+.dock[data-side='left'] {
+  left: var(--ds-space-5);
+}
+
+.dock[data-side='right'] {
+  right: var(--ds-space-5);
+}
+
+.dock[data-open='true'] {
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.dock[data-open='true'][data-side='left'] {
+  left: 0;
+  width: var(--ds-dock-left);
+  border-inline-end: 1px solid var(--ds-border);
+}
+
+.dock[data-open='true'][data-side='right'] {
+  right: 0;
+  width: var(--ds-dock-right);
+  border-inline-start: 1px solid var(--ds-border);
+}
+
+.dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-1) var(--ds-space-1) var(--ds-space-1)
+    var(--ds-space-3);
+}
+
+.dock[data-open='true'] .dock-header {
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-2)
+    var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.dock-header h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--ds-text-13);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.1px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* At the row's end, with or without a name beside it. */
+.dock-header > .tool {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* With a switch, its line sits under it, level with the left panel's tabs. */
+.dock[data-open='true'][data-side='right']:has(> .dock-tabs) .dock-header {
+  border-bottom: 0;
+}
+
+/* The right panel's top row: zoom at the start, the rest towards the toggle. */
+.dock-actions {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dock-shortcuts {
+  margin-inline-start: auto;
+}
+
+/* The left panel's tabs (TRU-3.4): the header's line sits under them instead. */
+.dock[data-open='true'][data-side='left'] .dock-header {
+  border-bottom: 0;
+}
+
+.dock-tabs {
+  flex: none;
+  margin: 0 var(--ds-space-2) var(--ds-space-2);
+}
+
+.dock-tabs button {
+  flex: 1;
+  justify-content: center;
+}
+
+.dock-tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--ds-border);
+}
+
+/* Kept mounted, so a section's filter and open rows survive a switch. */
+.dock-tab[hidden] {
+  display: none;
+}
+
+.dock-empty {
+  margin: 0;
+  padding: var(--ds-space-3);
+  color: var(--ds-text-2);
+  max-width: 32ch;
+}
+
+/* Module sections (TRU-1.6): one per module, in the config's order */
+.dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-icon) transparent;
+}
+
+/* What stays in reach under whichever view the right panel shows (TRU-3.10). */
+.dock-foot {
+  flex: none;
+  margin-block-start: auto;
+  border-top: 1px solid var(--ds-border);
+}
+
+.dock-foot:empty {
+  display: none;
+}
+
+.dock-foot .module {
+  padding: 0;
+  border-bottom: 0;
+}
+
+/* Stopped, it has no summary to say what it is, so its title shows. */
+.dock-foot .module:has(.module-failed) .module-title {
+  margin: var(--ds-space-2) var(--ds-space-3) 0;
+}
+
+/* Its summary says what it is. */
+.dock-foot .module:not(:has(.module-failed)) .module-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Two lines in the summary's 40 px, so the panel doesn't move at the first change. */
+.dock-foot .module-empty {
+  padding: var(--ds-space-1) var(--ds-space-3);
+}
+
+.dock-foot .module-failed {
+  margin: var(--ds-space-2) var(--ds-space-3);
+}
+
+.module {
+  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.module-title {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+  color: var(--ds-text-2);
+}
+
+.module-failed {
+  display: grid;
+  grid-template-columns: var(--ds-space-4) minmax(0, 1fr);
+  gap: 0 var(--ds-space-2);
+  margin: 0 0 var(--ds-space-2);
+}
+
+.module-failed-icon {
+  color: var(--ds-error);
+}
+
+.module-failed > :not(.module-failed-icon) {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.module-failed p {
+  margin: 0;
+}
+
+.module-failed .module-error {
+  margin-top: var(--ds-space-1);
+  color: var(--ds-text-2);
+  overflow-wrap: anywhere;
+}
+
+/* A failed section's way forward: reload what stopped. */
+.module-action {
+  margin-top: var(--ds-space-2);
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+  font-weight: var(--ds-weight-label);
+  cursor: pointer;
+}
+
+.module-action:hover {
+  background: var(--ds-hover);
+}
+
+.module-action:disabled {
+  opacity: var(--ds-stale);
+  cursor: default;
+}
+
+/* Shared by module panels: MODULES.md lists them */
+.module-empty {
+  margin: 0;
+  color: var(--ds-text-2);
+  max-width: 32ch;
+}
+
+/* DESIGN.md's Value row: 24 px, a label in text 2 and the value beside it. */
+.module-facts {
+  display: grid;
+  grid-template-columns: var(--ds-design-label) minmax(0, 1fr);
+  grid-auto-rows: minmax(var(--ds-control), auto);
+  align-items: center;
+  gap: 0 var(--ds-space-2);
+  margin: 0;
+}
+
+.module-facts dt {
+  color: var(--ds-text-2);
+}
+
+.module-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.module-facts code {
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+}
+
+/* Claude's configuration (TRU-5.1): DESIGN.md's Section, with Rows under a Fold at its end. */
+.claude-config[data-stale='true'] .module-facts {
+  opacity: var(--ds-stale);
+}
+
+.claude-config > .module-facts,
+.claude-config > .module-failed,
+.claude-config > .module-empty,
+.claude-config > .claude-note {
+  margin-block-end: var(--ds-space-2);
+}
+
+.claude-group {
+  margin-inline: calc(var(--ds-space-3) * -1);
+  padding: var(--ds-space-1) var(--ds-space-3);
+  border-top: 1px solid var(--ds-border);
+}
+
+.claude-group-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--ds-section-empty);
+  padding-block: 0;
+  color: var(--ds-text-2);
+}
+
+.claude-fold {
+  justify-content: flex-start;
+}
+
+.claude-fold-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.claude-group > .claude-fold > .claude-fold-title {
+  font-weight: var(--ds-weight-strong);
+}
+
+.claude-count {
+  flex: none;
+  color: var(--ds-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.claude-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.claude-row {
+  display: flex;
+  gap: var(--ds-space-2);
+  align-items: center;
+  width: calc(100% + var(--ds-space-2));
+  min-height: var(--ds-row);
+  padding-inline: var(--ds-space-1);
+  margin-inline: calc(var(--ds-space-1) * -1);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: none;
+  color: var(--ds-text);
+  font: inherit;
+  text-align: start;
+}
+
+button.claude-row {
+  cursor: pointer;
+}
+
+button.claude-row:hover {
+  background: var(--ds-hover);
+}
+
+button.claude-row[aria-current='true'] {
+  background: var(--ds-selected);
+}
+
+.claude-row-name,
+.claude-row-note {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.claude-row-name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* The name keeps its room; the note takes what's left, down to a short word. */
+.claude-row-note {
+  flex: 1 1 0;
+  min-width: 10ch;
+  color: var(--ds-text-2);
+  text-align: end;
+}
+
+.claude-group[data-mono='true'] .claude-row-note {
+  font-family: var(--ds-mono);
+}
+
+.claude-outside {
+  color: var(--ds-text-2);
+}
+
+.claude-note {
+  display: flex;
+  gap: var(--ds-space-1);
+  margin: 0;
+  color: var(--ds-text-2);
+}
+
+.claude-note svg {
+  flex: none;
+  color: var(--ds-icon);
+}
+
+.claude-config > .claude-sources {
+  margin: 0;
+  padding-block: var(--ds-space-2);
+  border-top: 1px solid var(--ds-border);
+  margin-inline: calc(var(--ds-space-3) * -1);
+  padding-inline: var(--ds-space-3);
+  max-width: none;
+}
+
+/* Beside the left panel, where the sheet sits beside the right one. */
+/* Beside the panel it opened from, over the canvas. */
+.sheet.claude-viewer {
+  --sheet-top: var(--ds-canvas-bar);
+  width: min(640px, 60vw);
+}
+
+.claude-viewer h2 {
+  overflow: hidden;
+  min-width: 0;
+  font-family: var(--ds-mono);
+  font-weight: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.claude-viewer .sheet-body {
+  padding-inline: calc(var(--ds-space-1) + var(--ds-space-2));
+}
+
+.claude-viewer-text {
+  margin: 0;
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.claude-viewer-action {
+  flex: none;
+  margin-block-start: 0;
+  margin-inline-start: auto;
+}
+
+.claude-editor {
+  display: block;
+  width: 100%;
+  min-height: 360px;
+  padding: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  resize: vertical;
+}
+
+.claude-viewer-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-top: 1px solid var(--ds-border);
+}
+
+.claude-viewer-foot .module-action {
+  margin-block-start: 0;
+}
+
+.claude-viewer-ask {
+  flex: 1;
+  color: var(--ds-text-2);
+}
+
+.claude-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  margin-block: 0 var(--ds-space-2);
+}
+
+.claude-add {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  margin-inline: calc(var(--ds-space-3) * -1);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-top: 1px solid var(--ds-border);
+}
+
+.claude-add > span {
+  flex: 1;
+  font-weight: var(--ds-weight-strong);
+}
+
+.claude-add .module-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  margin-block-start: 0;
+  padding-inline: var(--ds-space-2);
+}
+
+.claude-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding-block-end: var(--ds-space-2);
+}
+
+.claude-new .module-action {
+  margin-block-start: 0;
+}
+
+.claude-new-name {
+  flex: 1;
+  min-width: 0;
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  font-family: var(--ds-mono);
+}
+
+.claude-new-problem {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ds-text-2);
+}
+
+/* Markdown as a reader sees it, in Truing's measures. */
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child,
+.markdown > .markdown-frontmatter + * {
+  margin-block-start: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: var(--ds-space-4) 0 var(--ds-space-1);
+  font-family: var(--ds-font);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+  white-space: normal;
+}
+
+.markdown h1 {
+  font-size: var(--ds-text-13);
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote {
+  margin: 0 0 var(--ds-space-2);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-inline-start: var(--ds-space-4);
+}
+
+.markdown blockquote {
+  padding-inline-start: var(--ds-space-2);
+  border-inline-start: 2px solid var(--ds-border);
+  color: var(--ds-text-2);
+}
+
+.markdown code,
+.markdown pre {
+  font-family: var(--ds-mono);
+}
+
+.markdown pre,
+.markdown-frontmatter {
+  margin: 0 0 var(--ds-space-2);
+  padding: var(--ds-space-2);
+  overflow-x: auto;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  scrollbar-width: thin;
+}
+
+.markdown-frontmatter {
+  color: var(--ds-text-2);
+}
+
+.markdown-table {
+  margin-block-end: var(--ds-space-2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.markdown table {
+  border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 1px solid var(--ds-border);
+  overflow-wrap: normal;
+  text-align: start;
+  vertical-align: top;
+}
+
+.markdown th {
+  font-weight: var(--ds-weight-strong);
+}
+
+.markdown a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* The selection module (TRU-2.1): the inspector and the layers tree */
+.inspect[data-stale='true'] {
+  opacity: var(--ds-stale);
+}
+
+.inspect-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+  margin: 0 0 var(--ds-space-2);
+  color: var(--ds-text-3);
+}
+
+.inspect-title code,
+.inspect code,
+.layers code {
+  color: var(--ds-text);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+}
+
+.inspect-component {
+  margin: 0 0 var(--ds-space-3);
+  font-size: var(--ds-text-13);
+  overflow-wrap: anywhere;
+}
+
+.inspect-variant,
+.inspect-default {
+  color: var(--ds-text-2);
+}
+
+.inspect-default {
+  color: var(--ds-text-3);
+}
+
+.inspect-badge {
+  display: inline-block;
+  margin-inline-start: var(--ds-space-2);
+  padding: 0 var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+  vertical-align: 1px;
+}
+
+.inspect-places {
+  margin-bottom: var(--ds-space-3);
+}
+
+.inspect-place {
+  display: flex;
+  align-items: center;
+  gap: 0 var(--ds-space-1);
+}
+
+.inspect-place .truncated-path,
+.inspect-owners .truncated-path {
+  min-width: 0;
+}
+
+.inspect-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.inspect-note {
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-12);
+}
+
+.inspect-absent {
+  color: var(--ds-text-3);
+}
+
+.inspect-owners {
+  margin-bottom: var(--ds-space-3);
+}
+
+.inspect-owners summary {
+  color: var(--ds-text-2);
+}
+
+.inspect-owners ol {
+  margin: var(--ds-space-1) 0 0;
+  padding-inline-start: var(--ds-space-4);
+}
+
+.inspect-owners li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--ds-space-2);
+}
+
+.inspect-heading {
+  margin: var(--ds-space-3) 0 var(--ds-space-1);
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+}
+
+.inspect-styles {
+  display: grid;
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspect-style {
+  display: grid;
+  grid-template-columns: minmax(0, var(--ds-property-column)) 1fr;
+  gap: var(--ds-space-2);
+  overflow-wrap: anywhere;
+}
+
+.inspect-property {
+  color: var(--ds-text-3);
+}
+
+/* A class, a token or a value that copies itself on a click (TRU-2.3). */
+.inspect-copy {
+  position: relative;
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: copy;
+}
+
+/* A 24 px tall hit area around a 16 px line. */
+.inspect-copy::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+
+.inspect-copy:hover {
+  background: var(--ds-hover);
+  box-shadow: 0 0 0 2px var(--ds-hover);
+}
+
+.inspect-value {
+  color: var(--ds-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A checkerboard under the colour shows its transparency; the ring shows it on the panel. */
+.inspect-swatch {
+  display: inline-block;
+  inline-size: var(--ds-swatch);
+  block-size: var(--ds-swatch);
+  margin-inline-end: var(--ds-space-1);
+  vertical-align: -1px;
+  border-radius: var(--ds-radius-swatch);
+  box-shadow: inset 0 0 0 1px var(--ds-border);
+  background:
+    linear-gradient(var(--swatch), var(--swatch)),
+    repeating-conic-gradient(var(--ds-check-a) 0 25%, var(--ds-check-b) 0 50%) 0
+      0 / 6px 6px;
+}
+
+/* The properties panel (TRU-3.8): sections split by lines, on one plane. */
+.module:has(> .properties) {
+  padding: 0;
+}
+
+.module:has(> .properties) > .module-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.module:has(> .properties) > .module-failed,
+.properties .module-failed,
+.properties-hint {
+  margin: var(--ds-space-3);
+}
+
+.design-section {
+  padding: var(--ds-space-2) var(--ds-space-3) var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.design-section:last-child {
+  border-bottom: 0;
+}
+
+.design-section-title {
+  margin: 0 0 var(--ds-space-1);
+  color: var(--ds-text);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+}
+
+/* An empty section: one greyed line, with its title and a +. */
+.design-section[data-empty='true'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--ds-section-empty);
+  padding-block: 0;
+}
+
+.design-section[data-empty='true'] .design-section-title {
+  margin: 0;
+  color: var(--ds-text-3);
+  font-weight: var(--ds-weight-label);
+}
+
+details.design-section > summary {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  margin: 0;
+}
+
+details.design-section[open] > summary {
+  margin-bottom: var(--ds-space-2);
+}
+
+.design-rows {
+  display: grid;
+  margin: 0;
+}
+
+.design-row {
+  display: grid;
+  grid-template-columns: var(--ds-design-label) minmax(0, 1fr);
+  align-items: center;
+  min-height: var(--ds-control);
+  gap: 0 var(--ds-space-2);
+}
+
+.design-row dt {
+  color: var(--ds-text-2);
+}
+
+.design-row dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--ds-space-1);
+  min-width: 0;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.design-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The next line, so a colour's name and its value never fight for the row. */
+.design-beneath {
+  flex-basis: 100%;
+  min-width: 0;
+  padding-inline-start: calc(var(--ds-swatch) + var(--ds-space-1));
+  color: var(--ds-text-2);
+  overflow-wrap: anywhere;
+}
+
+.design-row .inspect-swatch {
+  flex: none;
+  margin-inline-end: 0;
+}
+
+.design-mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--ds-icon);
+}
+
+.design-quiet {
+  color: var(--ds-text-2);
+}
+
+.design-frame {
+  margin: 0;
+  color: var(--ds-text-2);
+}
+
+.design-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+}
+
+/* The frame's name, and the Design and Code switch at its end (TRU-3.6). */
+.layers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-2);
+}
+
+.layers-head .inspect-title {
+  margin: 0;
+}
+
+.layer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Out to the panel's edge, so deep rows keep as much of their names as they can. */
+.layer-tree {
+  container-type: inline-size;
+  margin-inline: calc(var(--ds-space-2) * -1);
+}
+
+/*
+ * A full step while the rows fit; past that, the step shrinks so the deepest
+ * row showing still has room for its name. Nothing scrolls sideways.
+ */
+.layer-row {
+  --row-fill: var(--ds-panel);
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--ds-row);
+  padding-inline-start: calc(
+    var(--level) *
+      min(
+        var(--ds-layer-step),
+        (100cqi - var(--ds-control) - var(--ds-layer-name)) / var(--deepest)
+      )
+  );
+  border-radius: var(--ds-radius);
+  background: var(--row-fill);
+}
+
+.layer-row:hover {
+  --row-fill: var(--ds-hover);
+}
+
+/* Everything inside the selection, so its extent shows in the tree (TRU-3.7). */
+.layer-row[data-band='true'] {
+  --row-fill: var(--ds-hover);
+  border-radius: 0;
+}
+
+.layer-row[aria-current='true'] {
+  --row-fill: var(--ds-selected);
+  box-shadow: inset 2px 0 var(--ds-focus);
+}
+
+/* Hidden, or inside what is. The row's own controls stay as they are. */
+.layer-row[data-faded='true'] .layer-name {
+  opacity: var(--ds-layer-faded);
+}
+
+.layer-toggle {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: var(--ds-control);
+  height: var(--ds-row);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-icon);
+  cursor: pointer;
+}
+
+.layer-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.layer-name {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  height: var(--ds-row);
+  padding: 0 var(--ds-space-1);
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.layer-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-icon {
+  flex-shrink: 0;
+  color: var(--ds-icon);
+}
+
+/* A text row reads as text, not as a tag (TRU-2.3). */
+.layer-name[data-icon='text'] {
+  font-family: var(--ds-font);
+}
+
+/* The filter's match that ↑ and ↓ are on. */
+.layer-row[data-active='true'] {
+  box-shadow: inset 0 0 0 1px var(--ds-focus);
+}
+
+/* The Design view reads as a designer's words, not as code (TRU-3.6). */
+.layer-tree[data-view='design'] .layer-name {
+  color: var(--ds-text);
+  font-family: var(--ds-font);
+}
+
+.layer-tree[data-view='design'] .layer-name[data-icon='component'] {
+  font-weight: var(--ds-weight-strong);
+}
+
+/*
+ * Over the name's end, so the name doesn't move when they show. A long name
+ * fades out under them. Slots are fixed: lock and eye stay where they are
+ * whichever of them is on. The row's fill is the fade's colour.
+ */
+.layer-actions {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: flex;
+  align-items: center;
+  padding-inline-start: var(--ds-layer-fade);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--row-fill) var(--ds-layer-fade)
+  );
+  pointer-events: none;
+}
+
+.layer-row:not(:hover, :has(:focus-visible), [data-marked='true'])
+  .layer-actions {
+  background: none;
+}
+
+.layer-action {
+  display: inline-grid;
+  place-items: center;
+  width: var(--ds-control);
+  height: var(--ds-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-icon);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: auto;
+}
+
+.layer-action:hover {
+  background: var(--ds-ghost-hover);
+}
+
+.layer-row:hover .layer-action,
+.layer-row:has(:focus-visible) .layer-action,
+.layer-action[data-on='true'] {
+  opacity: 1;
+}
+
+/* The way to the code takes no room until the row is hovered or focused. */
+/* Collapsed, its icon would still hang over the next button and take its clicks. */
+.layer-row:not(:hover, :has(:focus-visible)) .layer-action[data-slot='open'] {
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* The match count sits inside the field's end, so the field never changes width. */
+.layers-filter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--ds-space-2);
+}
+
+.layers-filter input {
+  flex: 1;
+  min-width: 0;
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2) var(--ds-filter-count);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  font-size: var(--ds-text-12);
+}
+
+.layers-count {
+  position: absolute;
+  inset-inline-end: var(--ds-space-2);
+  pointer-events: none;
+  color: var(--ds-text-3);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.layer-row[data-kind='element'] .layer-name {
+  color: var(--ds-text-2);
+}
+
+.layer-row[data-kind='client'] .layer-name,
+.layer-row[data-kind='server'] .layer-name {
+  color: var(--ds-text);
+  font-family: var(--ds-font);
+  font-weight: var(--ds-weight-strong);
+}
+
+.layer-server {
+  flex-shrink: 0;
+  margin-inline-start: var(--ds-space-1);
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-regular);
+}
+
+/* The tool rail (TRU-3.5): beside the left panel, whose line is the rail's first */
+.rail {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: var(--ds-dock-left);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: var(--ds-rail);
+  padding-block: var(--ds-space-2);
+  border-inline-end: 1px solid var(--ds-border);
+  background: var(--ds-panel);
+}
+
+/* With the left panel closed it floats, centred down the window's left. */
+.truing[data-left='false'] .rail {
+  bottom: 0;
+  left: var(--ds-space-5);
+  height: fit-content;
+  margin-block: auto;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow:
+    0 0 0 1px var(--ds-border),
+    var(--ds-shadow-float);
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rail-separator {
+  flex: none;
+  width: var(--ds-control);
+  height: 1px;
+  margin-block: var(--ds-space-1);
+  background: var(--ds-border);
+}
+
+/* The bar along the canvas's top, on one plane with the panels */
+.canvas-bar {
+  position: fixed;
+  top: 0;
+  left: var(--ds-canvas-left);
+  right: var(--ds-canvas-right);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--ds-canvas-bar);
+  padding-inline: var(--ds-space-2);
+  overflow: hidden;
+  border-bottom: 1px solid var(--ds-border);
+  background: var(--ds-panel);
+  white-space: nowrap;
+}
+
+.tool {
+  display: inline-grid;
+  place-items: center;
+  width: var(--ds-control);
+  height: var(--ds-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-icon);
+  cursor: pointer;
+}
+
+.tool:hover {
+  background: var(--ds-ghost-hover);
+  color: var(--ds-text);
+}
+
+.tool:disabled {
+  background: transparent;
+  color: var(--ds-text-4);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.tool[aria-pressed='true'] {
+  background: var(--ds-accent-fill);
+  color: var(--ds-on-accent);
+}
+
+/* The current tool is raised, as a pressed segment is. */
+.rail .tool[aria-pressed='true'] {
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+}
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  min-height: var(--ds-control);
+  padding: 2px;
+  border-radius: var(--ds-radius);
+  background: var(--ds-track);
+}
+
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  position: relative;
+  padding: 0 var(--ds-segment-pad-inline);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-label);
+  cursor: pointer;
+}
+
+/* The track's height, 24 px, as the hit area. */
+.segmented button::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
+}
+
+.segmented button[aria-pressed='true'],
+.segmented button[aria-selected='true'],
+.segmented button[aria-checked='true'] {
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+}
+
+.route {
+  display: flex;
+  flex: 0 1 320px;
+  align-items: center;
+  min-width: 0;
+  height: var(--ds-control);
+  padding-inline-start: var(--ds-space-2);
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.route:focus-within {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 1px;
+}
+
+.route input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  outline: none;
+}
+
+.device-button {
+  anchor-name: --device;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2) var(--ds-space-1);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-text-2);
+  cursor: pointer;
+}
+
+.device-button:hover {
+  background: var(--ds-ghost-hover);
+  color: var(--ds-text);
+}
+
+.zoom {
+  min-width: 48px;
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-text-2);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.zoom:hover {
+  background: var(--ds-ghost-hover);
+}
+
+.connection {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-inline: auto var(--ds-space-1);
+  border-radius: 50%;
+  background: var(--ds-warning);
+  box-shadow: 0 0 0 1px var(--ds-icon);
+}
+
+.connection[data-state='open'] {
+  background: var(--ds-success);
+}
+
+/* The viewport menu, anchored under its button */
+.menu {
+  position-anchor: --device;
+  position-area: bottom span-right;
+  margin: var(--ds-space-2) 0 0;
+  width: 280px;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-menu);
+  color: var(--ds-text);
+  box-shadow: var(--ds-shadow-modal);
+}
+
+.menu-heading {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+  color: var(--ds-text-2);
+}
+
+.menu-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--ds-row-pad-block) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  font-size: var(--ds-text-12);
+  text-align: start;
+  cursor: pointer;
+}
+
+.menu-row[aria-pressed='true'] {
+  background: var(--ds-selected);
+}
+
+/* The highlighted row: white on the accent fill, and everything in it. */
+.menu-row:hover,
+.context-row:focus-visible,
+.context-item:focus {
+  background: var(--ds-accent-fill);
+  color: var(--ds-on-accent);
+}
+
+:is(.menu-row:hover, .context-row:focus-visible, .context-item:focus)
+  :is(.key, .menu-size, .context-detail, .context-chevron) {
+  color: var(--ds-on-accent);
+}
+
+.menu-size {
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  color: var(--ds-text-3);
+}
+
+.menu-group summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-row-pad-block) var(--ds-space-2);
+  border-radius: var(--ds-radius);
+  font-size: var(--ds-text-12);
+  color: var(--ds-text-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.menu-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu-group summary:hover {
+  background: var(--ds-accent-fill);
+  color: var(--ds-on-accent);
+}
+
+.menu-group[open] .menu-chevron {
+  transform: rotate(90deg);
+}
+
+.menu-row-device {
+  padding-inline-start: var(--ds-menu-indent);
+}
+
+.menu {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+
+.menu-custom {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  margin-top: var(--ds-space-1);
+  padding: var(--ds-space-2);
+  border-top: 1px solid var(--ds-border);
+  font-size: var(--ds-text-12);
+}
+
+.menu-custom > span:first-child {
+  flex: 1;
+}
+
+.menu-custom input {
+  width: var(--ds-field-size);
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-1);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-apply {
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-confirm);
+  color: var(--ds-on-confirm);
+  font-weight: var(--ds-weight-label);
+  cursor: pointer;
+}
+
+.menu-apply:hover {
+  background: var(--ds-confirm-hover);
+}
+
+/* The context menu, at the right-click (TRU-2.3) */
+.context-menu {
+  position: fixed;
+  position-area: none;
+  inset: auto;
+  margin: 0;
+  width: var(--ds-menu-width);
+}
+
+.context-row {
+  align-items: center;
+  gap: var(--ds-space-3);
+}
+
+.context-row:disabled {
+  color: var(--ds-text-4);
+  cursor: default;
+}
+
+.context-row:disabled:hover {
+  background: transparent;
+  color: var(--ds-text-4);
+}
+
+/* The pick's header, the groups and the lists beside the menu (TRU-2.4) */
+
+/* As tall as the window allows, less a margin each side (menu-layout.ts). */
+.context-menu {
+  max-height: calc(100vh - 16px);
+}
+
+/* The menu takes focus as it opens; its rows show the ring once the keys reach them. */
+.context-menu:focus-visible {
+  outline: none;
+}
+
+.context-header {
+  padding-block: var(--ds-space-1);
+}
+
+.context-title {
+  margin: 0;
+  padding: var(--ds-space-1) var(--ds-space-2) 0;
+  font-weight: var(--ds-weight-label);
+  overflow-wrap: anywhere;
+}
+
+.context-place {
+  color: var(--ds-text-2);
+}
+
+.context-place code {
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+  overflow-wrap: anywhere;
+}
+
+.context-absent {
+  margin: 0;
+  padding: var(--ds-row-pad-block) var(--ds-space-2);
+  font-size: var(--ds-text-12);
+  color: var(--ds-text-3);
+}
+
+.context-separator {
+  height: 1px;
+  margin: var(--ds-space-1) calc(-1 * var(--ds-space-1));
+  background: var(--ds-border);
+}
+
+/* With no header to follow, the first group needs no line above it. */
+.context-separator:first-child {
+  display: none;
+}
+
+/* Its list is open: it stays the highlighted row, in the same two colours. */
+.context-row[aria-expanded='true'] {
+  background: var(--ds-accent-fill);
+  color: var(--ds-on-accent);
+}
+
+.context-chevron {
+  flex: none;
+  color: var(--ds-text-2);
+}
+
+.context-row[aria-expanded='true'] .context-chevron {
+  color: var(--ds-on-accent);
+}
+
+.context-row:disabled .context-chevron {
+  color: var(--ds-text-4);
+}
+
+.context-item {
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--ds-space-2);
+}
+
+.context-mark {
+  display: inline-flex;
+  flex: none;
+  width: 12px;
+}
+
+.context-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-detail {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-text-12);
+  color: var(--ds-text-2);
+}
+
+/* Keys in the UI font: in the mono one, O reads as a zero. */
+.key {
+  color: var(--ds-text-2);
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-font);
+}
+
+/* The ? sheet: every shortcut, by group */
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet {
+  --sheet-top: calc(var(--ds-canvas-top) + var(--ds-space-2));
+  position: fixed;
+  inset: var(--sheet-top) calc(var(--ds-canvas-right) + var(--ds-space-2)) auto
+    auto;
+  width: var(--ds-sheet-width);
+  max-height: calc(100vh - var(--sheet-top) - var(--ds-space-2));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-panel);
+  color: var(--ds-text);
+  box-shadow: var(--ds-shadow-modal);
+}
+
+/* A press in a frame never reaches the shell, so while it's open that press closes it instead. */
+.truing:has(.sheet[open]) .frame-card iframe {
+  pointer-events: none;
+}
+
+/* Closed, the right panel is a pill: the sheet opens under it, not over its button. */
+.truing[data-right='false'] .sheet {
+  --sheet-top: calc(var(--ds-canvas-bar) + var(--ds-space-3) + var(--ds-pill));
+}
+
+/* DESIGN.md's Popover: a darker header holds the title as a tab, and its close at the end. */
+.sheet-header {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: var(--ds-space-1) var(--ds-space-1) 0;
+  background: var(--ds-track);
+}
+
+.sheet-header h2 {
+  margin: 0;
+  padding: var(--ds-row-pad-block) var(--ds-space-2);
+  border-radius: var(--ds-radius) var(--ds-radius) 0 0;
+  background: var(--ds-panel);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+}
+
+.sheet-header form {
+  align-self: center;
+  margin-block-end: var(--ds-space-1);
+}
+
+.sheet-body {
+  overflow-y: auto;
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-4);
+}
+
+.sheet-list {
+  display: grid;
+  /* Fixed shares: the longest gesture's words would squeeze every title. */
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--ds-space-1) var(--ds-space-4);
+  margin: 0;
+  padding: 0 var(--ds-space-2);
+  font-size: var(--ds-text-12);
+}
+
+.sheet-list dt {
+  color: var(--ds-text-2);
+}
+
+.sheet-list dd {
+  margin: 0;
+  text-align: end;
+}
+
+.sheet-list .key {
+  color: var(--ds-text);
+}
+
+/* The status line at the canvas's foot: one confirmation at a time */
+.notice {
+  position: fixed;
+  left: calc((100vw + var(--ds-canvas-left) - var(--ds-canvas-right)) / 2);
+  bottom: var(--ds-space-4);
+  transform: translateX(-50%);
+  margin: 0;
+  /* A failure's sentence wraps rather than leaving the canvas. */
+  max-width: calc(
+    100vw - var(--ds-canvas-left) - var(--ds-canvas-right) - 2 *
+      var(--ds-space-4)
+  );
+  width: max-content;
+  pointer-events: none;
+}
+
+.notice span {
+  display: block;
+  padding: var(--ds-space-1) var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-panel);
+  box-shadow: var(--ds-shadow-float);
+  font-size: var(--ds-text-12);
+}
+
+/* A <details>'s line (fold.tsx), and `→` drawn as an icon. */
+.fold {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-height: var(--ds-control);
+  list-style: none;
+  cursor: pointer;
+}
+
+.fold::-webkit-details-marker {
+  display: none;
+}
+
+.fold-chevron {
+  flex: none;
+  color: var(--ds-icon);
+}
+
+details[open] > .fold > .fold-chevron {
+  transform: rotate(90deg);
+}
+
+.path-arrow {
+  position: relative;
+  display: inline-block;
+  white-space: pre;
+  vertical-align: baseline;
+}
+
+.path-arrow-text {
+  opacity: 0;
+}
+
+.path-arrow svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: var(--ds-text-2);
+}
+
+/* The panel's controls (TRU-3.9): src/shell/controls/. */
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  height: var(--ds-control);
+  padding: 0 var(--ds-space-1) 0 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.field:focus-within {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 1px;
+}
+
+.field-label {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: var(--ds-control);
+  height: var(--ds-control);
+  color: var(--ds-text-2);
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.field-label[data-still='true'] {
+  cursor: inherit;
+}
+
+/* A word or a letter isn't centred in a cell, as an icon is: it needs its edge. */
+.field-label:not(:has(svg)) {
+  padding-inline-start: var(--ds-space-1);
+}
+
+/* Its marks, taking the field's own spacing. */
+.field-marks {
+  display: contents;
+}
+
+/* Its own: the token menu sits inside it in the DOM. */
+.field > input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+}
+
+.field-unit {
+  flex: none;
+  color: var(--ds-text-2);
+}
+
+/* The breakpoint a value comes from. */
+.field-from {
+  flex: none;
+  color: var(--ds-text-2);
+}
+
+.field-drop {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--ds-control);
+  height: var(--ds-control);
+  margin-inline-end: calc(var(--ds-space-1) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-icon);
+  cursor: pointer;
+}
+
+.field-drop:hover {
+  background: var(--ds-ghost-hover);
+  color: var(--ds-text);
+}
+
+/* A value only a token can set: the whole field is the button. */
+.field-button {
+  padding-inline-start: var(--ds-space-2);
+  text-align: start;
+  cursor: pointer;
+}
+
+.field-button:has(> .field-label) {
+  padding-inline-start: 0;
+}
+
+.field-button .inspect-swatch {
+  flex: none;
+  margin: 0;
+}
+
+.field-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-chevron {
+  flex: none;
+  margin-inline: var(--ds-space-1);
+  color: var(--ds-icon);
+}
+
+/* A native range, on the system's keys: one line tall, Paper's thumb and track. */
+.control-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--ds-slider-field);
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.control-range {
+  width: 100%;
+  min-width: 0;
+  height: var(--ds-control);
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+}
+
+.control-range::-webkit-slider-runnable-track {
+  height: var(--ds-slider-track);
+  border-radius: var(--ds-slider-track);
+  background: var(--ds-track);
+}
+
+.control-range::-webkit-slider-thumb {
+  width: var(--ds-slider-thumb);
+  height: var(--ds-slider-track);
+  border-radius: var(--ds-slider-track);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  appearance: none;
+}
+
+.control-check {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control);
+  cursor: pointer;
+}
+
+.control-check input {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--ds-check);
+  height: var(--ds-check);
+  margin: 0;
+  border-radius: var(--ds-radius-swatch);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  appearance: none;
+  cursor: pointer;
+}
+
+.control-check:has(input:disabled),
+.control-check input:disabled {
+  cursor: default;
+  opacity: var(--ds-stale);
+}
+
+.control-check input:checked {
+  background: var(--ds-accent-fill);
+  box-shadow: none;
+}
+
+/* A tick drawn from two borders, so it takes the text colour on the accent. */
+.control-check input:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  margin-block-start: -2px;
+  border: solid var(--ds-on-accent);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+/* Raised when pressed, as the rail's current tool is. */
+.control-toggle[aria-pressed='true'] {
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+}
+
+.alignment-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: var(--ds-pad-width);
+  height: var(--ds-pad-height);
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.alignment-pad button {
+  display: flex;
+  min-width: var(--ds-control);
+  min-height: var(--ds-control);
+  padding: var(--ds-space-1);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.alignment-pad button:hover {
+  background: var(--ds-ghost-hover);
+}
+
+.alignment-pad button[data-x='start'] {
+  justify-content: flex-start;
+}
+
+.alignment-pad button[data-x='center'] {
+  justify-content: center;
+}
+
+.alignment-pad button[data-x='end'] {
+  justify-content: flex-end;
+}
+
+.alignment-pad button[data-y='start'] {
+  align-items: flex-start;
+}
+
+.alignment-pad button[data-y='center'] {
+  align-items: center;
+}
+
+.alignment-pad button[data-y='end'] {
+  align-items: flex-end;
+}
+
+.alignment-dot {
+  width: 2px;
+  height: 2px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--ds-icon);
+}
+
+.alignment-lines {
+  display: flex;
+  gap: 2px;
+  color: var(--ds-focus);
+}
+
+.alignment-lines span {
+  border-radius: 1px;
+  background: currentcolor;
+}
+
+.alignment-lines[data-direction='row'] {
+  height: 14px;
+  align-items: inherit;
+}
+
+.alignment-lines[data-direction='row'] span {
+  width: 2px;
+  height: 14px;
+}
+
+.alignment-lines[data-direction='row'] span:nth-child(2) {
+  height: 8px;
+}
+
+.alignment-lines[data-direction='row'] span:nth-child(3) {
+  height: 11px;
+}
+
+.alignment-lines[data-direction='column'] {
+  flex-direction: column;
+  width: 14px;
+  align-items: inherit;
+}
+
+.alignment-lines[data-direction='column'] span {
+  width: 14px;
+  height: 2px;
+}
+
+.alignment-lines[data-direction='column'] span:nth-child(2) {
+  width: 8px;
+}
+
+.alignment-lines[data-direction='column'] span:nth-child(3) {
+  width: 11px;
+}
+
+.alignment-pad
+  button[data-x='start']
+  .alignment-lines[data-direction='column'] {
+  align-items: flex-start;
+}
+
+.alignment-pad
+  button[data-x='center']
+  .alignment-lines[data-direction='column'] {
+  align-items: center;
+}
+
+.alignment-pad button[data-x='end'] .alignment-lines[data-direction='column'] {
+  align-items: flex-end;
+}
+
+.alignment-pad button[data-y='start'] .alignment-lines[data-direction='row'] {
+  align-items: flex-start;
+}
+
+.alignment-pad button[data-y='center'] .alignment-lines[data-direction='row'] {
+  align-items: center;
+}
+
+.alignment-pad button[data-y='end'] .alignment-lines[data-direction='row'] {
+  align-items: flex-end;
+}
+
+/* A clear layer over the window, for a press outside: frames never report one. */
+.token-menu-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* The token menu: under its field, the list its one scroll area. */
+.token-menu {
+  position: fixed;
+  position-area: none;
+  inset: auto;
+  display: flex;
+  flex-direction: column;
+  width: var(--ds-token-menu);
+  max-height: min(var(--ds-token-menu-height), calc(100vh - 16px));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.token-menu-head {
+  display: flex;
+  flex: none;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.token-menu-head input {
+  flex: 1;
+  min-width: 0;
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.token-menu-density {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding-inline: var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-border);
+  color: var(--ds-icon);
+}
+
+.token-menu-list {
+  flex: 1;
+  min-height: 0;
+  padding: var(--ds-space-1);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-icon) transparent;
+}
+
+.token-menu-group {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1);
+  color: var(--ds-text-2);
+}
+
+.token-menu-empty {
+  margin: 0;
+  padding: var(--ds-space-2);
+  color: var(--ds-text-2);
+}
+
+.token-menu-list[data-grid='true'] .token-menu-rows {
+  display: grid;
+  grid-template-columns: repeat(var(--token-columns), minmax(0, 1fr));
+  gap: 2px;
+}
+
+.token-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control);
+  padding-inline: var(--ds-space-2);
+  border-radius: var(--ds-radius);
+  cursor: pointer;
+}
+
+.token-row[data-colour='true'] {
+  min-height: var(--ds-row);
+}
+
+.token-row .inspect-swatch {
+  flex: none;
+  inline-size: var(--ds-token-swatch-width);
+  block-size: var(--ds-token-swatch-height);
+  margin: 0;
+}
+
+.token-row-icon {
+  flex: none;
+  color: var(--ds-icon);
+}
+
+.token-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-row-value {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--ds-text-2);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-row-tick {
+  flex: none;
+}
+
+.token-row[data-active='true'] {
+  background: var(--ds-accent-fill);
+  color: var(--ds-on-accent);
+}
+
+.token-row[data-active='true'] :is(.token-row-value, .token-row-icon) {
+  color: inherit;
+}
+
+/* In a grid: nothing but the swatch, filling its cell. */
+.token-menu-list[data-grid='true'] .token-row {
+  justify-content: center;
+  aspect-ratio: 1;
+  min-height: var(--ds-control);
+  padding: 2px;
+}
+
+.token-menu-list[data-grid='true'] .token-row .inspect-swatch {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.token-menu-list[data-grid='true'] .token-row[data-active='true'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--ds-focus);
+}
+
+.token-menu-list[data-grid='true'] .token-row-tick {
+  position: absolute;
+  color: var(--ds-on-accent);
+  background: var(--ds-accent-fill);
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Not a menu's row: its text turns white at once, so a fade would hide it. */
+  .tool,
+  .segmented button {
+    transition: background-color 100ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+
+/* The changes module (TRU-4.1): the tray in the right panel */
+/* It opens upward: the list above the one line that stays. */
+.changes-list {
+  max-height: 50vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden auto;
+  border-bottom: 1px solid var(--ds-border);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-icon) transparent;
+}
+
+.change {
+  padding: 0 var(--ds-space-2) var(--ds-space-2) var(--ds-space-3);
+}
+
+.change + .change {
+  border-top: 1px solid var(--ds-border);
+}
+
+.change:hover {
+  background: var(--ds-hover);
+}
+
+.change-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-row);
+}
+
+.change-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-head .tool {
+  flex: none;
+}
+
+/* DESIGN.md's Row: its action shows on hover, or from the keys. */
+.change:not(:hover, :focus-within) .change-head .tool {
+  opacity: 0;
+}
+
+.change-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-1) var(--ds-space-2);
+  margin: var(--ds-space-1) 0 0;
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-12);
+}
+
+.change-route {
+  padding: 0 var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  color: var(--ds-text-2);
+  font-weight: var(--ds-weight-strong);
+}
+
+.change-reason {
+  overflow-wrap: anywhere;
+}
+
+.change .control-check {
+  margin-top: var(--ds-space-1);
+  color: var(--ds-text-2);
+}
+
+/* The one line at the panel's foot: as tall as its top row, so the two match. */
+.changes-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2);
+}
+
+.changes-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  height: var(--ds-control);
+  padding: 0 var(--ds-space-1) 0 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  font-weight: var(--ds-weight-label);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.changes-toggle:hover {
+  background: var(--ds-ghost-hover);
+}
+
+.changes-chevron {
+  flex: none;
+  color: var(--ds-icon);
+}
+
+.changes-toggle[aria-expanded='true'] .changes-chevron {
+  transform: rotate(180deg);
+}
+
+.changes-apply,
+.changes-discard {
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-3);
+  border-radius: var(--ds-radius);
+  font-weight: var(--ds-weight-label);
+  cursor: pointer;
+}
+
+.changes-apply {
+  border: 0;
+  background: var(--ds-confirm);
+  color: var(--ds-on-confirm);
+}
+
+.changes-apply:hover {
+  background: var(--ds-confirm-hover);
+}
+
+.changes-discard {
+  border: 0;
+  background: transparent;
+  color: var(--ds-text);
+}
+
+.changes-discard:hover {
+  background: var(--ds-ghost-hover);
+}
+
+.changes button:disabled {
+  cursor: default;
+  opacity: var(--ds-stale);
+}
+
+/* The inspector's Edit section (TRU-4.1): variant switches and the text */
+.inspect-field {
+  display: grid;
+  grid-template-columns: var(--ds-property-column) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-1);
+}
+
+.inspect-field > span {
+  color: var(--ds-text-3);
+}
+
+.inspect-field select,
+.inspect-field textarea {
+  min-height: var(--ds-control);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+  font: inherit;
+}
+
+.inspect-field select {
+  width: 100%;
+  height: var(--ds-control);
+  padding-block: 0;
+}
+
+.inspect-field textarea {
+  resize: vertical;
+}
+
+.change-file {
+  flex-basis: 100%;
+  min-width: 0;
+  font: var(--ds-text-12) / var(--ds-leading) var(--ds-mono);
+}
+
+.change-shared {
+  flex-basis: 100%;
+  /* The word says it: orange is 1.67:1 on the light panel. */
+  color: var(--ds-text);
+}
+
+/* The inspector's Instances (TRU-2.2): the pick's component on this page and in the code */
+.instances-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-2);
+  color: var(--ds-text-2);
+}
+
+.instances-toggle {
+  min-height: var(--ds-control);
+  padding: 0 var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.instances-toggle:hover {
+  background: var(--ds-hover);
+  color: var(--ds-text);
+}
+
+.instances-toggle[aria-pressed='true'] {
+  background: var(--ds-accent-fill);
+  box-shadow: none;
+  color: var(--ds-on-accent);
+}
+
+.instances-filter,
+.inspect-reach {
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  margin-bottom: var(--ds-space-2);
+}
+
+.instances-sites,
+.instances-code ol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 0 var(--ds-space-2);
+  padding: 0;
+  list-style: none;
+}
+
+/* DESIGN.md's Row: 28 px and a hover, with its count and actions at the end. */
+.instances-sites li,
+.instances-code li {
+  display: flex;
+  align-items: center;
+  gap: 0 var(--ds-space-1);
+  min-height: var(--ds-row);
+  border-radius: var(--ds-radius);
+}
+
+.instances-sites li:hover,
+.instances-code li:hover {
+  background: var(--ds-hover);
+}
+
+.instances-sites .instances-count {
+  margin-inline: auto var(--ds-space-1);
+}
+
+.instances-code li > .inspect-actions {
+  margin-inline-start: auto;
+}
+
+.instances-code li:not(:hover, :focus-within) .tool {
+  opacity: 0;
+}
+
+.instances-sites li > *,
+.instances-code li > * {
+  flex: none;
+}
+
+/* A long path loses its start, not the file and line at its end. The full path shows on hover. */
+.instances-sites li > .instances-site,
+.instances-code li > .truncated-path {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.truncated-path {
+  display: block;
+  max-width: 100%;
+  direction: rtl;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.instances-site {
+  min-height: var(--ds-control);
+  padding: 0 var(--ds-space-1);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.instances-site:disabled {
+  cursor: default;
+}
+
+.instances-count {
+  color: var(--ds-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.instances-code {
+  margin-bottom: var(--ds-space-2);
+}
+
+.instances-code summary {
+  color: var(--ds-text-2);
+}
+
+.instances-code ol {
+  margin-top: var(--ds-space-1);
+}
+
+/* The layout controls (TRU-4.2). */
+.layout-stack {
+  display: grid;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.layout-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.layout-pair {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+/* The pad, and what sits beside it. */
+.layout-flex {
+  display: grid;
+  grid-template-columns: var(--ds-pad-width) minmax(0, 1fr);
+  gap: var(--ds-space-2);
+  align-items: start;
+}
+
+/* Parts share the row, however long their words. */
+.layout-fill .segmented {
+  flex: 1;
+}
+
+.layout-fill .segmented button {
+  flex: auto;
+  justify-content: center;
+  padding-inline: var(--ds-space-1);
+  white-space: nowrap;
+}
+
+/* Beside a field, a part is only as wide as its word. */
+.layout-row > .segmented button {
+  padding-inline: var(--ds-space-1);
+}
+
+.layout-sides {
+  align-items: flex-start;
+}
+
+/* A token's name, beside a slider (TRU-4.3). */
+.field-token {
+  flex: none;
+  min-width: var(--ds-control);
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+  text-align: end;
+}
+
+.layout-row > .control-slider {
+  flex: 1;
+  min-width: 0;
+}
+
+/* One word among a few, named beside it (TRU-4.5). */
+.word-row {
+  display: grid;
+  grid-template-columns: var(--ds-design-label) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.word-row > .word-label {
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+}
+
+/* Marks and the toggle sit at the row's end, under neither column. */
+.word-row > .field-from,
+.word-row > .inspect-marks {
+  grid-column: 3;
+}
+
+.design-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--ds-control);
+}
+
+.design-section-head > .design-section-title {
+  margin: 0;
+}
+
+.design-more > summary {
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+}
+
+/* What a gradient looks like, and each of its colours (TRU-4.5). */
+.gradient-bar {
+  display: block;
+  height: var(--ds-control);
+  border-radius: var(--ds-radius);
+  background: var(--gradient);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.gradient-stop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--ds-gradient-at) auto;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.image-fill {
+  display: block;
+  width: 100%;
+  height: var(--ds-image-fill);
+  border-radius: var(--ds-radius);
+  object-fit: contain;
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+/* After a change: whether it's for every element like it. Stays on screen as the panel scrolls (TRU-4.5). */
+.similar-prompt {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: grid;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-border);
+  background: var(--ds-panel);
+}
+
+.similar-prompt p {
+  margin: 0;
+  color: var(--ds-text);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+}
+
+.similar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+}
+
+.similar-all,
+.similar-one {
+  min-height: var(--ds-control);
+  padding: 0 var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  color: var(--ds-text);
+  font: inherit;
+  font-size: var(--ds-text-12);
+  cursor: pointer;
+}
+
+.similar-all {
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.similar-one {
+  background: transparent;
+  color: var(--ds-text-2);
+}
+
+.similar-all:hover,
+.similar-one:hover {
+  background: var(--ds-hover);
+}
+
+/* A warning under the value it's about: a colour that fails contrast (TRU-4.3). */
+.field-note {
+  display: flex;
+  gap: var(--ds-space-1);
+  align-items: flex-start;
+  margin: 0;
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+}
+
+.field-note svg {
+  flex: none;
+  margin-block-start: 2px;
+  color: var(--ds-icon);
+}
+
+/* A menu of a few options (TRU-4.2): the design language's menu rows. */
+.choice-menu {
+  padding: var(--ds-space-1);
+}
+
+.choice-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ds-space-2);
+  width: 100%;
+  min-height: var(--ds-control);
+  padding: 0 var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.choice-row:hover,
+.choice-row:focus-visible {
+  outline: none;
+  background: var(--ds-accent-fill);
+  color: var(--ds-on-accent);
+}
+
+.choice-row-tick {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* Claude's chat (TRU-5.2): DESIGN.md's Chat and Composer. */
+.module:has(> .chat) {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.module:has(> .chat) > .module-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3);
+}
+
+.chat .module-failed {
+  margin: 0;
+}
+
+.chat-turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-turns:empty {
+  display: none;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+
+.chat-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ds-space-1);
+}
+
+.chat-sessions {
+  margin: 0;
+  padding: 0;
+  border-block: 1px solid var(--ds-border);
+  list-style: none;
+}
+
+.chat-session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  width: 100%;
+  min-height: var(--ds-row);
+  padding: 0 var(--ds-space-1);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+
+.chat-session:hover {
+  background: var(--ds-hover);
+}
+
+.chat-session[aria-current='true'] {
+  font-weight: var(--ds-weight-strong);
+}
+
+.chat-session:disabled {
+  opacity: var(--ds-stale);
+  cursor: default;
+}
+
+.chat-session-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-session-when {
+  flex: none;
+  color: var(--ds-text-2);
+}
+
+.chat-bar .module-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  margin-block-start: 0;
+  padding-inline: var(--ds-space-2);
+}
+
+.composer-note {
+  display: flex;
+  gap: var(--ds-space-1);
+  margin: 0;
+  color: var(--ds-text-2);
+}
+
+.composer-note svg {
+  flex: none;
+  color: var(--ds-icon);
+}
+
+/* A designer's message on the control colour; Claude's answer is plain text. */
+.chat-you {
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-you p {
+  margin: 0;
+}
+
+.chat-you-chips {
+  color: var(--ds-text-2);
+}
+
+.chat-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-text code,
+.chat-activity code,
+.chat-command,
+.chat-file code,
+.chat-diff-text {
+  font-family: var(--ds-mono);
+}
+
+.chat-activities {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-activity {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+  min-height: var(--ds-control);
+  margin: 0;
+  color: var(--ds-text-2);
+}
+
+.chat-activity > span {
+  flex: none;
+}
+
+.chat-activity code {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.chat-activity[data-failed] svg {
+  flex: none;
+  color: var(--ds-error);
+}
+
+.chat-command {
+  display: block;
+  grid-column: 2;
+  margin-block-start: var(--ds-space-1);
+  overflow-wrap: anywhere;
+}
+
+/* A turn's diff: a Section with its files as Rows, and keep and undo at the end. */
+.chat-diff {
+  border-top: 1px solid var(--ds-border);
+  padding-block-start: var(--ds-space-1);
+}
+
+.chat-diff-title {
+  font-weight: var(--ds-weight-strong);
+  justify-content: space-between;
+}
+
+.chat-diff-text {
+  max-height: 320px;
+  margin: var(--ds-space-1) 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  white-space: pre;
+}
+
+.chat-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-row);
+}
+
+.chat-file code {
+  min-width: 0;
+}
+
+.chat-file-lines {
+  flex: none;
+  color: var(--ds-text-2);
+}
+
+.chat-frames {
+  display: flex;
+  gap: var(--ds-space-2);
+  margin: var(--ds-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-frames li {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--ds-text-2);
+}
+
+.chat-frames img {
+  display: block;
+  width: 100%;
+  height: 96px;
+  margin-block-end: var(--ds-space-1);
+  border-radius: var(--ds-radius);
+  object-fit: cover;
+  object-position: top;
+  box-shadow: var(--ds-shadow-control);
+}
+
+.chat-decision {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ds-space-1);
+}
+
+.chat-permission {
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.chat-permission p {
+  margin: 0;
+}
+
+.chat-prompts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-prompt {
+  padding-block: var(--ds-space-2);
+  border-top: 1px solid var(--ds-border);
+}
+
+.chat-prompt p {
+  margin: 0;
+}
+
+.chat-prompt-actions {
+  display: flex;
+  gap: var(--ds-space-1);
+}
+
+.chat-queue-title {
+  margin: 0;
+  color: var(--ds-text-2);
+  font-size: var(--ds-text-12);
+  font-weight: var(--ds-weight-strong);
+}
+
+.chat-queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-queued {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-row);
+}
+
+.chat-queued span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* DESIGN.md's Composer: chips, then the text, then menus and the action. */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3) var(--ds-space-3);
+}
+
+.dock-foot > div:has(> .composer) {
+  border-top: 1px solid var(--ds-border);
+}
+
+.composer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2) 2px;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+}
+
+.composer-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-chip button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-icon);
+  cursor: pointer;
+}
+
+.composer-chip button:hover {
+  background: var(--ds-ghost-hover);
+}
+
+.composer-text {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  max-height: 200px;
+  padding: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  box-shadow: var(--ds-shadow-control);
+  color: var(--ds-text);
+  font: inherit;
+  field-sizing: content;
+  resize: none;
+}
+
+.composer[data-small] .composer-text {
+  min-height: var(--ds-control);
+  padding: var(--ds-space-1) var(--ds-space-2);
+}
+
+.composer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
+.composer-menus {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.composer-menus .field-button {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.composer-send {
+  flex: none;
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-confirm);
+  color: var(--ds-on-confirm);
+  font-weight: var(--ds-weight-label);
+  cursor: pointer;
+}
+
+.composer-send:hover {
+  background: var(--ds-confirm-hover);
+}
+
+/* The prompt on a pick: the Composer, smaller, floating by the element. */
+.inline-prompt,
+.inline-ask {
+  position: absolute;
+  z-index: 1;
+  transform: translateX(-100%);
+}
+
+.inline-prompt {
+  border-radius: var(--ds-radius);
+  background: var(--ds-panel);
+  box-shadow: var(--ds-shadow-float);
+}
+
+.inline-prompt .composer {
+  padding: var(--ds-space-2);
+}
+
+.inline-ask {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: var(--ds-control);
+  padding-inline: var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius);
+  background: var(--ds-panel);
+  box-shadow: var(--ds-shadow-float);
+  color: var(--ds-text);
+  font-weight: var(--ds-weight-label);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.inline-ask:hover {
+  background: var(--ds-hover);
+}

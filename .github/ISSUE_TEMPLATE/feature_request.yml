@@ -1,0 +1,28 @@
+name: Feature request
+description: Something Truing could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you were trying to do, and what got in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What you'd like
+      description: What you could do afterwards. How it's built can come later.
+    validations:
+      required: true
+  - type: textarea
+    id: project
+    attributes:
+      label: What it needs from your project
+      description: Truing is zero config, so a feature can't rely on a config file or a fixed path, port, framework or token location. Could Claude read what this needs from a project, or would Truing need to ask you?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: Workarounds, or other tools you've tried.

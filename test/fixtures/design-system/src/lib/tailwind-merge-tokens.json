@@ -1,0 +1,19 @@
+{
+  "$comment": "Generated from src/app/globals.css by truing tokens. Do not edit.",
+  "font-size": [
+    "title-2xl",
+    "title-m",
+    "title-s",
+    "body-sm",
+    "label-md",
+    "label-xs",
+    "button-sm",
+    "button-md"
+  ],
+  "shadow": [
+    "pane",
+    "floating-card",
+    "navigation",
+    "pane-lg"
+  ]
+}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Same fast gate for every commit, whoever (or whatever agent) makes it. CI runs it again.
+exec make -s check
