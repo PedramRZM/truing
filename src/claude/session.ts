@@ -64,6 +64,12 @@ export function modeArgs(mode: PermissionMode): string[] {
     : args;
 }
 
+/**
+ * How long Claude Code waits for an MCP tool, which is how long a prompt can wait for
+ * the designer (TRU-5.3).
+ */
+const PROMPT_WAIT_MS = 24 * 60 * 60 * 1000;
+
 /** Keeps a session on the person's own login, and not nested in another. */
 const DROPPED_ENV = [
   'ANTHROPIC_API_KEY',
@@ -393,7 +399,10 @@ export async function prepareSession(options: {
       '--append-system-prompt',
       await sessionPrompt(config),
     ],
-    env: sessionEnv(dropEnv, options.env),
+    env: {
+      ...sessionEnv(dropEnv, options.env),
+      MCP_TOOL_TIMEOUT: String(PROMPT_WAIT_MS),
+    },
     permissions,
     servers: [MCP_SERVER, ...(hasNext ? [NEXT_SERVER] : [])],
     dispose: () => rm(dir, { recursive: true, force: true }),

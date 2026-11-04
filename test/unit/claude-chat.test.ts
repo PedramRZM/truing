@@ -22,6 +22,7 @@ import { attachmentOf, picksFrom } from '../../src/modules/claude/attachments';
 import { type ChatOptions, createChat } from '../../src/modules/claude/chat';
 import {
   chatTitle,
+  type ChatStore,
   createChatStore,
 } from '../../src/modules/claude/chat-store';
 import {
@@ -42,7 +43,7 @@ import {
 } from '../../src/modules/claude/message';
 import type { Attachment, Chat, Turn } from '../../src/modules/claude/module';
 import type { RunEnd, RunOptions } from '../../src/modules/claude/run';
-import { lineSplitter } from '../../src/modules/claude/run';
+import { lineSplitter, processStarter } from '../../src/modules/claude/run';
 import {
   activityRows,
   answerBlocks,
@@ -302,6 +303,130 @@ describe('a turn', () => {
     claude.runs[1]?.finish();
   });
 
+  // TRU-5.3 #10: the turn's end set `paused` over the message that had just cleared it.
+  it('carries on with a message sent after Stop and before the turn ends', async () => {
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(repo(), claude.start);
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    chat.stop();
+    chat.send(message('two'));
+    await until(() => claude.runs.length === 2);
+    expect(seen.chat?.turns[0]?.status).toBe('stopped');
+    expect(seen.chat?.paused).toBe(false);
+    claude.runs[1]?.finish();
+    await until(() => seen.chat?.working === false);
+    expect(seen.chat?.turns[1]?.status).toBe('done');
+  });
+
+  // TRU-5.3 #11: until the process was there, Stop did nothing, and Claude ran on.
+  it('starts nothing when stopped before the process has started', async () => {
+    const claude = fakeClaude();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { chat, seen } = chatOn(repo(), claude.start, {
+      exclusive: (job) => gate.then(job),
+    });
+    chat.send(message('one'));
+    chat.stop();
+    release();
+    await until(() => seen.chat?.working === false);
+    expect(claude.runs).toHaveLength(0);
+    expect(seen.chat?.turns[0]?.status).toBe('stopped');
+    expect(seen.chat?.paused).toBe(true);
+  });
+
+  it('keeps what Claude hasn’t been told yet for the turn that does run', async () => {
+    const root = repo();
+    const claude = fakeClaude();
+    let hold: Promise<void> = Promise.resolve();
+    const { chat, seen } = chatOn(root, claude.start, {
+      exclusive: (job) => hold.then(job),
+    });
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    writeFileSync(path.join(root, 'a.tsx'), 'two\n');
+    claude.runs[0]?.finish();
+    await until(() => seen.chat?.working === false);
+    await chat.undo(seen.chat?.turns[0]?.id ?? '');
+
+    let release: () => void = () => {};
+    hold = new Promise((resolve) => {
+      release = resolve;
+    });
+    chat.send(message('stopped first'));
+    chat.stop();
+    release();
+    await until(() => seen.chat?.working === false);
+    expect(claude.runs).toHaveLength(1);
+
+    hold = Promise.resolve();
+    chat.send(message('two'));
+    await until(() => claude.runs.length === 2);
+    expect(
+      JSON.parse(claude.runs[1]?.input ?? '{}').message.content[0].text,
+    ).toMatch(/<truing-note>The designer undid/);
+    claude.runs[1]?.finish();
+  });
+
+  it('starts nothing once it’s closed', async () => {
+    const claude = fakeClaude();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let ended: () => void = () => {};
+    const finished = new Promise<void>((resolve) => {
+      ended = resolve;
+    });
+    const { chat } = chatOn(repo(), claude.start, {
+      exclusive: (job) =>
+        gate.then(job).finally(() => {
+          ended();
+        }),
+    });
+    chat.send(message('one'));
+    await chat.close();
+    release();
+    await finished;
+    expect(claude.runs).toHaveLength(0);
+  });
+
+  it('holds no Stop over for a later turn', async () => {
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(repo(), claude.start);
+    chat.stop();
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    expect(claude.runs[0]?.interrupted).toBe(false);
+    claude.runs[0]?.finish();
+    await until(() => seen.chat?.working === false);
+    expect(seen.chat?.turns[0]?.status).toBe('done');
+    expect(seen.chat?.paused).toBe(false);
+  });
+
+  it('holds no Stop over after a turn that threw', async () => {
+    const claude = fakeClaude();
+    let failing = true;
+    const { chat, seen } = chatOn(repo(), claude.start, {
+      exclusive: (job) => {
+        if (failing) return Promise.reject(new Error('no turn'));
+        return job();
+      },
+    });
+    chat.send(message('one'));
+    chat.stop();
+    await until(() => seen.chat?.working === false);
+    failing = false;
+    chat.send(message('two'));
+    await until(() => claude.runs.length === 1);
+    claude.runs[0]?.finish();
+    await until(() => seen.chat?.working === false);
+    expect(seen.chat?.turns.at(-1)?.status).toBe('done');
+  });
+
   it('says Claude Code is missing, and holds the queue', async () => {
     const claude = fakeClaude((run) =>
       run.finish({ code: null, startError: 'ENOENT' }),
@@ -361,6 +486,37 @@ describe('permission prompts', () => {
     await until(() => seen.chat?.prompts.length === 1);
     claude.runs[0]?.finish();
     expect(await left).toMatchObject({ behavior: 'deny' });
+    await chat.close();
+  });
+
+  // TRU-5.3 #13: a prompt whose connection had gone stayed clickable.
+  it('goes away when the connection asking it closes', async () => {
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(repo(), claude.start);
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    const args = claude.runs[0]?.args ?? [];
+    const mcp: {
+      mcpServers: Record<string, { env: Record<string, string> }>;
+    } = JSON.parse(
+      readFileSync(args[args.indexOf('--mcp-config') + 1] ?? '', 'utf8'),
+    );
+    const env = mcp.mcpServers['truing']?.env ?? {};
+    const asking = new AbortController();
+    const asked = fetch(`${env.TRUING_BRIDGE_URL}/permission`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.TRUING_BRIDGE_TOKEN}` },
+      body: JSON.stringify({ tool_name: 'Bash', input: { command: 'ls' } }),
+      signal: asking.signal,
+    }).catch(() => 'closed');
+    await until(() => seen.chat?.prompts.length === 1);
+    const id = seen.chat?.prompts[0]?.id ?? '';
+
+    asking.abort();
+    expect(await asked).toBe('closed');
+    await until(() => seen.chat?.prompts.length === 0);
+    expect(() => chat.answer(id, true)).toThrow(/gone/);
+    claude.runs[0]?.finish();
     await chat.close();
   });
 
@@ -798,6 +954,78 @@ describe('sessions', () => {
     claude.runs[2]?.finish();
   });
 
+  // TRU-5.3 #12: the save finished after New chat, and put the old id back.
+  it('keeps a new chat apart from the one just kept', async () => {
+    const root = repo();
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(root, claude.start);
+    chat.send(message('first chat'));
+    await until(() => claude.runs.length === 1);
+    writeFileSync(path.join(root, 'a.tsx'), 'two\n');
+    claude.runs[0]?.finish();
+    await until(
+      () => seen.chat?.working === false && seen.chat.sessions.length === 1,
+    );
+    const first = seen.chat?.chatId;
+
+    chat.keep(seen.chat?.turns[0]?.id ?? '');
+    chat.newChat();
+    expect(seen.chat?.chatId).toBeNull();
+
+    chat.send(message('second chat'));
+    await until(() => claude.runs.length === 2);
+    claude.runs[1]?.finish();
+    await until(
+      () => seen.chat?.working === false && seen.chat.sessions.length === 2,
+    );
+    expect(seen.chat?.chatId).not.toBe(first);
+    expect(seen.chat?.sessions.map(({ title }) => title).sort()).toEqual([
+      'first chat',
+      'second chat',
+    ]);
+  });
+
+  /** A store whose saves wait for the test, one call at a time. */
+  function slowStore() {
+    const started: { id: string; finish: () => void }[] = [];
+    const store: ChatStore = {
+      list: async () => [],
+      load: async () => null,
+      save: (saved) =>
+        new Promise((resolve) => {
+          started.push({ id: saved.id, finish: resolve });
+        }),
+    };
+    return { store, started };
+  }
+
+  it('names a chat before its first save ends, and saves in order', async () => {
+    const root = repo();
+    const claude = fakeClaude();
+    const { store, started } = slowStore();
+    const { chat, seen } = chatOn(root, claude.start, { store });
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    writeFileSync(path.join(root, 'a.tsx'), 'two\n');
+    claude.runs[0]?.finish();
+    await until(() => started.length === 1);
+    const id = seen.chat?.chatId;
+    expect(id).toBe(started[0]?.id);
+
+    chat.keep(seen.chat?.turns[0]?.id ?? '');
+    chat.keep(seen.chat?.turns[0]?.id ?? '');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(started).toHaveLength(1);
+
+    started[0]?.finish();
+    await until(() => started.length === 2);
+    expect(started).toHaveLength(2);
+    started[1]?.finish();
+    await until(() => started.length === 3);
+    expect(started.map((save) => save.id)).toEqual([id, id, id]);
+    started[2]?.finish();
+  });
+
   it('won’t switch chats while Claude is working', async () => {
     const claude = fakeClaude();
     const { chat } = chatOn(repo(), claude.start);
@@ -846,6 +1074,64 @@ describe('sessions', () => {
     expect(seen.chat?.turns[1]?.problem).toMatchObject({
       kind: 'other',
       message: expect.stringContaining('Start a new chat'),
+    });
+  });
+
+  // TRU-5.3 #16: every "other" problem on a resumed chat became this one.
+  it.each([
+    ['plan', 'billing_error', /plan/],
+    ['organisation', 'oauth_org_not_allowed', /organisation/],
+  ])('keeps a %s error on a resumed chat', async (_what, error, words) => {
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(repo(), claude.start);
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    claude.runs[0]?.onEvent(DONE);
+    claude.runs[0]?.finish();
+    await until(() => seen.chat?.working === false);
+    chat.send(message('two'));
+    await until(() => claude.runs.length === 2);
+    claude.runs[1]?.onEvent({
+      type: 'assistant',
+      error,
+      message: { content: [{ type: 'text', text: 'made up' }] },
+    });
+    claude.runs[1]?.onEvent({
+      type: 'result',
+      subtype: 'success',
+      is_error: true,
+    });
+    claude.runs[1]?.finish({ code: 1 });
+    await until(() => seen.chat?.paused === true);
+    const problem = seen.chat?.turns[1]?.problem;
+    expect(problem).toMatchObject({
+      kind: 'other',
+      message: expect.stringMatching(words),
+    });
+    expect(problem).not.toMatchObject({
+      message: expect.stringContaining('carry on this chat'),
+    });
+  });
+
+  it('keeps running out of steps on a resumed chat', async () => {
+    const claude = fakeClaude();
+    const { chat, seen } = chatOn(repo(), claude.start);
+    chat.send(message('one'));
+    await until(() => claude.runs.length === 1);
+    claude.runs[0]?.onEvent(DONE);
+    claude.runs[0]?.finish();
+    await until(() => seen.chat?.working === false);
+    chat.send(message('two'));
+    await until(() => claude.runs.length === 2);
+    claude.runs[1]?.onEvent({
+      type: 'result',
+      subtype: 'error_max_turns',
+      is_error: true,
+    });
+    claude.runs[1]?.finish({ code: 1 });
+    await until(() => seen.chat?.paused === true);
+    expect(seen.chat?.turns[1]?.problem).toMatchObject({
+      message: expect.stringContaining('limit of steps'),
     });
   });
 
@@ -1010,6 +1296,45 @@ describe('the stream', () => {
     ).toEqual({ kind: 'limit', resetsAt: null });
   });
 
+  // TRU-5.3 #15: the event that knows the time, then one that doesn't.
+  it.each([
+    [
+      'an assistant message',
+      {
+        type: 'assistant',
+        error: 'rate_limit',
+        message: { content: [{ type: 'text', text: 'limit' }] },
+      },
+    ],
+    ['a retry', { type: 'system', subtype: 'api_retry', error: 'rate_limit' }],
+  ])('keeps a known reset time through %s', (_what, later) => {
+    const known = {
+      type: 'rate_limit_event',
+      rate_limit_info: { status: 'rejected', resetsAt: 1793705400 },
+    };
+    const turn = run(known, later, {
+      type: 'result',
+      subtype: 'success',
+      is_error: true,
+    });
+    expect(turn.problem).toEqual({ kind: 'limit', resetsAt: 1793705400 });
+  });
+
+  it('lets another problem replace a limit', () => {
+    const turn = run(
+      {
+        type: 'rate_limit_event',
+        rate_limit_info: { status: 'rejected', resetsAt: 1793705400 },
+      },
+      {
+        type: 'assistant',
+        error: 'authentication_failed',
+        message: { content: [] },
+      },
+    );
+    expect(turn.problem).toEqual({ kind: 'signed-out' });
+  });
+
   it('drops a retry’s problem once the turn succeeds', () => {
     const turn = run(
       { type: 'system', subtype: 'api_retry', error: 'rate_limit' },
@@ -1028,6 +1353,62 @@ describe('the stream', () => {
     expect(turn.problem).toMatchObject({
       kind: 'other',
       message: expect.stringContaining('limit of steps'),
+    });
+  });
+
+  // TRU-5.3 #14: a run that ignored the signals held the writes queue for good.
+  describe('a run that won’t stop', () => {
+    const IGNORES_SIGNALS = `
+      process.on('SIGINT', () => {});
+      process.on('SIGTERM', () => {});
+      console.log('{"up":true}');
+      setInterval(() => {}, 1000);`;
+
+    async function stopped(script: string): Promise<RunEnd | 'hung'> {
+      let up: () => void = () => {};
+      const started = new Promise<void>((resolve) => {
+        up = resolve;
+      });
+      const run = processStarter(
+        process.execPath,
+        20,
+      )({
+        args: ['-e', script],
+        cwd: os.tmpdir(),
+        env: process.env,
+        input: '',
+        onEvent: () => up(),
+      });
+      await started;
+      run.interrupt();
+      return Promise.race([
+        run.done,
+        new Promise<'hung'>((resolve) =>
+          setTimeout(() => resolve('hung'), 1500),
+        ),
+      ]);
+    }
+
+    it('is killed, once asking hasn’t worked', async () => {
+      expect(await stopped(IGNORES_SIGNALS)).toEqual({
+        code: null,
+        startError: null,
+      });
+    });
+
+    it('ends even if something it started still holds its output', async () => {
+      const script = `
+        require('node:child_process').spawn('sleep', ['3'], { stdio: 'inherit' });
+        ${IGNORES_SIGNALS}`;
+      expect(await stopped(script)).toEqual({ code: null, startError: null });
+    });
+
+    it('ends on its own terms when asking works', async () => {
+      const script = `
+        process.on('SIGINT', () => process.exit(7));
+        console.log('{"up":true}');
+        setInterval(() => {}, 1000);`;
+      expect(await stopped(script)).toEqual({ code: 7, startError: null });
     });
   });
 

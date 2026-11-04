@@ -20,7 +20,12 @@ import type { TruingConfig } from '../../config';
 import { messageOf, type ScreenshotControl } from '../../module';
 
 import { type Bridge, type Decision, startBridge } from './bridge';
-import { chatTitle, createChatStore, defaultChatsDir } from './chat-store';
+import {
+  chatTitle,
+  type ChatStore,
+  createChatStore,
+  defaultChatsDir,
+} from './chat-store';
 import {
   changedFiles,
   diffOf,
@@ -28,7 +33,12 @@ import {
   undoTurn,
   type UndoResult,
 } from './checkpoint';
-import { applyEvent, newProgress, type TurnProgress } from './events';
+import {
+  applyEvent,
+  GENERIC_STOP,
+  newProgress,
+  type TurnProgress,
+} from './events';
 import { promptSummary, renderMessage, renderText } from './message';
 import {
   type Attachment,
@@ -110,6 +120,8 @@ export type ChatOptions = {
   settleMs?: number;
   /** Where its chats are kept; the tests pass a temporary folder. */
   chatsDir?: string;
+  /** The tests pass a slow one. */
+  store?: ChatStore;
 };
 
 function newTurn(message: Queued): Turn {
@@ -136,9 +148,9 @@ export function createChat(options: ChatOptions) {
   const start = options.start ?? startRun;
   const runCli = options.runCli ?? runClaude;
   const settleMs = options.settleMs ?? SETTLE_MS;
-  const store = createChatStore(
-    options.chatsDir ?? defaultChatsDir(config.name),
-  );
+  const store =
+    options.store ??
+    createChatStore(options.chatsDir ?? defaultChatsDir(config.name));
 
   // Random, as a chat brought back keeps the ids it was saved with.
   const newId = (kind: string): string => `${kind}-${randomUUID().slice(0, 8)}`;
@@ -163,6 +175,10 @@ export function createChat(options: ChatOptions) {
   let sessionId: string | null = null;
   let current: Run | null = null;
   let stopping = false;
+  /** A message came after Stop, before the turn ended: it's the go-ahead. */
+  let carryOn = false;
+  /** Each save follows the one before, so an older one can't land last. */
+  let saves: Promise<void> = Promise.resolve();
   let live: Turn | null = null;
   let liveTimer: ReturnType<typeof setTimeout> | null = null;
   let bridge: Promise<Bridge> | null = null;
@@ -174,22 +190,29 @@ export function createChat(options: ChatOptions) {
   }
 
   /** Writes the chat as it stands, and lists it. A failure here doesn't stop the turn. */
-  async function saveChat(): Promise<void> {
-    if (chat.turns.length === 0) return;
+  function saveChat(): Promise<void> {
+    if (chat.turns.length === 0) return saves;
+    // Named and copied now (TRU-5.3): by the time it's written, the designer may have
+    // started a new chat, and this one's id must not come back.
     const id = chat.chatId ?? newId('chat');
-    try {
-      await store.save({
-        id,
-        title: chatTitle(chat.turns),
-        updatedAt: new Date().toISOString(),
-        sessionId,
-        // Pictures are for the turn in front of the designer.
-        turns: chat.turns.map((turn) => ({ ...turn, frames: [] })),
-      });
-      update({ chatId: id, sessions: await store.list() });
-    } catch (error) {
-      log(`Couldn't save this chat: ${messageOf(error)}`);
-    }
+    if (chat.chatId === null) update({ chatId: id });
+    const saved = {
+      id,
+      title: chatTitle(chat.turns),
+      updatedAt: new Date().toISOString(),
+      sessionId,
+      // Pictures are for the turn in front of the designer.
+      turns: chat.turns.map((turn) => ({ ...turn, frames: [] })),
+    };
+    saves = saves.then(async () => {
+      try {
+        await store.save(saved);
+        update({ sessions: await store.list() });
+      } catch (error) {
+        log(`Couldn't save this chat: ${messageOf(error)}`);
+      }
+    });
+    return saves;
   }
 
   function sendLive(): void {
@@ -212,13 +235,22 @@ export function createChat(options: ChatOptions) {
     });
   }
 
-  function askDesigner(prompt: {
-    tool_name: string;
-    input: Record<string, unknown>;
-  }): Promise<Decision> {
+  function askDesigner(
+    prompt: {
+      tool_name: string;
+      input: Record<string, unknown>;
+    },
+    gone: AbortSignal,
+  ): Promise<Decision> {
     const id = newId('prompt');
     return new Promise<Decision>((resolve) => {
       answers.set(id, resolve);
+      // Nobody is waiting for this answer any more, so it can't stay clickable (TRU-5.3).
+      gone.addEventListener('abort', () => {
+        if (!answers.delete(id)) return;
+        resolve({ allow: false });
+        update({ prompts: chat.prompts.filter((entry) => entry.id !== id) });
+      });
       update({
         prompts: [
           ...chat.prompts,
@@ -287,12 +319,15 @@ export function createChat(options: ChatOptions) {
   ): Promise<{ progress: TurnProgress; startError: string | null }> {
     let progress = newProgress(sessionId);
     const text = renderText({ ...message, notes });
-    notes = [];
     const input = renderMessage(
       text,
       await imagesFor(message.attachments),
       sessionId,
     );
+    // Stopped while it was getting ready (TRU-5.3): nothing has run, and Claude still
+    // has the notes to hear.
+    if (stopping) return { progress, startError: null };
+    notes = [];
     const run = start({
       args: [
         '-p',
@@ -330,7 +365,8 @@ export function createChat(options: ChatOptions) {
     if (
       resumed &&
       progress.parts.length === 0 &&
-      progress.problem?.kind === 'other'
+      progress.problem?.kind === 'other' &&
+      progress.problem.message === GENERIC_STOP
     ) {
       progress = {
         ...progress,
@@ -430,9 +466,8 @@ export function createChat(options: ChatOptions) {
     if (finished.decision === 'open') void captureFrames(turn.id);
 
     // Waits for the next message, rather than fail each one in the queue.
-    const blocked = stopping || finished.problem !== null;
+    const blocked = stopping ? !carryOn : finished.problem !== null;
     if (blocked) update({ paused: true });
-    stopping = false;
   }
 
   function showQueue(): Chat['queue'] {
@@ -455,7 +490,7 @@ export function createChat(options: ChatOptions) {
         live = null;
         sendLive();
         update({
-          paused: true,
+          paused: !carryOn,
           turns: [
             ...chat.turns,
             {
@@ -467,6 +502,8 @@ export function createChat(options: ChatOptions) {
         });
       })
       .finally(() => {
+        stopping = false;
+        carryOn = false;
         update({ working: false });
         pump();
       });
@@ -508,6 +545,7 @@ export function createChat(options: ChatOptions) {
       }
       queue.push({ ...input, id: newId('turn') });
       // A new message is the designer saying to carry on.
+      if (stopping) carryOn = true;
       update({ paused: false, queue: showQueue() });
       pump();
     },
@@ -550,10 +588,11 @@ export function createChat(options: ChatOptions) {
     },
 
     stop(): void {
-      if (!current) return;
+      if (!chat.working) return;
       stopping = true;
+      carryOn = false;
       refusePrompts();
-      current.interrupt();
+      current?.interrupt();
     },
 
     unqueue(id: string): void {
@@ -624,6 +663,8 @@ export function createChat(options: ChatOptions) {
 
     async close(): Promise<void> {
       closed = true;
+      // A turn still getting ready mustn't start Claude after this.
+      if (chat.working) stopping = true;
       if (liveTimer) clearTimeout(liveTimer);
       refusePrompts();
       current?.interrupt();

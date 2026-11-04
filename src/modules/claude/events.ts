@@ -98,6 +98,19 @@ const result = z.object({
   is_error: z.boolean().optional(),
 });
 
+/** The stop with no reason given: on a resumed chat it may mean the record has gone. */
+export const GENERIC_STOP =
+  'Claude stopped before finishing. Send it again to retry.';
+
+/** A limit with no time says less than one that has it, so it doesn't replace it. */
+function worseProblem(known: Problem | null, next: Problem): Problem {
+  return next.kind === 'limit' &&
+    next.resetsAt === null &&
+    known?.kind === 'limit'
+    ? known
+    : next;
+}
+
 /** A category Claude Code reports, as what the designer can do about it. */
 function problemOf(category: string | undefined): Problem | null {
   switch (category) {
@@ -208,7 +221,9 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
     if (said.data.parent_tool_use_id) return next;
     // A failure arrives as a made-up assistant message: its text isn't Claude's answer.
     const failure = problemOf(said.data.error);
-    if (failure) return { ...next, problem: failure };
+    if (failure) {
+      return { ...next, problem: worseProblem(next.problem, failure) };
+    }
     const { id, content } = said.data.message;
     const shown = id !== undefined && next.streamed.includes(id);
     let parts = next.parts;
@@ -263,7 +278,10 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
 
   const retry = apiRetry.safeParse(event);
   if (retry.success) {
-    return { ...next, problem: problemOf(retry.data.error) ?? next.problem };
+    const failure = problemOf(retry.data.error);
+    return failure
+      ? { ...next, problem: worseProblem(next.problem, failure) }
+      : next;
   }
 
   const ended = result.safeParse(event);
@@ -283,11 +301,7 @@ export function applyEvent(turn: TurnProgress, event: unknown): TurnProgress {
               message:
                 'Claude reached its limit of steps for one message. Send another to continue.',
             }
-          : {
-              kind: 'other',
-              message:
-                'Claude stopped before finishing. Send it again to retry.',
-            }),
+          : { kind: 'other', message: GENERIC_STOP }),
     };
   }
 

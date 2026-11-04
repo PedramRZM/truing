@@ -37,7 +37,14 @@ export function chatTitle(turns: readonly Turn[]): string {
   return first.length > 80 ? `${first.slice(0, 80)}…` : first;
 }
 
-export function createChatStore(dir: string) {
+export type ChatStore = {
+  /** Newest first. */
+  list: () => Promise<ChatSummary[]>;
+  load: (id: string) => Promise<SavedChat | null>;
+  save: (chat: SavedChat) => Promise<void>;
+};
+
+export function createChatStore(dir: string): ChatStore {
   const fileOf = (id: string): string => {
     if (!SAFE_ID.test(id)) throw new Error('That chat is unknown.');
     return path.join(dir, `${id}.json`);

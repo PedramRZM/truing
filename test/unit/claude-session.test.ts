@@ -379,6 +379,13 @@ describe('the session', () => {
     await session.dispose();
   });
 
+  // TRU-5.3 #13: a designer may take their time over a prompt.
+  it('gives an MCP tool a day, so a prompt can wait for the designer', async () => {
+    const session = await prepareSession({ root: project(), config });
+    expect(Number(session.env.MCP_TOOL_TIMEOUT)).toBe(24 * 60 * 60 * 1000);
+    await session.dispose();
+  });
+
   it('offers Next’s own endpoint only to a Next project', async () => {
     const withNext = await prepareSession({
       root: project({
@@ -719,7 +726,7 @@ describe('the bridge', () => {
             `${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`,
           );
         });
-      return { call, stop: () => child.kill() };
+      return { call, child, stop: () => child.kill() };
     }
 
     const replyOf = (result: unknown): unknown => {
@@ -753,6 +760,46 @@ describe('the bridge', () => {
       } finally {
         server.stop();
       }
+    });
+
+    // TRU-5.3 #13: Claude gone, the request must go too, or the prompt stays clickable.
+    it('stops asking, and exits, when Claude goes away', async () => {
+      let gone: AbortSignal | null = null;
+      bridge = await startBridge((_question, signal) => {
+        gone = signal;
+        return new Promise(() => {});
+      });
+      const server = mcp({
+        TRUING_BRIDGE_URL: bridge.address.url,
+        TRUING_BRIDGE_TOKEN: bridge.address.token,
+      });
+      void server.call('tools/call', { name: 'approve', arguments: prompt });
+      const signal = await new Promise<AbortSignal>((resolve) => {
+        const look = setInterval(() => {
+          if (gone) {
+            clearInterval(look);
+            resolve(gone);
+          }
+        }, 5);
+      });
+      expect(signal.aborted).toBe(false);
+
+      const exited = new Promise((resolve) => server.child.on('exit', resolve));
+      server.child.stdin.end();
+      expect(await exited).toBe(0);
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        signal.addEventListener('abort', () => resolve());
+      });
+      expect(signal.aborted).toBe(true);
+    });
+
+    // fetch gives up on a reply after five minutes, so a slow designer was a no. Waiting
+    // that long is for .scratch: the unit test can only say which client it uses.
+    it('asks with a client that has no time limit of its own', () => {
+      const code = readFileSync(MCP_SERVER, 'utf8');
+      expect(code).not.toMatch(/\bfetch\(/);
+      expect(code).toMatch(/from 'node:http'/);
     });
 
     it('denies when there is no bridge, or the token is wrong', async () => {
