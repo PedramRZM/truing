@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 11:02'
 labels:
   - claude
   - panels
@@ -47,6 +47,9 @@ Research: the note above and TRU-14.4's findings; Onlook's `components/store/edi
 - [ ] #9 **Only the kept take reaches the PR** (TRU-13.2).
 - [ ] #10 **Tests.** Unit tests for the take lifecycle. Playwright: two takes on the fixture, keep one, the other is gone. An evaluation run for the prompt.
 - [ ] #11 **UI checked.** Screens and text checked against `docs/design-language.md`.
+- [ ] #12 **Environment files decided first.** How a take gets the project's untracked environment files (link, copy what `.worktreeinclude` lists, or ask) is an ADR the owner accepts before this is built; Truing never reads them (TRU-14.4).
+- [ ] #13 **Measured limits (TRU-14.4).** At most 3 takes by default, with no setting; each take's first compile is shown as it happens (it took 45 to 49 s on a heavy page), and the frame says it is compiling rather than looking broken.
+- [ ] #14 **Takes that differ.** The prototyping block holds each take to its stated direction, and Truing notes when two takes made the same change (two of three converged in TRU-14.4).
 <!-- AC:END -->
 
 ## Definition of Done
@@ -56,3 +59,9 @@ Research: the note above and TRU-14.4's findings; Onlook's `components/store/edi
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From TRU-14.4 (docs/research/takes-worktrees-and-sessions.md): worktrees, cap 3, install from the package manager's store per take (8 to 9 s; a symlinked node_modules stops Turbopack), about 2.3 GB per take server, three concurrent Claude takes about $0.55 each and 25 to 35 s. Environment files need an owner decision before building.
+<!-- SECTION:NOTES:END -->

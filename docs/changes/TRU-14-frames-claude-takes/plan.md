@@ -77,7 +77,7 @@ To exist at the end (names may change; update here when they do):
 - [x] 2026-11-07 M4 TRU-12.1 tool plumbing (MCP forwarding through the bridge, image results, `ctx.tools`): 45eb7ba, on branch TRU-12.1-claude-tools.
 - [x] 2026-11-07 M5 TRU-18.2, TRU-18.3 frame tools: 866310e. Capture brings the frame into view on the canvas; pictures at most 1568 px.
 - [x] 2026-11-07 M6 ADR 0007 (15d25ce) and app actions (edc7400): asks enforced at the bridge, 60-call turn budget. Not measured: TRU-18.1's real-app sorting and cost (need real Claude runs).
-- [ ] M7 TRU-14.4 spike
+- [x] 2026-11-07 M7 TRU-14.4 spike: `docs/research/takes-worktrees-and-sessions.md`. Worktrees, cap 3, about 2.3 GB and a 45 s first compile per take, three Claude takes at once about $0.55 each. Environment files in a take need the owner's decision (ADR) before M8.
 - [ ] M8 TRU-14.5 takes
 - [ ] M9 TRU-18.9 compare
 
@@ -99,6 +99,7 @@ To exist at the end (names may change; update here when they do):
 - Claude may look without asking (frames, navigate, scroll, hover, screenshots); clicking, typing and submitting ask the person every time. The person's choice · 2026-11-07. To be recorded as an ADR in M6.
 - M2 model: `FrameState` gains optional `viewport`, `group`, `name` and `by`; the layout's own frames (main, or Phone/Tablet/Desktop) stay one implicit group that works as today, and every other frame is a record. The top bar acts on the selected record frame's group, or on the layout when none is selected. Optional fields keep existing partial-state test fixtures valid, so no existing test changes · 2026-11-07.
 - The board is saved per project, outside the repository, next to the profile. The person's choice · 2026-11-07.
+- The takes spike may run on the reported app for real: worktrees outside its folder (removed after), installs, two or three dev servers, and real `claude` sessions on the person's plan. The person's choice · 2026-11-07.
 - Prototyping and comparing are in scope: the takes spike, takes side by side, and Claude's comparison with a recommendation. The person's request · 2026-11-07.
 
 ## Outcomes and retrospective

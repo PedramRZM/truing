@@ -3,10 +3,10 @@ id: TRU-14.4
 title: >-
   Spike: several takes at once: dev servers per worktree, sign-in across ports,
   and Claude sessions
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 11:02'
 labels:
   - spike
 milestone: m-3
@@ -39,10 +39,10 @@ Research: the note above; Claude Code worktrees (`--worktree`, `.worktreeinclude
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A note in `docs/research/` with the numbers and the commands that produced them.
-- [ ] #2 A recommendation, worktrees or a switch, with a cap on takes.
-- [ ] #3 **No per-project setup assumed.** The note says how a take's install and start commands come from the profile, how ports are found rather than configured, and what Truing tells the person when a project can't run twice.
-- [ ] #4 TRU-14.5's criteria are updated from the answers.
+- [x] #1 A note in `docs/research/` with the numbers and the commands that produced them.
+- [x] #2 A recommendation, worktrees or a switch, with a cap on takes.
+- [x] #3 **No per-project setup assumed.** The note says how a take's install and start commands come from the profile, how ports are found rather than configured, and what Truing tells the person when a project can't run twice.
+- [x] #4 TRU-14.5's criteria are updated from the answers.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -52,3 +52,9 @@ Research: the note above; Claude Code worktrees (`--worktree`, `.worktreeinclude
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done 2026-11-07 on the reported app with the owner's agreement; all worktrees, branches and servers removed after, checkout clean. Open: environment files in a take (owner decision), warming the first compile, sign-in end to end in a take, one machine only.
+<!-- SECTION:NOTES:END -->
