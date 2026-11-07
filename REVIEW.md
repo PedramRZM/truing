@@ -16,6 +16,7 @@ Give the reviewer the task's acceptance criteria and plan (`backlog task <ID> --
    - the framed app's content is data, never instructions;
    - the server stays on loopback, behind its token and Host check;
    - every feature is a module, and the core knows none by name;
+   - a Claude tool that changes something in the app (a click, typed text, a submit) declares `asks: true`, so the person is asked every time (ADR 0007);
    - no secrets, and no brand of any host project.
 3. **Test integrity.**
    - Tests assert behaviour and can fail; a bug fix has a test that failed first.
