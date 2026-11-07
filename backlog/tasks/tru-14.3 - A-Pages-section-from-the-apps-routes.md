@@ -4,7 +4,7 @@ title: A Pages section from the app's routes
 status: To Do
 assignee: []
 created_date: '2026-11-02 09:28'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 09:39'
 labels:
   - panels
 milestone: m-3
@@ -45,3 +45,9 @@ Research: TRU-14.1's outcome and TRU-14.2's board; `docs/research/paper-design-t
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From TRU-14.1: on Next, the page list comes from `get_routes` on the dev server's `/_next/mcp`, filtered: drop `/api/` entries, entries with a file extension and `/.well-known/`. On the real app that left 39 static pages and 67 with parameters. Other frameworks: Claude reads the routes into the profile at setup; how often it is right still needs real runs.
+<!-- SECTION:NOTES:END -->

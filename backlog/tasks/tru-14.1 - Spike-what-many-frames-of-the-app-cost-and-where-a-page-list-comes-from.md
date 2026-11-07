@@ -1,10 +1,10 @@
 ---
 id: TRU-14.1
 title: 'Spike: what many frames of the app cost, and where a page list comes from'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 09:39'
 labels:
   - spike
 milestone: m-3
@@ -36,10 +36,10 @@ Research: `docs/research/menus-spacing-frames-takes.md` ("Frames from pages").
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A note in `docs/research/` with the numbers and the commands that produced them.
-- [ ] #2 A recommended frame cap and an off-screen policy, as defaults that need no setting.
+- [x] #1 A note in `docs/research/` with the numbers and the commands that produced them.
+- [x] #2 A recommended frame cap and an off-screen policy, as defaults that need no setting.
 - [ ] #3 **A page list for any project.** The note recommends where the route list comes from for each framework Truing supports and for those it doesn't: a framework's own API where one exists, and otherwise Claude reading the routes into the profile. It needs no config, and says what to do when neither works.
-- [ ] #4 TRU-14.2's criteria are updated from the answers.
+- [x] #4 TRU-14.2's criteria are updated from the answers.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -49,3 +49,9 @@ Research: `docs/research/menus-spacing-frames-takes.md` ("Frames from pages").
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done 2026-11-07: docs/research/frame-cost-and-page-list.md, with the scripts. Cap 12, keep frames loaded, page list from Next get_routes filtered. Left open: signed-in screens not measured, one machine only (the task asked for two), and AC 3 for frameworks other than Next needs real Claude runs (recommendation recorded, not measured).
+<!-- SECTION:NOTES:END -->

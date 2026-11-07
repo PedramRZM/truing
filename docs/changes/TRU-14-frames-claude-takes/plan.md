@@ -71,7 +71,7 @@ To exist at the end (names may change; update here when they do):
 ## Progress
 
 - [x] 2026-11-07 Scope, order and the person's decisions recorded (this file).
-- [ ] M1 TRU-14.1 spike
+- [x] 2026-11-07 M1 TRU-14.1 spike: `docs/research/frame-cost-and-page-list.md`. Cap 12, keep frames loaded, page list from Next `get_routes` filtered; signed-in screens and non-Next projects not measured.
 - [ ] M2 TRU-14.2 frames as records
 - [ ] M3 TRU-14.3 Pages
 - [ ] M4 TRU-12.1 tool plumbing
@@ -82,6 +82,9 @@ To exist at the end (names may change; update here when they do):
 - [ ] M9 TRU-18.9 compare
 
 ## Surprises and discoveries
+
+- Frames of one app share one renderer process: after the first (170 to 216 MB) each costs 30 to 60 MB, and idle CPU stays near zero (TRU-14.1).
+- `get_routes` mixes route handlers and files in with the pages; a page list must filter them (TRU-14.1).
 
 - TRU-14.6 found that a page opened in a tab loads once before Truing closes the tab, so the app sees it twice.
 - Two existing tests build partial shell states with a cast; a new required state field breaks them. Derive new frame data from `frames` where possible, or update the fixtures only with the owner's say.
