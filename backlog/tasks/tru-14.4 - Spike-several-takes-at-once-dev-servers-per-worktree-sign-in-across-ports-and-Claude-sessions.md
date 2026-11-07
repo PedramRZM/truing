@@ -1,17 +1,22 @@
 ---
 id: TRU-14.4
-title: 'Spike: several takes at once: dev servers per worktree, sign-in across ports, and Claude sessions'
+title: >-
+  Spike: several takes at once: dev servers per worktree, sign-in across ports,
+  and Claude sessions
 status: To Do
 assignee: []
 created_date: '2026-11-01 11:30'
+updated_date: '2026-11-07 09:06'
 labels:
   - spike
 milestone: m-3
 dependencies:
   - TRU-1.2
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-14
 type: spike
 ordinal: 140040
-parent_task_id: TRU-14
 ---
 
 ## Description

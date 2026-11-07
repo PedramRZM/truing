@@ -4,11 +4,13 @@ title: A page the app opens in a new tab opens as a frame beside it
 status: In Progress
 assignee: []
 created_date: '2026-11-07 08:44'
-updated_date: '2026-11-07 08:58'
+updated_date: '2026-11-07 09:06'
 labels:
   - frames
 milestone: m-1
 dependencies: []
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
 parent_task_id: TRU-14
 type: feature
 ordinal: 203000

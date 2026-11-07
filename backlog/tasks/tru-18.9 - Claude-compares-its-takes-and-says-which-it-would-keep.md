@@ -4,6 +4,7 @@ title: Claude compares its takes and says which it would keep
 status: To Do
 assignee: []
 created_date: '2026-11-03 11:27'
+updated_date: '2026-11-07 09:06'
 labels:
   - claude
 milestone: m-3
@@ -11,9 +12,11 @@ dependencies:
   - TRU-14.5
   - TRU-18.3
   - TRU-18.5
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-18
 type: feature
 ordinal: 180090
-parent_task_id: TRU-18
 ---
 
 ## Description

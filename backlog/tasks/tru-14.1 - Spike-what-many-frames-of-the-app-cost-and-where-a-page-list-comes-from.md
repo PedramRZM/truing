@@ -4,14 +4,17 @@ title: 'Spike: what many frames of the app cost, and where a page list comes fro
 status: To Do
 assignee: []
 created_date: '2026-11-01 11:30'
+updated_date: '2026-11-07 09:06'
 labels:
   - spike
 milestone: m-3
 dependencies:
   - TRU-1.5
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-14
 type: spike
 ordinal: 140010
-parent_task_id: TRU-14
 ---
 
 ## Description

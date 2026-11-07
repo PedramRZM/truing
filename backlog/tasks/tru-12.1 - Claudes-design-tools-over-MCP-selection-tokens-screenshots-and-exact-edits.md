@@ -4,7 +4,7 @@ title: 'Claude''s design tools over MCP: selection, tokens, screenshots and exac
 status: To Do
 assignee: []
 created_date: '2026-10-31 12:51'
-updated_date: '2026-11-04 07:45'
+updated_date: '2026-11-07 09:06'
 labels:
   - claude
 milestone: m-2
@@ -13,6 +13,8 @@ dependencies:
   - TRU-2.1
   - TRU-5.2
   - TRU-5.3
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
 parent_task_id: TRU-12
 type: feature
 ordinal: 120010

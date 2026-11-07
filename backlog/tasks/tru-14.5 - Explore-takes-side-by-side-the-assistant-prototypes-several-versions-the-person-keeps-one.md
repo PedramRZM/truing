@@ -1,9 +1,12 @@
 ---
 id: TRU-14.5
-title: 'Explore takes side by side: the assistant prototypes several versions, the person keeps one'
+title: >-
+  Explore takes side by side: the assistant prototypes several versions, the
+  person keeps one
 status: To Do
 assignee: []
 created_date: '2026-11-01 11:30'
+updated_date: '2026-11-07 09:06'
 labels:
   - claude
   - panels
@@ -14,9 +17,11 @@ dependencies:
   - TRU-5.2
   - TRU-12.1
   - TRU-4.1
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-14
 type: feature
 ordinal: 140050
-parent_task_id: TRU-14
 ---
 
 ## Description

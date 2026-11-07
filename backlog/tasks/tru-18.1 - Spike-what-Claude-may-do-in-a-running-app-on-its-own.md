@@ -4,14 +4,17 @@ title: 'Spike: what Claude may do in a running app on its own'
 status: To Do
 assignee: []
 created_date: '2026-11-03 11:27'
+updated_date: '2026-11-07 09:06'
 labels:
   - claude
 milestone: m-3
 dependencies:
   - TRU-12.1
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-18
 type: spike
 ordinal: 180010
-parent_task_id: TRU-18
 ---
 
 ## Description

@@ -1,18 +1,21 @@
 ---
 id: TRU-14.3
-title: 'A Pages section from the app''s routes'
+title: A Pages section from the app's routes
 status: To Do
 assignee: []
 created_date: '2026-11-02 09:28'
+updated_date: '2026-11-07 09:06'
 labels:
   - panels
 milestone: m-3
 dependencies:
   - TRU-14.1
   - TRU-3.4
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-14
 type: feature
 ordinal: 140030
-parent_task_id: TRU-14
 ---
 
 ## Description

@@ -4,15 +4,18 @@ title: 'Frames from pages: a saved board of routes'
 status: To Do
 assignee: []
 created_date: '2026-11-01 11:30'
+updated_date: '2026-11-07 09:06'
 labels:
   - panels
 milestone: m-3
 dependencies:
   - TRU-14.1
   - TRU-2.3
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-14
 type: feature
 ordinal: 140020
-parent_task_id: TRU-14
 ---
 
 ## Description

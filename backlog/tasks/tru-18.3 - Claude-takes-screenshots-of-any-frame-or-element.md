@@ -4,15 +4,18 @@ title: Claude takes screenshots of any frame or element
 status: To Do
 assignee: []
 created_date: '2026-11-03 11:27'
+updated_date: '2026-11-07 09:06'
 labels:
   - claude
 milestone: m-3
 dependencies:
   - TRU-12.1
   - TRU-16.6
+references:
+  - docs/changes/TRU-14-frames-claude-takes/plan.md
+parent_task_id: TRU-18
 type: feature
 ordinal: 180030
-parent_task_id: TRU-18
 ---
 
 ## Description
