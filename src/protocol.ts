@@ -167,7 +167,50 @@ export const runtimeMessageSchema = z.discriminatedUnion('type', [
 ]);
 export type RuntimeMessage = z.infer<typeof runtimeMessageSchema>;
 
+/** A frame's device, as the shell's `Viewport` (src/shell/viewports.ts). */
+const viewportSchema = z.union([
+  z.object({
+    kind: z.literal('preset'),
+    preset: z.enum(['phone', 'tablet', 'desktop']),
+  }),
+  z.object({
+    kind: z.literal('custom'),
+    width: z.number(),
+    height: z.number(),
+  }),
+  z.object({ kind: z.literal('fill') }),
+]);
+
+const sizeSchema = z.object({ width: z.number(), height: z.number() });
+
+/**
+ * TRU-14.2: the board as it is saved per project, outside the repository, and
+ * handed back when Truing starts again: the layout's own view, and each record
+ * frame as the person or Claude set it (not what it reports while running).
+ */
+export const boardSchema = z.object({
+  version: z.literal(1),
+  layout: z.enum(['single', 'side-by-side']),
+  viewport: viewportSchema,
+  route: z.string(),
+  frames: z.array(
+    z.object({
+      id: z.string(),
+      route: z.string(),
+      viewport: z.optional(viewportSchema),
+      group: z.optional(z.string()),
+      name: z.optional(z.string()),
+      by: z.optional(z.enum(['person', 'claude'])),
+      size: z.optional(sizeSchema),
+      offset: z.optional(z.object({ x: z.number(), y: z.number() })),
+    }),
+  ),
+});
+export type Board = z.infer<typeof boardSchema>;
+
 export const shellMessageSchema = z.discriminatedUnion('type', [
+  /** The board changed: the server saves it for the next start (TRU-14.2). */
+  z.object({ type: z.literal('save-board'), board: boardSchema }),
   z.object({ type: z.literal('hello') }),
   z.object({ type: z.literal('set-mode'), mode: modeSchema }),
   /** The zoom or the Spacing toggle changed: every frame gets it. */
@@ -257,6 +300,8 @@ export const toShellSchema = /* @__PURE__ */ (() =>
       projectName: z.string(),
       hasTokens: z.boolean(),
       startRoute: z.string(),
+      /** The board saved last time, or null for a first start (TRU-14.2). */
+      board: z.nullable(boardSchema),
       frames: z.array(
         z.object({
           frame: z.string(),

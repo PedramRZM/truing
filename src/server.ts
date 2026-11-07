@@ -7,6 +7,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { TRUING_HEADER } from './app-process';
 import type { ModuleHost } from './module-host';
 import {
+  type Board,
   DEFAULT_VIEW,
   MODES,
   type Mode,
@@ -38,6 +39,8 @@ export type TruingServerOptions = {
   pingEveryMs?: number;
   /** The modules' server side (TRU-1.6). */
   modules: ModuleHost;
+  /** Where the board is kept between runs (TRU-14.2); none keeps nothing. */
+  board?: { load: () => Board | null; save: (board: Board) => void };
 };
 
 export type TruingServer = {
@@ -223,6 +226,7 @@ export async function startTruingServer(
               projectName,
               hasTokens,
               startRoute,
+              board: options.board?.load() ?? null,
               frames: [...runtimes].map(([frame, { href, title }]) => ({
                 frame,
                 href,
@@ -234,6 +238,9 @@ export async function startTruingServer(
           return;
         case 'set-mode':
           setMode(message.mode);
+          return;
+        case 'save-board':
+          options.board?.save(message.board);
           return;
         case 'set-view':
           view = message.view;

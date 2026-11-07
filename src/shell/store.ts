@@ -1,6 +1,7 @@
 import { isEditableTarget } from '../commands';
 import type { LeftTab, PanelFrame, RightView, StagedChange } from '../module';
 import {
+  type Board,
   type CanvasShortcut,
   FRAME_NAME_PREFIX,
   MODES,
@@ -236,7 +237,10 @@ export function withOpenedFrame(
 }
 
 /** A frame's route: where it reports it is, or where it was sent while it loads. */
-export function routeOfFrame(state: ShellState, id: string): string | null {
+export function routeOfFrame(
+  state: Pick<ShellState, 'frames' | 'appOrigin'>,
+  id: string,
+): string | null {
   const frame = state.frames[id];
   if (!frame) return null;
   return (frame.href && routeOf(frame.href, state.appOrigin)) ?? frame.src;
@@ -396,6 +400,80 @@ export function withGroupRoute(
           : frame,
       ]),
     ),
+  };
+}
+
+/** TRU-14.2: the board to save: the layout's view, and each record frame as set. */
+export function boardOf(
+  state: Pick<
+    ShellState,
+    | 'layout'
+    | 'viewport'
+    | 'route'
+    | 'frames'
+    | 'resized'
+    | 'offsets'
+    | 'appOrigin'
+  >,
+): Board {
+  return {
+    version: 1,
+    layout: state.layout,
+    viewport: state.viewport,
+    route: state.route,
+    frames: openedIds(state).flatMap((id) => {
+      const frame = state.frames[id];
+      if (!frame) return [];
+      const size = state.resized[id];
+      const offset = state.offsets[id];
+      return [
+        {
+          id,
+          route: routeOfFrame(state, id) ?? frame.src,
+          ...(frame.viewport ? { viewport: frame.viewport } : {}),
+          ...(frame.group ? { group: frame.group } : {}),
+          ...(frame.name ? { name: frame.name } : {}),
+          ...(frame.by ? { by: frame.by } : {}),
+          ...(size ? { size } : {}),
+          ...(offset ? { offset } : {}),
+        },
+      ];
+    }),
+  };
+}
+
+/** A saved board as the shell's state, the layout's frames at `route`. */
+export function fromBoard(
+  board: Board,
+  route: string,
+): Pick<
+  ShellState,
+  'layout' | 'viewport' | 'route' | 'leader' | 'frames' | 'resized' | 'offsets'
+> {
+  const frames: Record<string, FrameState> = Object.fromEntries(
+    frameIds(board.layout).map((id) => [id, newFrame(id, route)]),
+  );
+  const resized: Record<string, Size> = {};
+  const offsets: Record<string, Point> = {};
+  for (const saved of board.frames) {
+    frames[saved.id] = {
+      ...newFrame(saved.id, saved.route),
+      ...(saved.viewport ? { viewport: saved.viewport } : {}),
+      ...(saved.group ? { group: saved.group } : {}),
+      ...(saved.name ? { name: saved.name } : {}),
+      ...(saved.by ? { by: saved.by } : {}),
+    };
+    if (saved.size) resized[saved.id] = saved.size;
+    if (saved.offset) offsets[saved.id] = saved.offset;
+  }
+  return {
+    layout: board.layout,
+    viewport: board.viewport,
+    route,
+    leader: defaultLeader(board.layout),
+    frames,
+    resized,
+    offsets,
   };
 }
 
@@ -642,7 +720,25 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
       moveCamera(fittedCamera());
     }
     sendView();
+    saveBoardSoon();
     for (const listener of listeners) listener();
+  }
+
+  /** TRU-14.2: the board goes to the server a moment after it last changed. */
+  let savedBoard = '';
+  let boardTimer: ReturnType<typeof setTimeout> | null = null;
+  function saveBoardSoon(): void {
+    // Nothing to save before the server's welcome says which app this is.
+    if (state.appOrigin === '') return;
+    const board = boardOf(state);
+    const text = JSON.stringify(board);
+    if (text === savedBoard) return;
+    if (boardTimer) clearTimeout(boardTimer);
+    boardTimer = setTimeout(() => {
+      boardTimer = null;
+      savedBoard = text;
+      send({ type: 'save-board', board });
+    }, 400);
   }
 
   // The camera moves on every pointer event of a pan, so it stays out of
@@ -1008,16 +1104,24 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
             set({ mode: message.mode, modules });
             return;
           }
+          const { board } = message;
           const route =
             new URLSearchParams(location.search).get('route') ??
+            board?.route ??
             message.startRoute;
+          // TRU-14.2: the board as it was left, and new frames' ids after its own.
+          for (const saved of board?.frames ?? []) {
+            const n = Number(/^tab-(\d+)$/.exec(saved.id)?.[1] ?? 0);
+            openedFrames = Math.max(openedFrames, n);
+          }
           set({
             appOrigin: message.appOrigin,
             projectName: message.projectName,
             hasTokens: message.hasTokens,
             mode: message.mode,
-            route,
-            frames: framesFor(state.layout, route),
+            ...(board
+              ? fromBoard(board, route)
+              : { route, frames: framesFor(state.layout, route) }),
             modules,
           });
           return;

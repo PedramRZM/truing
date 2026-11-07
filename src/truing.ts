@@ -8,6 +8,7 @@ import { type BrowserContext, chromium, type Page } from 'playwright';
 
 import { type AppHandle, ensureApp, isAppUp, systemPort } from './app-process';
 import { showAwayPagesInWindows } from './away-window';
+import { boardFile, loadBoard, saveBoard } from './board';
 import { buildRuntime, buildShell, watchShell } from './build';
 import { writeFramingExtension } from './frame-headers';
 import type { TruingConfig } from './config';
@@ -186,6 +187,7 @@ async function attach(
     log(`[truing] modules: ${host.ids.join(', ')}`);
   }
 
+  const board = boardFile(options.root);
   let assets: ShellAssets;
   let stopWatch: () => Promise<void> = async () => {};
   let server: TruingServer | null = null;
@@ -209,6 +211,10 @@ async function attach(
     startRoute: config.app.startRoute ?? '/',
     assets: () => assets,
     modules: host,
+    board: {
+      load: () => loadBoard(board),
+      save: (next) => saveBoard(board, next),
+    },
   });
   log(`[truing] shell at ${shellOrigin}`);
 
