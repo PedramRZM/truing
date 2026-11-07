@@ -134,7 +134,7 @@ export const runtimeMessageSchema = z.discriminatedUnion('type', [
   /** TRU-14.2: a link Cmd/Ctrl-clicked in Select mode, to open in a frame of its own. */
   z.object({
     type: z.literal('open-in-frame'),
-    frame: z.string(),
+    frame: z.string().check(z.minLength(1)),
     href: z.string(),
   }),
   z.object({
@@ -191,6 +191,15 @@ const viewportSchema = z.union([
 
 const sizeSchema = z.object({ width: z.number(), height: z.number() });
 
+/** TRU-14.1 measured 12 frames of a heavy page at about 620 MB: the default cap. */
+export const FRAME_CAP = 12;
+
+/**
+ * A path on the app. Never `//host` or `@host`: a frame's address is the app's
+ * origin and this, so anything else could load another site in the frame.
+ */
+const routeSchema = z.string().check(z.regex(/^\/(?!\/)/));
+
 /**
  * TRU-14.2: the board as it is saved per project, outside the repository, and
  * handed back when Truing starts again: the layout's own view, and each record
@@ -200,19 +209,22 @@ export const boardSchema = z.object({
   version: z.literal(1),
   layout: z.enum(['single', 'side-by-side']),
   viewport: viewportSchema,
-  route: z.string(),
-  frames: z.array(
-    z.object({
-      id: z.string(),
-      route: z.string(),
-      viewport: z.optional(viewportSchema),
-      group: z.optional(z.string()),
-      name: z.optional(z.string()),
-      by: z.optional(z.enum(['person', 'claude'])),
-      size: z.optional(sizeSchema),
-      offset: z.optional(z.object({ x: z.number(), y: z.number() })),
-    }),
-  ),
+  route: routeSchema,
+  frames: z
+    .array(
+      z.object({
+        id: z.string().check(z.minLength(1)),
+        route: routeSchema,
+        viewport: z.optional(viewportSchema),
+        alone: z.optional(viewportSchema),
+        group: z.optional(z.string()),
+        name: z.optional(z.string()),
+        by: z.optional(z.enum(['person', 'claude'])),
+        size: z.optional(sizeSchema),
+        offset: z.optional(z.object({ x: z.number(), y: z.number() })),
+      }),
+    )
+    .check(z.maxLength(FRAME_CAP)),
 });
 export type Board = z.infer<typeof boardSchema>;
 

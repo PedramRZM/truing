@@ -12,6 +12,7 @@ import {
   frameName,
   framesInert,
   frameRects,
+  groupOf,
   openedIds,
   isFill,
   type FrameState,
@@ -213,7 +214,11 @@ function FrameChrome({
               id={frame.id}
               label={label}
               active={state.activeFrame === frame.id}
-              renames={openedIds(state).includes(frame.id)}
+              // In a group the device names each frame, so a name wouldn't show.
+              renames={
+                openedIds(state).includes(frame.id) &&
+                groupOf(state, frame.id).length === 1
+              }
               store={store}
             />
             {frame.by === 'claude' ? (
@@ -240,7 +245,7 @@ function FrameChrome({
               <button
                 type="button"
                 className="frame-close"
-                aria-label={`Close the frame at ${at ?? frame.src}`}
+                aria-label={`Close ${label} frame at ${at ?? frame.src}`}
                 onClick={() => store.closeFrame(frame.id)}
               >
                 <X aria-hidden size={12} />

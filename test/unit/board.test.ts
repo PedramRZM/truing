@@ -100,6 +100,8 @@ it('saves where a record frame really is, not only where it was sent', () => {
     name: 'Spaces',
     by: 'person' as const,
     href: 'http://localhost:3000/research-spaces/42?tab=sources',
+    // Its runtime has said where it is: a frame still loading would not count.
+    connected: true,
   };
   const state = {
     appOrigin: 'http://localhost:3000',
@@ -109,4 +111,22 @@ it('saves where a record frame really is, not only where it was sent', () => {
   expect(boardOf(state).frames[0]?.route).toBe(
     '/research-spaces/42?tab=sources',
   );
+});
+
+it('refuses a board whose routes could load another site, or with more frames than the canvas holds', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'truing-board-'));
+  const file = path.join(dir, 'board.json');
+  for (const route of ['//evil.example/x', '@evil.example/x', 'evil.example']) {
+    writeFileSync(
+      file,
+      JSON.stringify({ ...BOARD, frames: [{ id: 'tab-1', route }] }),
+    );
+    expect(loadBoard(file)).toBeNull();
+  }
+  const many = Array.from({ length: 13 }, (_, i) => ({
+    id: `tab-${i}`,
+    route: '/',
+  }));
+  writeFileSync(file, JSON.stringify({ ...BOARD, frames: many }));
+  expect(loadBoard(file)).toBeNull();
 });

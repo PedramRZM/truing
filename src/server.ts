@@ -112,6 +112,7 @@ export async function startTruingServer(
   let mode: Mode = MODES.interact;
   let view: View = DEFAULT_VIEW;
   let pingId = 0;
+  let savedFrames = -1;
 
   const toShells = (message: ToShell): void => {
     const data = JSON.stringify(message);
@@ -240,9 +241,30 @@ export async function startTruingServer(
         case 'set-mode':
           setMode(message.mode);
           return;
-        case 'save-board':
-          options.board?.save(message.board);
+        case 'save-board': {
+          // A board that can't be written (a full disk, a folder it can't
+          // reach) is said, and never stops Truing.
+          try {
+            options.board?.save(message.board);
+          } catch (error) {
+            toShells({
+              type: 'notice',
+              text: "Truing couldn't save the frames for next time.",
+            });
+            console.error(
+              `[truing] couldn't save the board: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            return;
+          }
+          // TRU-14.2: the frame count, so the cap can be revisited (TRU-14.1).
+          if (message.board.frames.length !== savedFrames) {
+            savedFrames = message.board.frames.length;
+            console.log(
+              `[truing] the board holds ${savedFrames} frames of its own`,
+            );
+          }
           return;
+        }
         case 'set-view':
           view = message.view;
           for (const { socket } of runtimes.values()) {
@@ -344,11 +366,12 @@ export async function startTruingServer(
           return;
         }
         case 'open-in-frame': {
+          // Only the page now in a frame speaks for it, as for the modules.
+          const from = frame;
+          if (!from || runtimes.get(from)?.socket !== ws) return;
           // A link to another site is not the app's to show.
           const route = routeOf(message.href, session.appOrigin);
-          if (route !== null) {
-            toShells({ type: 'open-frame', route, from: message.frame });
-          }
+          if (route !== null) toShells({ type: 'open-frame', route, from });
           return;
         }
         case 'interaction':

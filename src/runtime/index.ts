@@ -309,11 +309,14 @@ function createRuntime(frame: string): { connect: () => void } {
         event.preventDefault();
         event.stopImmediatePropagation();
         // TRU-14.2: Cmd/Ctrl-click on a link opens it in a frame of its own.
-        const link =
-          event instanceof MouseEvent && event.target instanceof Element
-            ? event.target.closest('a[href]')
-            : null;
-        const href = link instanceof HTMLAnchorElement ? link.href : null;
+        // The path, not the target: a link in a shadow root is retargeted to its host.
+        const link = event
+          .composedPath()
+          .find(
+            (node): node is HTMLAnchorElement =>
+              node instanceof HTMLAnchorElement && node.hasAttribute('href'),
+          );
+        const href = link ? link.href : null;
         if (
           type === 'click' &&
           event instanceof MouseEvent &&

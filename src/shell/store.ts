@@ -3,6 +3,7 @@ import type { LeftTab, PanelFrame, RightView, StagedChange } from '../module';
 import {
   type Board,
   type CanvasShortcut,
+  FRAME_CAP,
   FRAME_NAME_PREFIX,
   MODES,
   type Mode,
@@ -74,6 +75,8 @@ export type FrameState = {
   name?: string;
   /** Who opened it: Claude's frames are marked, and closing them leaves a person's. */
   by?: 'person' | 'claude';
+  /** Its own device before Side by side made it the Desktop of a group, for folding back. */
+  alone?: Viewport;
 };
 
 /** module → report name → frame → the latest payload */
@@ -159,9 +162,6 @@ const NOTICE_MS = 1500;
 
 /** A notice that offers Undo stays long enough to reach it. */
 const UNDO_MS = 6000;
-
-/** TRU-14.1 measured 12 frames of a heavy page at about 620 MB: the default cap. */
-export const FRAME_CAP = 12;
 
 const CHROME_HIDDEN_NOTICE = 'Press the period key to bring everything back.';
 
@@ -259,13 +259,18 @@ export function withOpenedFrame(
   };
 }
 
-/** A frame's route: where it reports it is, or where it was sent while it loads. */
+/**
+ * A frame's route: where it reports it is while connected, and where it was sent
+ * while a load is in flight, when the reported address is stale. The same rule as
+ * the layout's `follow()`.
+ */
 export function routeOfFrame(
   state: Pick<ShellState, 'frames' | 'appOrigin'>,
   id: string,
 ): string | null {
   const frame = state.frames[id];
   if (!frame) return null;
+  if (!frame.connected) return frame.src;
   return (frame.href && routeOf(frame.href, state.appOrigin)) ?? frame.src;
 }
 
@@ -336,8 +341,8 @@ function folded(state: ShellState, id: string): FramesPatch {
   const frame = state.frames[id];
   const frames = withoutKeys(state.frames, others);
   if (frame) {
-    const { group: _group, ...alone } = frame;
-    frames[id] = { ...alone, viewport: frameViewport(state, id) };
+    const { group: _group, alone: before, ...rest } = frame;
+    frames[id] = { ...rest, viewport: before ?? frameViewport(state, id) };
   }
   return {
     frames,
@@ -361,10 +366,16 @@ export function withSideBySide(
   if (!frame || !openedIds(state).includes(id)) return null;
   if (groupOf(state, id).length > 1) return folded(state, id);
   const route = routeOfFrame(state, id) ?? frame.src;
+  // A fresh id: a frame folded back and restored may already hold this one.
+  const fresh = (preset: PresetId): string => {
+    let key = `${id}-${preset}`;
+    for (let n = 2; state.frames[key]; n += 1) key = `${id}-${preset}-${n}`;
+    return key;
+  };
   const copy = (preset: PresetId): [string, FrameState] => [
-    `${id}-${preset}`,
+    fresh(preset),
     {
-      ...newFrame(`${id}-${preset}`, route),
+      ...newFrame(fresh(preset), route),
       viewport: { kind: 'preset', preset },
       group: id,
       ...(frame.by ? { by: frame.by } : {}),
@@ -378,6 +389,7 @@ export function withSideBySide(
         id,
         {
           ...frame,
+          alone: frameViewport(state, id),
           viewport: { kind: 'preset', preset: 'desktop' },
           group: id,
         },
@@ -457,6 +469,7 @@ export function boardOf(
           ...(frame.group ? { group: frame.group } : {}),
           ...(frame.name ? { name: frame.name } : {}),
           ...(frame.by ? { by: frame.by } : {}),
+          ...(frame.alone ? { alone: frame.alone } : {}),
           ...(size ? { size } : {}),
           ...(offset ? { offset } : {}),
         },
@@ -485,8 +498,14 @@ export function fromBoard(
       ...(saved.group ? { group: saved.group } : {}),
       ...(saved.name ? { name: saved.name } : {}),
       ...(saved.by ? { by: saved.by } : {}),
+      ...(saved.alone ? { alone: saved.alone } : {}),
     };
-    if (saved.size) resized[saved.id] = saved.size;
+    if (saved.size) {
+      resized[saved.id] = {
+        width: clampSize(saved.size.width),
+        height: clampSize(saved.size.height),
+      };
+    }
     if (saved.offset) offsets[saved.id] = saved.offset;
   }
   return {
@@ -753,9 +772,18 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
   function saveBoardSoon(): void {
     // Nothing to save before the server's welcome says which app this is.
     if (state.appOrigin === '') return;
-    const board = boardOf(state);
+    // Fill is a way of looking, not the layout's device: what it replaced is saved.
+    const board = boardOf(
+      isFill(state) && beforeFill
+        ? { ...state, layout: beforeFill.layout, viewport: beforeFill.viewport }
+        : state,
+    );
     const text = JSON.stringify(board);
-    if (text === savedBoard) return;
+    if (text === savedBoard) {
+      if (boardTimer) clearTimeout(boardTimer);
+      boardTimer = null;
+      return;
+    }
     if (boardTimer) clearTimeout(boardTimer);
     boardTimer = setTimeout(() => {
       boardTimer = null;
@@ -982,6 +1010,13 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     };
   }
 
+  /** The modules' state without what frames gone from `frames` reported. */
+  function modulesWithout(frames: Record<string, FrameState>): ModulesState {
+    return Object.keys(state.frames)
+      .filter((id) => !frames[id])
+      .reduce((modules, id) => withoutFrame(modules, id), state.modules);
+  }
+
   /** A record frame never leads the layout's frames: it navigates on its own. */
   function leaderFor(id: string): string {
     const group = state.frames[id]?.group;
@@ -1134,7 +1169,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
             message.startRoute;
           // TRU-14.2: the board as it was left, and new frames' ids after its own.
           for (const saved of board?.frames ?? []) {
-            const n = Number(/^tab-(\d+)$/.exec(saved.id)?.[1] ?? 0);
+            const n = Number(/^tab-(\d+)/.exec(saved.id)?.[1] ?? 0);
             openedFrames = Math.max(openedFrames, n);
           }
           set({
@@ -1462,7 +1497,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     const record = selectedRecord(state);
     if (record) {
       const next = withFrameViewport(state, record, viewport);
-      if (next) set(next);
+      if (next) set({ ...next, modules: modulesWithout(next.frames) });
       return;
     }
     if (viewport.kind === 'fill' && !isFill(state)) {
@@ -1779,6 +1814,13 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
       if (!next || !frame) return;
       const size = state.resized[id];
       const offset = state.offsets[id];
+      // The group's next frame leads once its leader is gone.
+      const group = frame.group;
+      if (group && (groupLeaders.get(group) ?? group) === id) {
+        const next = groupOf(state, id).find((key) => key !== id);
+        if (next) groupLeaders.set(group, next);
+        else groupLeaders.delete(group);
+      }
       set({ ...next, modules: withoutFrame(state.modules, id) });
       // TRU-14.2: a closed frame comes back, where it was sent, until the notice goes.
       notify('Frame closed', {
@@ -1786,6 +1828,12 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
           label: 'Undo',
           run: () => {
             if (state.frames[id]) return;
+            if (Object.keys(state.frames).length >= FRAME_CAP) {
+              notify(
+                `The canvas holds ${FRAME_CAP} frames. Close one to bring this one back.`,
+              );
+              return;
+            }
             set({
               frames: {
                 ...state.frames,
@@ -1847,10 +1895,16 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     /** Side by side: the selected record frame's own group, or the layout's. */
     toggleSideBySide() {
       const record = selectedRecord(state);
-      const adds = record && groupOf(state, record).length === 1 ? 2 : 0;
-      if (adds && Object.keys(state.frames).length + adds > FRAME_CAP) {
+      // Side by side adds two frames: to a lone record frame, or to the layout's one.
+      const adds =
+        (record && groupOf(state, record).length === 1) ||
+        (!record && state.layout === 'single')
+          ? 2
+          : 0;
+      const over = Object.keys(state.frames).length + adds - FRAME_CAP;
+      if (adds && over > 0) {
         notify(
-          `The canvas holds ${FRAME_CAP} frames. Close one to see this one side by side.`,
+          `The canvas holds ${FRAME_CAP} frames. Close ${over === 1 ? 'one' : 'two'} to see this side by side.`,
         );
         return;
       }
@@ -1858,7 +1912,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
         const next = withSideBySide(state, record);
         if (next) {
           followFit = true;
-          set(next);
+          set({ ...next, modules: modulesWithout(next.frames) });
         }
         return;
       }

@@ -8,7 +8,12 @@ import {
 
 import { PRESET_GROUPS } from '../vendor/airship/frames';
 
-import { barView, type ShellState, type ShellStore } from './store';
+import {
+  barView,
+  selectedRecord,
+  type ShellState,
+  type ShellStore,
+} from './store';
 import {
   clampSize,
   MAX_SIZE,
@@ -111,20 +116,25 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
             </button>
           );
         })}
-        {/* One frame at the canvas's own size, without device chrome (TRU-2.3). */}
-        <button
-          type="button"
-          className="menu-row"
-          aria-pressed={!sideBySide && viewport.kind === 'fill'}
-          popoverTarget="device-menu"
-          popoverTargetAction="hide"
-          onClick={() => store.setViewport({ kind: 'fill' })}
-        >
-          <span>Fill</span>{' '}
-          <span className="menu-size">
-            {canvasSize.width} × {canvasSize.height}
-          </span>
-        </button>
+        {/*
+          One frame at the canvas's own size, without device chrome (TRU-2.3).
+          The layout's way of looking, so not for one frame among others (TRU-14.2).
+        */}
+        {selectedRecord(state) ? null : (
+          <button
+            type="button"
+            className="menu-row"
+            aria-pressed={!sideBySide && viewport.kind === 'fill'}
+            popoverTarget="device-menu"
+            popoverTargetAction="hide"
+            onClick={() => store.setViewport({ kind: 'fill' })}
+          >
+            <span>Fill</span>{' '}
+            <span className="menu-size">
+              {canvasSize.width} × {canvasSize.height}
+            </span>
+          </button>
+        )}
         {/* Airship's device list, by group; one group open at a time. */}
         {PRESET_GROUPS.map((group) => (
           <details key={group.id} className="menu-group" name="device-group">
@@ -216,7 +226,7 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
         type="button"
         className="tool"
         aria-label="New frame"
-        title="A new frame like the selected one"
+        title="A new frame with this route and viewport"
         onClick={() => store.newFrame()}
       >
         <Plus aria-hidden size={16} />

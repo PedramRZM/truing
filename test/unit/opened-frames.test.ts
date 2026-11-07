@@ -203,3 +203,24 @@ it('opens a link in a frame at the device of the frame it came from, named by it
   });
   expect(frameLabel(after, 'tab-1')).toBe('Phone');
 });
+
+it('never reuses a frame’s id for Side by side, and folds back to the device the frame had', () => {
+  const phone = { kind: 'preset', preset: 'phone' } as const;
+  const before = shell();
+  const open = shell({
+    ...before,
+    ...withOpenedFrame(before, 'tab-1', '/a', { from: 'phone', name: null }),
+    activeFrame: 'tab-1',
+  });
+  // A frame already called tab-1-phone, from a board saved earlier.
+  const taken = shell({
+    ...open,
+    frames: { ...open.frames, 'tab-1-phone': frame('tab-1-phone', '/kept') },
+  });
+  const wide = shell({ ...taken, ...withSideBySide(taken, 'tab-1') });
+  expect(wide.frames['tab-1-phone']?.src).toBe('/kept');
+  expect(wide.frames['tab-1-phone-2']?.group).toBe('tab-1');
+  const back = shell({ ...wide, ...withSideBySide(wide, 'tab-1') });
+  expect(back.frames['tab-1']?.viewport).toEqual(phone);
+  expect(back.frames['tab-1']?.alone).toBeUndefined();
+});
