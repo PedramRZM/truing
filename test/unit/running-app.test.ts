@@ -204,13 +204,17 @@ createServer((q, s) => { s.setHeader('content-type', 'text/html'); s.end('<p>sto
   );
   await run(root, 'storybook.mjs', String(await findFreePort(43800)));
   const port = await findFreePort(43850);
+  // The person starts their server once Truing has had its first look.
   const waiting = waitForApp({
     root,
     command: START,
     signal: AbortSignal.timeout(20_000),
-    log: () => {},
+    log: (line) => {
+      if (line.includes('waiting for the app')) {
+        void run(root, 'serve.mjs', String(port));
+      }
+    },
   });
-  setTimeout(() => void run(root, 'serve.mjs', String(port)), 1500);
   expect((await waiting).port).toBe(port);
 });
 
