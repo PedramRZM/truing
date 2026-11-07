@@ -205,7 +205,11 @@ export async function startSetupServer(
     };
     try {
       const app = self
-        ? await waitForApp({ ...where, signal: gone.signal })
+        ? await waitForApp({
+            ...where,
+            command: config.app.devCommand,
+            signal: gone.signal,
+          })
         : await ensureApp({ ...where, command: config.app.devCommand });
       // A wait the window gave up on: a new attempt may already be starting it.
       if (self && gone.signal.aborted) return;

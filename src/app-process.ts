@@ -413,16 +413,27 @@ function runningApp(
 /**
  * TRU-10.10: runs nothing, and waits until the person has started the app
  * themselves, for a start command that can't run under Truing. The port on
- * record wins; otherwise any server of the project that serves a page.
+ * record wins; then a server of the project that started serving a page after
+ * the wait began, or one the start command had already started. A page server
+ * that was running before (Storybook, say) is never taken for the app.
  */
 export async function waitForApp(options: {
   root: string;
   appDir?: string;
   port?: number | undefined;
+  /** The start command, so a server it already started counts at once. */
+  command?: string;
   signal: AbortSignal;
   log?: (line: string) => void;
 }): Promise<AppHandle> {
-  const { root, appDir, port: recorded, signal } = options;
+  const { root, appDir, port: recorded, command, signal } = options;
+  const where = appDir ? { appDir } : {};
+  const before = new Set(await runningServers(root, where));
+  const already = new Set(
+    command === undefined
+      ? []
+      : await runningServers(root, { ...where, command }),
+  );
   const log = options.log ?? ((line) => console.log(line));
   const found = (port: number): AppHandle => {
     log(`[truing] the app is running at http://localhost:${port}`);
@@ -444,7 +455,9 @@ export async function waitForApp(options: {
       }
     }
     const port = onePort(
-      await runningServers(root, appDir ? { appDir } : {}),
+      (await runningServers(root, where)).filter(
+        (port) => !before.has(port) || already.has(port),
+      ),
       [],
     );
     signal.throwIfAborted();

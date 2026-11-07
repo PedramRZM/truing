@@ -18,6 +18,8 @@ import {
   TRUING_HEADER,
   waitForApp,
 } from '../../src/app-process';
+import { loadProfile, saveProfile } from '../../src/setup/profile';
+import { startSetupServer } from '../../src/setup/server';
 
 const children: ChildProcess[] = [];
 
@@ -189,6 +191,125 @@ it('while waiting, takes the port on record over the project’s other servers',
     log: () => {},
   });
   expect(app.port).toBe(recorded);
+});
+
+it('while waiting, never takes a page server that was running before, such as Storybook', async () => {
+  const root = project();
+  writeFileSync(
+    path.join(root, 'storybook.mjs'),
+    `import { createServer } from 'node:http';
+createServer((q, s) => { s.setHeader('content-type', 'text/html'); s.end('<p>stories</p>'); })
+  .listen(Number(process.argv[2]), () => console.log('up'));
+`,
+  );
+  await run(root, 'storybook.mjs', String(await findFreePort(43800)));
+  const port = await findFreePort(43850);
+  const waiting = waitForApp({
+    root,
+    command: START,
+    signal: AbortSignal.timeout(20_000),
+    log: () => {},
+  });
+  setTimeout(() => void run(root, 'serve.mjs', String(port)), 1500);
+  expect((await waiting).port).toBe(port);
+});
+
+it('while waiting, takes at once a server the start command had already started', async () => {
+  const root = project();
+  const port = await findFreePort(43900);
+  await run(root, 'serve.mjs', String(port));
+  const app = await waitForApp({
+    root,
+    command: START,
+    signal: AbortSignal.timeout(20_000),
+    log: () => {},
+  });
+  expect(app.port).toBe(port);
+});
+
+/** Setup's server for a saved project, as the start screen calls it. */
+async function setupFor(root: string, port: number) {
+  const env = { ...process.env, TRUING_HOME: temp() };
+  saveProfile(
+    {
+      root,
+      framework: { name: 'Next.js', version: null },
+      evidence: {},
+      config: {
+        name: 'shop',
+        app: { devCommand: START, port },
+        source: 'src',
+        writable: { include: ['src/**'], exclude: [] },
+      },
+    },
+    env,
+  );
+  const ok = { ok: true, detail: null };
+  const server = await startSetupServer({
+    from: root,
+    assets: { js: '', css: '' },
+    env,
+    check: async () => ({
+      installed: ok,
+      signedIn: ok,
+      responds: ok,
+      ok: true,
+      problem: null,
+      command: null,
+    }),
+  });
+  const page = await (await fetch(server.url)).text();
+  const token = /name="truing-token" content="([^"]+)"/.exec(page)?.[1] ?? '';
+  const open = (signal?: AbortSignal) =>
+    fetch(`${server.url}/api/open`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-truing-token': token },
+      body: JSON.stringify({ root, self: true }),
+      ...(signal ? { signal } : {}),
+    });
+  return { server, env, open };
+}
+
+it('setup waits for the app the person starts, opens it and keeps its port', async () => {
+  const root = project();
+  const recorded = await findFreePort(44000);
+  const own = await findFreePort(recorded + 1);
+  const { server, env, open } = await setupFor(root, recorded);
+  try {
+    const response = await open();
+    setTimeout(() => void run(root, 'serve.mjs', String(own)), 500);
+    const lines = (await response.text())
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { type: string; port?: number });
+    expect(lines.at(-1)).toMatchObject({ type: 'up', port: own });
+    expect((await server.result).app?.port).toBe(own);
+    expect(loadProfile(root, env)?.config.app.port).toBe(own);
+    expect(ran(root)).toBe(false);
+  } finally {
+    await server.close();
+  }
+});
+
+it('setup forgets a wait the window gave up on', async () => {
+  const root = project();
+  const recorded = await findFreePort(44100);
+  const { server, env, open } = await setupFor(root, recorded);
+  try {
+    const gone = new AbortController();
+    const response = await open(gone.signal);
+    expect(response.ok).toBe(true);
+    gone.abort();
+    await run(root, 'serve.mjs', String(await findFreePort(recorded + 1)));
+    const settled = await Promise.race([
+      server.result.then(() => 'opened'),
+      new Promise((resolve) => setTimeout(() => resolve('still'), 2500)),
+    ]);
+    expect(settled).toBe('still');
+    expect(loadProfile(root, env)?.config.app.port).toBe(recorded);
+  } finally {
+    await server.close();
+  }
 });
 
 it('stops waiting when asked, even between looks', async () => {

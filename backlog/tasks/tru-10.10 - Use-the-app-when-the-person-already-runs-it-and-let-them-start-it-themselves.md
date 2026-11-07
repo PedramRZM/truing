@@ -4,7 +4,7 @@ title: 'Use the app when the person already runs it, and let them start it thems
 status: In Progress
 assignee: []
 created_date: '2026-11-07 07:21'
-updated_date: '2026-11-07 08:27'
+updated_date: '2026-11-07 08:33'
 labels:
   - app-start
   - setup
@@ -27,7 +27,7 @@ Related: TRU-8.5 (Claude diagnoses a failed start from its log), TRU-8.7 (severa
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Before running the start command, setup and every later start look for a server this project already runs on any port (a listening process whose working folder is the project, or the app folder in a monorepo) that answers with a page, and use it without running anything
+- [x] #1 Before running the start command, setup and every later start look for a server the project's start command already started on any port (a listening process in the project, or in the app folder in a monorepo, with that command among it or its parents) that serves a page, and use it without running anything; a page server the start command did not start (Storybook, say) is never taken for the app
 - [ ] #2 The start screen says the app was already running and on which port; Truing never stops a server it did not start
 - [x] #3 A port found this way is kept for next time, as a moved port is today
 - [x] #4 When more than one of the project servers could be the app, Truing does not guess: it says which ones it found and starts nothing on its own
@@ -59,4 +59,6 @@ Related: TRU-8.5 (Claude diagnoses a failed start from its log), TRU-8.7 (severa
 Decision after review: a server is used without asking only when the start command started it (its process or a parent runs those words; `pnpm run dev` = `pnpm dev`) and it serves a page (2xx HTML or a redirect, never a server sending Truing's own `x-truing` header). Without that, Storybook, Prisma Studio, an API's HTML 404 or another Truing would be taken for the app and their port saved. When the person chooses "Start it myself", any server of the project serving a page counts, the port on record first (a container's unnamed listener on it too). In a monorepo the scan counts only the app's own folder. lsof and ss are merged: on this Linux machine lsof left out the Next dev server ss listed (learning recorded).
 Evidence: test/unit/running-app.test.ts (12 tests, real spawned servers; the first five behaviours failed before the change; each filter mutation-checked against its test). Real app (Next 16, saved command `pnpm dev`, port 3000 on record): `pnpm dev -p 3005` run by hand -> used in 4 s, nothing started; waitForApp then starting the app by hand -> found. Setup page driven by a scratch script (review -> Start -> failed -> Start it myself -> waiting -> found on another port), screenshots at 1280/1440 light and dark, buttons 36 px, no overflow, no console errors. make check: exit 0, 1204 tests.
 Left: AC 2 holds on the setup start screen; a later start (`truing` with a saved project) has no start screen, so "already running" goes to the console only. The "Couldn't open {name}" title for several servers is not seen on screen.
+
+Second review: "Start it myself" took a page server running before the wait (Storybook) for the app, and saved its port. Fixed: the wait ignores page servers that were already running, unless the start command started them or they are on the port on record. AC 1 reworded to the rule the code follows (only what the start command started is used without asking), as decided after the first review. Route tests added: setup waits for the app started by hand, opens it and saves its port; a wait the window gave up on opens nothing and saves nothing. 16 tests in test/unit/running-app.test.ts; the before-the-wait filter and the cancel path (both layers together) mutation-checked.
 <!-- SECTION:NOTES:END -->
