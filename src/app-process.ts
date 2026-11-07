@@ -216,30 +216,15 @@ function worksIn(
 }
 
 /**
- * Every TCP port something listens on, with the process that does. Both tools,
- * as each can miss what the other lists: on Linux lsof has left out a dev
- * server that ss showed, and macOS has no ss.
+ * Every TCP port something listens on, with the process that does. `ss` where
+ * there is one (Linux): it reads the kernel's own table, it listed a dev server
+ * lsof left out, and it costs a fraction of lsof, which reads every process.
+ * lsof where there is no `ss` (macOS).
  */
 async function listeners(): Promise<Array<{ port: number; pid: number }>> {
-  const found: Array<{ port: number; pid: number }> = [];
-  try {
-    const { stdout } = await run('lsof', [
-      '-nP',
-      '-iTCP',
-      '-sTCP:LISTEN',
-      '-Fpn',
-    ]);
-    let pid: number | null = null;
-    for (const line of stdout.split('\n')) {
-      if (line.startsWith('p')) pid = Number(line.slice(1));
-      const port = /^n.*:(\d+)$/.exec(line)?.[1];
-      if (pid && port) found.push({ port: Number(port), pid });
-    }
-  } catch {
-    // lsof exits 1 when nothing matches, and may not be installed.
-  }
   try {
     const { stdout } = await run('ss', ['-ltnpH']);
+    const found: Array<{ port: number; pid: number }> = [];
     for (const line of stdout.split('\n')) {
       const port = /:(\d+)$/.exec(line.trim().split(/\s+/)[3] ?? '')?.[1];
       if (!port) continue;
@@ -247,10 +232,29 @@ async function listeners(): Promise<Array<{ port: number; pid: number }>> {
         found.push({ port: Number(port), pid: Number(pid) });
       }
     }
+    return found;
   } catch {
-    // No ss (macOS): what lsof found is all there is.
+    // No ss (macOS): lsof instead.
   }
-  return found;
+  try {
+    const { stdout } = await run('lsof', [
+      '-nP',
+      '-iTCP',
+      '-sTCP:LISTEN',
+      '-Fpn',
+    ]);
+    const found: Array<{ port: number; pid: number }> = [];
+    let pid: number | null = null;
+    for (const line of stdout.split('\n')) {
+      if (line.startsWith('p')) pid = Number(line.slice(1));
+      const port = /^n.*:(\d+)$/.exec(line)?.[1];
+      if (pid && port) found.push({ port: Number(port), pid });
+    }
+    return found;
+  } catch {
+    // lsof exits 1 when nothing matches, and may not be installed.
+    return [];
+  }
 }
 
 /** Sent by Truing's own servers, so a scan never takes one, of any Truing, for the app. */
