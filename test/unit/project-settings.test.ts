@@ -435,6 +435,7 @@ describe('changing a saved value', () => {
       'claude',
       './own',
       'settings',
+      'frames',
     ]);
   });
 });

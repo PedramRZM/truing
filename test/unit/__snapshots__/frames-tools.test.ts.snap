@@ -1,0 +1,179 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`describes its tools to Claude as recorded here 1`] = `
+[
+  {
+    "description": "Lists the frames on the canvas of Truing, the app as the person sees it: each frame's id, name, route, size in CSS pixels, whether its page is loaded, and who opened it ("person" or "claude"). Frames in the same group follow each other's route.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "list_frames",
+  },
+  {
+    "description": "Opens a new frame of the app on the canvas, at a route such as "/library", beside the others. Give a device (phone 390 x 844, tablet 768 x 1024, desktop 1440 x 900) or a width and height; it takes the selected frame's size otherwise. Waits until the page has loaded and returns the new frame's id. The canvas holds 12 frames.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "device": {
+          "enum": [
+            "phone",
+            "tablet",
+            "desktop",
+          ],
+          "type": "string",
+        },
+        "height": {
+          "maximum": 3840,
+          "minimum": 240,
+          "type": "number",
+        },
+        "name": {
+          "type": "string",
+        },
+        "route": {
+          "pattern": "^\\/(?!\\/)",
+          "type": "string",
+        },
+        "width": {
+          "maximum": 3840,
+          "minimum": 240,
+          "type": "number",
+        },
+      },
+      "required": [
+        "route",
+      ],
+      "type": "object",
+    },
+    "name": "open_frame",
+  },
+  {
+    "description": "Sends a frame to a route of the app, as typing it in the route box would. Frames in its group go too.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "route": {
+          "pattern": "^\\/(?!\\/)",
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+        "route",
+      ],
+      "type": "object",
+    },
+    "name": "navigate_frame",
+  },
+  {
+    "description": "Changes a frame's size: a device (phone, tablet, desktop) or a width and height in CSS pixels.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "device": {
+          "enum": [
+            "phone",
+            "tablet",
+            "desktop",
+          ],
+          "type": "string",
+        },
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "height": {
+          "maximum": 3840,
+          "minimum": 240,
+          "type": "number",
+        },
+        "width": {
+          "maximum": 3840,
+          "minimum": 240,
+          "type": "number",
+        },
+      },
+      "required": [
+        "frame",
+      ],
+      "type": "object",
+    },
+    "name": "resize_frame",
+  },
+  {
+    "description": "Moves a frame on the canvas by x and y canvas pixels from where the board places it. Use it to set frames apart for the person to compare.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "x": {
+          "type": "number",
+        },
+        "y": {
+          "type": "number",
+        },
+      },
+      "required": [
+        "frame",
+        "x",
+        "y",
+      ],
+      "type": "object",
+    },
+    "name": "move_frame",
+  },
+  {
+    "description": "Closes a frame Claude opened. The person's own frames are theirs: ask them to close one instead.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+      ],
+      "type": "object",
+    },
+    "name": "close_frame",
+  },
+  {
+    "description": "Takes a picture of a frame as it shows now, or of one element in it given a CSS selector, without Truing's own marks. The canvas brings the frame into view for a moment. The picture is at most 1568 pixels on its longer side.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "selector": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+      ],
+      "type": "object",
+    },
+    "name": "screenshot",
+  },
+]
+`;

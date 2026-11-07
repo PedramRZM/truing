@@ -181,3 +181,35 @@ it('gives new frames fresh ids after a restart, whatever the saved ones were cal
     'tab-5',
   ]);
 });
+
+it('applies Claude’s frame changes without moving the person’s selection', () => {
+  const shell = open();
+  shell.receive({
+    type: 'frame-op',
+    op: { kind: 'open', id: 'claude-1', route: '/a', name: 'Look' },
+  });
+  expect(shell.state().frames['claude-1']).toMatchObject({
+    by: 'claude',
+    name: 'Look',
+  });
+  expect(shell.state().activeFrame).toBeNull();
+  shell.receive({
+    type: 'frame-op',
+    op: {
+      kind: 'resize',
+      frame: 'claude-1',
+      viewport: { kind: 'preset', preset: 'phone' },
+    },
+  });
+  expect(shell.state().frames['claude-1']?.viewport).toEqual({
+    kind: 'preset',
+    preset: 'phone',
+  });
+  expect(shell.state().activeFrame).toBeNull();
+  // The person's own frame isn't Claude's to close.
+  shell.store.newFrame();
+  shell.receive({ type: 'frame-op', op: { kind: 'close', frame: 'tab-1' } });
+  expect(shell.state().frames['tab-1']).toBeDefined();
+  shell.receive({ type: 'frame-op', op: { kind: 'close', frame: 'claude-1' } });
+  expect(shell.state().frames['claude-1']).toBeUndefined();
+});

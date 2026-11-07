@@ -10,6 +10,7 @@
 // This file is imported from all three places, so it imports nothing but
 // zod/mini and types. MODULES.md is the guide.
 import type { ReactNode } from 'react';
+import type { Board, BoardViewport } from './protocol';
 
 import * as z from 'zod/mini';
 
@@ -928,6 +929,24 @@ export type ServerContext<M extends ModuleSpec> = {
    * lists and calls for a Claude session, through the claude module's bridge.
    */
   tools: ClaudeTools;
+  /** The board, and changes to it the person sees on the canvas as they happen (TRU-18.2). */
+  canvas: CanvasControl;
+};
+
+export type CanvasControl = {
+  /** The board as the shell last saved it; null before the first save. */
+  board: () => Board | null;
+  /** Every frame whose page has loaded, whatever probes run in it. */
+  loaded: () => string[];
+  /** Opens a frame at `route` and returns its id; it shows a moment later. */
+  open: (
+    route: string,
+    options?: { viewport?: BoardViewport; name?: string },
+  ) => string;
+  navigate: (frame: string, route: string) => void;
+  resize: (frame: string, viewport: BoardViewport) => void;
+  move: (frame: string, x: number, y: number) => void;
+  close: (frame: string) => void;
 };
 
 /** A Claude tool as an MCP server lists it. */
@@ -984,6 +1003,15 @@ export function isToolImage(value: unknown): value is ToolImage {
  * scrolls for it, and Truing's own marks stay out.
  */
 export type ScreenshotControl = {
+  /**
+   * TRU-18.3: a frame, or one element in it, as the frame shows it now, without
+   * Truing's marks, wherever it is on the canvas: the canvas brings it into view
+   * for the capture and goes back. The picture's longer side is at most `maxSide`.
+   */
+  capture?: (
+    frame: string,
+    options?: { selector?: string; maxSide?: number },
+  ) => Promise<Buffer | null>;
   /** One element, as PNG; null if it's gone or out of view. */
   element: (frame: string, selector: string) => Promise<Buffer | null>;
   /** A whole frame, as JPEG; null if it's out of view. */

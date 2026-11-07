@@ -14,6 +14,7 @@ import {
   type ShellMessage,
   type StateEntry,
   toShellSchema,
+  type ToShell,
   type View,
 } from '../protocol';
 import { matchPreset } from '../vendor/airship/frames';
@@ -185,6 +186,11 @@ export function framesInert(state: ShellState): boolean {
 declare global {
   interface Window {
     __truingShell?: { token: string; wsUrl: string };
+    /** TRU-18.3: Truing's browser brings a frame into view for a capture, then puts the camera back. */
+    __truingCapture?: {
+      show: (frame: string, maxSide?: number) => boolean;
+      restore: () => void;
+    };
   }
 }
 
@@ -236,6 +242,8 @@ export function withOpenedFrame(
     /** Its name; none shows its device. A new tab is called New tab. */
     name?: string | null;
     by?: 'person' | 'claude';
+    /** Its own device; the device of the frame it came from otherwise. */
+    viewport?: Viewport;
   } = {},
 ): Pick<ShellState, 'frames' | 'resized'> {
   const from =
@@ -250,7 +258,11 @@ export function withOpenedFrame(
       [id]: {
         ...newFrame(id, route),
         // The device of the frame it came from, so it reads as the same size.
-        ...(opener ? { viewport: frameViewport(state, opener) } : {}),
+        ...(options.viewport
+          ? { viewport: options.viewport }
+          : opener
+            ? { viewport: frameViewport(state, opener) }
+            : {}),
         ...(name ? { name } : {}),
         by: options.by ?? 'person',
       },
@@ -1368,6 +1380,9 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
         case 'reload-frames':
           reloadFrames(message.frames);
           return;
+        case 'frame-op':
+          frameOp(message.op);
+          return;
         case 'open-frame':
           // A link opened on purpose shows its device; a new tab says so.
           openFrame(
@@ -1438,7 +1453,12 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
    */
   function openFrame(
     route: string,
-    options: Parameters<typeof withOpenedFrame>[3] = {},
+    options: Parameters<typeof withOpenedFrame>[3] & {
+      /** Claude's frames come with their id, so its tool can wait for them. */
+      id?: string;
+      /** A frame Claude opens leaves the person's selection where it is. */
+      select?: boolean;
+    } = {},
   ): string | null {
     if (Object.keys(state.frames).length >= FRAME_CAP) {
       notify(
@@ -1446,11 +1466,113 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
       );
       return null;
     }
-    openedFrames += 1;
-    const id = `tab-${openedFrames}`;
+    const { id: given, select = true, ...rest } = options;
+    if (given && state.frames[given]) return given;
+    if (!given) openedFrames += 1;
+    const id = given ?? `tab-${openedFrames}`;
     followFit = true;
-    set({ ...withOpenedFrame(state, id, route, options), activeFrame: id });
+    set({
+      ...withOpenedFrame(state, id, route, rest),
+      ...(select ? { activeFrame: id } : {}),
+    });
     return id;
+  }
+
+  /** TRU-18.2: a change to the board from Truing's side, Claude's tools. */
+  function frameOp(op: Extract<ToShell, { type: 'frame-op' }>['op']): void {
+    if (op.kind === 'open') {
+      openFrame(op.route, {
+        id: op.id,
+        name: op.name ?? null,
+        by: 'claude',
+        select: false,
+        ...(op.viewport ? { viewport: op.viewport } : {}),
+      });
+      return;
+    }
+    const frame = state.frames[op.frame];
+    if (!frame) return;
+    const record = openedIds(state).includes(op.frame);
+    switch (op.kind) {
+      case 'navigate': {
+        const next = record ? withGroupRoute(state, op.frame, op.route) : null;
+        if (next) set(next);
+        else loadRoute(op.route, op.frame);
+        return;
+      }
+      case 'resize': {
+        const next = record
+          ? withFrameViewport(state, op.frame, op.viewport)
+          : null;
+        if (next) {
+          // Claude's change leaves the person's selection where it was.
+          set({
+            ...next,
+            activeFrame: state.activeFrame,
+            modules: modulesWithout(next.frames),
+          });
+          return;
+        }
+        set({
+          resized: {
+            ...state.resized,
+            [op.frame]: sizeOf(op.viewport, state.canvas),
+          },
+        });
+        return;
+      }
+      case 'move':
+        set({
+          offsets: { ...state.offsets, [op.frame]: { x: op.x, y: op.y } },
+        });
+        return;
+      case 'close': {
+        // Claude closes its own frames, never the person's.
+        if (frame.by !== 'claude') return;
+        const next = withoutOpenedFrame(state, op.frame);
+        if (next)
+          set({ ...next, modules: withoutFrame(state.modules, op.frame) });
+        return;
+      }
+    }
+  }
+
+  /** The camera a capture moved, to put back afterwards (TRU-18.3). */
+  let beforeCapture: { camera: Camera; followFit: boolean } | null = null;
+
+  /**
+   * Brings one frame into view for a capture: as large as the canvas allows, and
+   * its longer side never past `maxSide` pixels, so the picture keeps to it.
+   */
+  function showForCapture(id: string, maxSide = Infinity): boolean {
+    const placed = frameRects(state).find(({ frame }) => frame.id === id);
+    if (!placed) return false;
+    beforeCapture ??= { camera, followFit };
+    followFit = false;
+    const { rect } = placed;
+    const fitted = fitCamera(rect, safeRect(state));
+    const scale = Math.min(
+      fitted.scale,
+      maxSide / Math.max(rect.width, rect.height),
+    );
+    // Smaller than the fit: centred where the fit centred it.
+    const centre = {
+      x: fitted.x + (rect.x + rect.width / 2) * fitted.scale,
+      y: fitted.y + (rect.y + rect.height / 2) * fitted.scale,
+    };
+    moveCamera({
+      scale,
+      x: centre.x - (rect.x + rect.width / 2) * scale,
+      y: centre.y - (rect.y + rect.height / 2) * scale,
+    });
+    return true;
+  }
+
+  function restoreAfterCapture(): void {
+    if (!beforeCapture) return;
+    followFit = beforeCapture.followFit;
+    moveCamera(beforeCapture.camera);
+    beforeCapture = null;
   }
 
   function closeMenu(): void {
@@ -1807,6 +1929,8 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     startResize,
     moveResize,
     endResize,
+    showForCapture,
+    restoreAfterCapture,
     /** Closes a frame opened from a new tab; the layout's own frames stay. */
     closeFrame(id: string) {
       const next = withoutOpenedFrame(state, id);

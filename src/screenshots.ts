@@ -25,6 +25,9 @@ export function overlap(a: Box, b: Box): Box | null {
   return width >= 1 && height >= 1 ? { x, y, width, height } : null;
 }
 
+/** Claude reads images up to about this long side best; larger ones are scaled down. */
+export const MAX_SIDE = 1568;
+
 export function createScreenshots(shell: Page): ScreenshotControl {
   /** The canvas, where the frames are in view: panels sit beside it, not over it. */
   const canvasBox = (): Promise<Box | null> =>
@@ -33,7 +36,71 @@ export function createScreenshots(shell: Page): ScreenshotControl {
   const iframeOf = (frame: string) =>
     shell.locator(`iframe[name="${FRAME_NAME_PREFIX}${frame}"]`);
 
+  /** Two animation frames: the camera moved, and the canvas drew it. */
+  const drawn = (): Promise<unknown> =>
+    shell.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+
   return {
+    async capture(frame, options = {}) {
+      const { selector, maxSide = MAX_SIDE } = options;
+      const shown = await shell.evaluate(
+        ({ id, side }) => window.__truingCapture?.show(id, side) ?? false,
+        { id: frame, side: maxSide },
+      );
+      if (!shown) return null;
+      const inner = shell
+        .frames()
+        .find(
+          (candidate) => candidate.name() === `${FRAME_NAME_PREFIX}${frame}`,
+        );
+      // The page's own scroll, put back after an element was scrolled to.
+      const scrolled = selector
+        ? await inner
+            ?.evaluate((wanted) => {
+              const element = document.querySelector(wanted);
+              if (!element) return null;
+              const before = { x: window.scrollX, y: window.scrollY };
+              element.scrollIntoView({ block: 'center', inline: 'center' });
+              return before;
+            }, selector)
+            .catch(() => null)
+        : null;
+      try {
+        await drawn();
+        const canvas = await canvasBox();
+        const box = selector
+          ? await inner
+              ?.locator(selector)
+              .first()
+              .boundingBox({ timeout: TIMEOUT_MS })
+          : await iframeOf(frame).boundingBox({ timeout: TIMEOUT_MS });
+        const clip = canvas && box && overlap(box, canvas);
+        if (!clip) return null;
+        // One pixel to a CSS pixel: the camera already kept it within `maxSide`.
+        return await shell.screenshot({
+          type: 'png',
+          clip,
+          scale: 'css',
+          style: HIDE_TRUING,
+          timeout: TIMEOUT_MS,
+        });
+      } finally {
+        if (scrolled) {
+          await inner
+            ?.evaluate(({ x, y }) => window.scrollTo(x, y), scrolled)
+            .catch(() => {});
+        }
+        await shell
+          .evaluate(() => window.__truingCapture?.restore())
+          .catch(() => {});
+      }
+    },
+
     async element(frame, selector) {
       const inner = shell.frames().find((candidate) => {
         return candidate.name() === `${FRAME_NAME_PREFIX}${frame}`;

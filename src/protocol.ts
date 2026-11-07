@@ -227,6 +227,7 @@ export const boardSchema = z.object({
     .check(z.maxLength(FRAME_CAP)),
 });
 export type Board = z.infer<typeof boardSchema>;
+export type BoardViewport = z.infer<typeof viewportSchema>;
 
 export const shellMessageSchema = z.discriminatedUnion('type', [
   /** The board changed: the server saves it for the next start (TRU-14.2). */
@@ -393,6 +394,39 @@ export const toShellSchema = /* @__PURE__ */ (() =>
       type: z.literal('frame-back'),
       frame: z.string(),
       route: z.string(),
+    }),
+    /**
+     * TRU-18.2: a change to the board from Truing's side (Claude's tools), shown on
+     * the canvas as it happens. `open` names the frame, so the tool can wait for it.
+     */
+    z.object({
+      type: z.literal('frame-op'),
+      op: z.discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('open'),
+          id: z.string().check(z.minLength(1)),
+          route: routeSchema,
+          viewport: z.optional(viewportSchema),
+          name: z.optional(z.string()),
+        }),
+        z.object({
+          kind: z.literal('navigate'),
+          frame: z.string(),
+          route: routeSchema,
+        }),
+        z.object({
+          kind: z.literal('resize'),
+          frame: z.string(),
+          viewport: viewportSchema,
+        }),
+        z.object({
+          kind: z.literal('move'),
+          frame: z.string(),
+          x: z.number(),
+          y: z.number(),
+        }),
+        z.object({ kind: z.literal('close'), frame: z.string() }),
+      ]),
     }),
     /** TRU-10.9: frames left blank while a window of another site was open, back where they were. */
     z.object({ type: z.literal('reload-frames'), frames: z.array(z.string()) }),

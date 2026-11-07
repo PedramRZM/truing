@@ -8,6 +8,7 @@ import {
   type ApplyOutcome,
   type ApplyResult,
   applyResultSchema,
+  type CanvasControl,
   type ChangesControl,
   changeSchemas,
   type ClaudeTools,
@@ -27,6 +28,7 @@ import {
 } from './module';
 import { importServerPart, type LoadedModule } from './module-loader';
 import type {
+  Board,
   ModuleFailure,
   ReportEntry,
   RuntimeMessage,
@@ -175,8 +177,32 @@ export function createModuleHost(options: ModuleHostOptions) {
     toShells({ type: 'module-state', module: id, name, value: parsed.value });
   }
 
+  /** TRU-18.2: the board as the shell last saved it, for Claude's frame tools. */
+  let board: Board | null = null;
+  let claudeFrames = 0;
+  const frameOp = (op: Extract<ToShell, { type: 'frame-op' }>['op']): void =>
+    toShells({ type: 'frame-op', op });
+  const canvas: CanvasControl = {
+    board: () => board,
+    loaded: () => [...probes.keys()],
+    open(route, options = {}) {
+      claudeFrames += 1;
+      const id = `claude-${claudeFrames}`;
+      frameOp({ kind: 'open', id, route, ...options });
+      return id;
+    },
+    navigate: (frame, route) => frameOp({ kind: 'navigate', frame, route }),
+    resize: (frame, viewport) => frameOp({ kind: 'resize', frame, viewport }),
+    move: (frame, x, y) => frameOp({ kind: 'move', frame, x, y }),
+    close: (frame) => frameOp({ kind: 'close', frame }),
+  };
+
   /** Reads through whichever browser Truing connected; tests have none. */
   const screenshot: ScreenshotControl = {
+    capture: (frame, options) =>
+      browser?.capture
+        ? browser.capture(frame, options)
+        : Promise.reject(new Error('No browser is connected.')),
     element: (frame, selector) =>
       browser
         ? browser.element(frame, selector)
@@ -597,6 +623,7 @@ export function createModuleHost(options: ModuleHostOptions) {
         exclusive,
         screenshot,
         tools,
+        canvas,
       });
       const parsed = handlersSchema.safeParse(returned ?? {});
       if (!parsed.success) {
@@ -779,6 +806,16 @@ export function createModuleHost(options: ModuleHostOptions) {
 
     onRuntimeGone(frame: string): void {
       forgetFrame(frame);
+    },
+
+    /** TRU-18.2: the board the shell saved, so Claude's tools read what the person sees. */
+    onBoard(next: Board): void {
+      board = next;
+      // Ids already on the board stay theirs after a restart.
+      for (const saved of next.frames) {
+        const n = Number(/^claude-(\d+)/.exec(saved.id)?.[1] ?? 0);
+        claudeFrames = Math.max(claudeFrames, n);
+      }
     },
 
     probesIn(frame: string): string[] {

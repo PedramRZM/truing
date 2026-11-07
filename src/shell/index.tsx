@@ -13,6 +13,11 @@ const store = createShellStore(
 );
 store.connect();
 listenForShortcuts(store);
+// TRU-18.3: Truing's browser brings a frame into view for a capture, then back.
+window.__truingCapture = {
+  show: (frame, maxSide) => store.showForCapture(frame, maxSide),
+  restore: () => store.restoreAfterCapture(),
+};
 
 const root = document.getElementById('root');
 if (!root) {

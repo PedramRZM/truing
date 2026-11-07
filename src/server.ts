@@ -113,6 +113,9 @@ export async function startTruingServer(
   let view: View = DEFAULT_VIEW;
   let pingId = 0;
   let savedFrames = -1;
+  // Claude's frame tools read the board from the start, before the shell saves it.
+  const saved = options.board?.load();
+  if (saved) modules.onBoard(saved);
 
   const toShells = (message: ToShell): void => {
     const data = JSON.stringify(message);
@@ -245,6 +248,7 @@ export async function startTruingServer(
           // A board that can't be written (a full disk, a folder it can't
           // reach) is said, and never stops Truing.
           try {
+            modules.onBoard(message.board);
             options.board?.save(message.board);
           } catch (error) {
             toShells({

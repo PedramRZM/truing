@@ -102,6 +102,8 @@ export const DEFAULT_MODULES = [
   'claude-config',
   'claude',
   'settings',
+  // TRU-18.2: Claude's frame tools; server only, so nothing reaches the frames.
+  'frames',
 ];
 
 /** The writable list that means every file in the project (TRU-10.7). */
