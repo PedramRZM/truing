@@ -43,8 +43,31 @@ export function permissionReply(
 
 export type Bridge = {
   address: BridgeAddress;
+  /** A new turn: its own budget of tool calls (TRU-18.4). */
+  newTurn: () => void;
   close: () => Promise<void>;
 };
+
+/** TRU-18.1: how many module tool calls one turn may make before it stops and says so. */
+export const TURN_BUDGET = 60;
+
+/** What the person is asked before a tool that changes the app, in words. */
+export function actionSummary(tool: string, input: unknown): string {
+  const given = typeof input === 'object' && input !== null ? input : {};
+  const field = (key: string): string | null => {
+    const value: unknown = (given as Record<string, unknown>)[key];
+    return typeof value === 'string' ? value : null;
+  };
+  const verb = tool.replace(/_/g, ' ');
+  const name = field('name');
+  const role = field('role');
+  const target = name ? ` the ${role ?? 'element'} "${name}"` : '';
+  const text = field('text');
+  const typed = text === null ? '' : `: "${text}"`;
+  const frame = field('frame');
+  const where = frame ? ` in frame ${frame}` : '';
+  return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}${target}${where}${typed}`;
+}
 
 function bodyOf(request: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -83,6 +106,7 @@ export async function startBridge(
 ): Promise<Bridge> {
   const token = randomBytes(32).toString('hex');
   let host = '';
+  let calls = 0;
 
   const server = createServer((request, response) => {
     const reply = (status: number, value: unknown): void => {
@@ -113,15 +137,50 @@ export async function startBridge(
       void bodyOf(request)
         .then(async (body) => {
           const call = callSchema.parse(JSON.parse(body));
-          reply(
-            200,
-            tools
-              ? await tools.call(call.name, call.arguments ?? {})
-              : {
-                  content: [{ type: 'text', text: `No tool "${call.name}".` }],
-                  isError: true,
+          const refuse = (text: string): void =>
+            reply(200, { content: [{ type: 'text', text }], isError: true });
+          if (!tools) {
+            refuse(`No tool "${call.name}".`);
+            return;
+          }
+          // TRU-18.1: a turn stops at its budget, and says so.
+          calls += 1;
+          if (calls > TURN_BUDGET) {
+            refuse(
+              `This turn has used its ${TURN_BUDGET} tool calls. Say what you found, and the person can ask you to go on.`,
+            );
+            return;
+          }
+          // TRU-18.1: a tool that changes the app asks the person first, whatever
+          // Claude Code's permission mode, as nothing in Claude Code decides it.
+          const spec = tools.list().find((tool) => tool.name === call.name);
+          if (spec?.asks) {
+            const asking = new AbortController();
+            response.once('close', () => {
+              if (!response.writableEnded) asking.abort();
+            });
+            const input =
+              typeof call.arguments === 'object' && call.arguments !== null
+                ? (call.arguments as Record<string, unknown>)
+                : {};
+            const decision = await ask(
+              {
+                tool_name: call.name,
+                input: {
+                  ...input,
+                  what: actionSummary(call.name, call.arguments),
                 },
-          );
+              },
+              asking.signal,
+            ).catch(() => ({ allow: false }));
+            if (!decision.allow) {
+              refuse(
+                'The person said no. Ask them what they would like instead.',
+              );
+              return;
+            }
+          }
+          reply(200, await tools.call(call.name, call.arguments ?? {}));
         })
         .catch(() => reply(400, { error: 'Bad request.' }));
       return;
@@ -156,6 +215,9 @@ export async function startBridge(
 
   return {
     address: { url: `http://${host}`, token },
+    newTurn: () => {
+      calls = 0;
+    },
     close: () =>
       new Promise((resolve) => {
         server.close(() => resolve());

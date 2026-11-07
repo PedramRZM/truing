@@ -1,4 +1,4 @@
-import { defineServer, toolImage } from '../../module';
+import { type AppAction, defineServer, toolImage } from '../../module';
 import { type Board, type BoardViewport, FRAME_CAP } from '../../protocol';
 
 import frames from './module';
@@ -104,6 +104,16 @@ export default defineServer(frames, (ctx) => {
     }
   };
 
+  /** TRU-18.4: what Claude does in a frame, done as a person would, and said. */
+  const act = async (frame: string, action: AppAction): Promise<string> => {
+    known(frame);
+    const run = ctx.screenshot.act;
+    if (!run) throw new Error("Truing's browser can't act in the app.");
+    const done = await run(frame, action);
+    ctx.log(done);
+    return done;
+  };
+
   return {
     tools: {
       list_frames: () => ({
@@ -175,6 +185,30 @@ export default defineServer(frames, (ctx) => {
         ctx.canvas.close(frame);
         return { closed: frame };
       },
+
+      scroll_frame: async ({ frame, by, role, name }) => {
+        known(frame);
+        return act(
+          frame,
+          role && name
+            ? { kind: 'scroll', to: { role, name } }
+            : { kind: 'scroll', ...(by === undefined ? {} : { by }) },
+        );
+      },
+
+      hover: ({ frame, role, name }) =>
+        act(frame, { kind: 'hover', target: { role, name } }),
+
+      click: ({ frame, role, name }) =>
+        act(frame, { kind: 'click', target: { role, name } }),
+
+      type_text: ({ frame, role, name, text, submit }) =>
+        act(frame, {
+          kind: 'type',
+          target: { role, name },
+          text,
+          ...(submit === undefined ? {} : { submit }),
+        }),
 
       screenshot: async ({ frame, selector }) => {
         known(frame);

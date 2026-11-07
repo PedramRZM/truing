@@ -11,7 +11,12 @@ import type { TruingConfig } from '../../src/config';
 import type { ClaudeTools } from '../../src/module';
 import { createModuleHost } from '../../src/module-host';
 import { loadModules } from '../../src/module-loader';
-import { type Bridge, startBridge } from '../../src/modules/claude/bridge';
+import {
+  actionSummary,
+  type Bridge,
+  startBridge,
+  TURN_BUDGET,
+} from '../../src/modules/claude/bridge';
 
 import { moduleTs, serverTs, writeModules } from './temp-modules';
 
@@ -161,4 +166,101 @@ it('gives a Claude session the modules’ tools after the prompt tool, and runs 
   } finally {
     server.stop();
   }
+});
+
+// TRU-18.1, TRU-18.4: a tool that changes the app asks the person first, through
+// the bridge, whatever Claude Code's permission mode; and a turn has a budget.
+const ACTOR = {
+  'module.ts': moduleTs(`{
+    id: 'actor',
+    title: 'Actor',
+    server: {},
+    claude: {
+      tools: {
+        push: {
+          description: 'Pushes a button.',
+          input: z.object({ frame: z.string(), role: z.string(), name: z.string() }),
+          asks: true,
+        },
+        look: { description: 'Looks.', input: z.object({}) },
+      },
+    },
+  }`),
+  'server.ts': serverTs(`() => ({
+    tools: {
+      push: ({ name }) => { globalThis.pushed = (globalThis.pushed ?? 0) + 1; return 'pushed ' + name; },
+      look: () => 'looked',
+    },
+  })`),
+};
+
+async function actorBridge(answer: boolean) {
+  const root = writeModules({ actor: ACTOR });
+  const modules = await loadModules(root, { modules: ['./actor'] });
+  const host = createModuleHost({ modules, root, config });
+  await host.start();
+  const asked: unknown[] = [];
+  bridge = await startBridge(async (prompt) => {
+    asked.push(prompt);
+    return { allow: answer };
+  }, host.tools);
+  const { url, token } = bridge.address;
+  const call = async (name: string, args: unknown) =>
+    (await (
+      await fetch(`${url}/tools/call`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name, arguments: args }),
+      })
+    ).json()) as { content: Array<{ text: string }>; isError?: boolean };
+  return { call, asked };
+}
+
+const PUSH = { frame: 'desktop', role: 'button', name: 'Save' };
+
+it('asks the person before a tool that changes the app, in words, and runs it on a yes', async () => {
+  const { call, asked } = await actorBridge(true);
+  expect(await call('push', PUSH)).toEqual({
+    content: [{ type: 'text', text: 'pushed Save' }],
+  });
+  expect(asked).toEqual([
+    {
+      tool_name: 'push',
+      input: { ...PUSH, what: 'Push the button "Save" in frame desktop' },
+    },
+  ]);
+  expect(await call('look', {})).toEqual({
+    content: [{ type: 'text', text: 'looked' }],
+  });
+  expect(asked).toHaveLength(1);
+});
+
+it('runs nothing when the person says no, and tells Claude to ask', async () => {
+  delete (globalThis as { pushed?: number }).pushed;
+  const { call } = await actorBridge(false);
+  const result = await call('push', PUSH);
+  expect(result.isError).toBe(true);
+  expect(result.content[0]?.text).toMatch(/The person said no/);
+  expect((globalThis as { pushed?: number }).pushed ?? 0).toBe(0);
+});
+
+it('stops a turn at its budget, and starts the next one fresh', async () => {
+  const { call } = await actorBridge(true);
+  for (let i = 0; i < TURN_BUDGET; i++) await call('look', {});
+  const over = await call('look', {});
+  expect(over.isError).toBe(true);
+  expect(over.content[0]?.text).toMatch(/used its 60 tool calls/);
+  bridge?.newTurn();
+  expect((await call('look', {})).isError).toBeUndefined();
+});
+
+it('says what a tool will do in the app in plain words', () => {
+  expect(
+    actionSummary('type_text', {
+      frame: 'phone',
+      role: 'textbox',
+      name: 'Email',
+      text: 'a@b.test',
+    }),
+  ).toBe('Type text the textbox "Email" in frame phone: "a@b.test"');
 });

@@ -94,7 +94,18 @@ export type ModuleSpec = {
   };
   claude?: {
     /** Tools Claude gets over Truing's MCP server (TRU-12.1), by tool name. */
-    tools: Record<string, { description: string; input: Schema }>;
+    tools: Record<
+      string,
+      {
+        description: string;
+        input: Schema;
+        /**
+         * TRU-18.4: the tool changes something in the app (a click, typed text),
+         * so the person is asked before every call, in every permission mode.
+         */
+        asks?: boolean;
+      }
+    >;
   };
   /**
    * The module's commands in Truing's one list (TRU-2.3): their keys, the
@@ -955,6 +966,8 @@ export type ToolInfo = {
   module: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** The person is asked before each call (TRU-18.4). */
+  asks?: boolean;
 };
 
 /** A tool's answer, MCP-shaped: text and images, or an error Claude can read. */
@@ -1002,7 +1015,22 @@ export function isToolImage(value: unknown): value is ToolImage {
  * A picture of what's on the canvas, cropped to what's in view: the page never
  * scrolls for it, and Truing's own marks stay out.
  */
+/** TRU-18.4: an element as a person finds it: its role and its accessible name. */
+export type AppTarget = { role: string; name: string };
+
+/** TRU-18.4: what Claude does in a frame of the app. */
+export type AppAction =
+  | { kind: 'scroll'; by?: number; to?: AppTarget }
+  | { kind: 'hover'; target: AppTarget }
+  | { kind: 'click'; target: AppTarget }
+  | { kind: 'type'; target: AppTarget; text: string; submit?: boolean };
+
 export type ScreenshotControl = {
+  /**
+   * TRU-18.4: does `action` in a frame, as a person would: the canvas brings the
+   * frame into view and the element shows an outline first. Answers what it did.
+   */
+  act?: (frame: string, action: AppAction) => Promise<string>;
   /**
    * TRU-18.3: a frame, or one element in it, as the frame shows it now, without
    * Truing's marks, wherever it is on the canvas: the canvas brings it into view

@@ -155,6 +155,124 @@ exports[`describes its tools to Claude as recorded here 1`] = `
     "name": "close_frame",
   },
   {
+    "description": "Scrolls the page in a frame: by a number of pixels (down when positive), or to an element given by its ARIA role and accessible name, such as role "heading" and name "Sources".",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "type": "number",
+        },
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "name": {
+          "type": "string",
+        },
+        "role": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+      ],
+      "type": "object",
+    },
+    "name": "scroll_frame",
+  },
+  {
+    "description": "Points at an element in a frame, given by its ARIA role and accessible name, to see its hover state. It shows an outline on the element first.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+        "role",
+        "name",
+      ],
+      "type": "object",
+    },
+    "name": "hover",
+  },
+  {
+    "description": "Clicks an element in a frame, given by its ARIA role and accessible name, such as role "button" and name "Save". A click can change data, so the person is asked first, every time; if they say no, ask what they would like instead.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+        "role",
+        "name",
+      ],
+      "type": "object",
+    },
+    "name": "click",
+  },
+  {
+    "description": "Types text into a field in a frame, given by its ARIA role (usually "textbox") and accessible name, replacing what is there; with submit, presses Enter after. The person is asked first, every time.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "frame": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "submit": {
+          "type": "boolean",
+        },
+        "text": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "frame",
+        "role",
+        "name",
+        "text",
+      ],
+      "type": "object",
+    },
+    "name": "type_text",
+  },
+  {
     "description": "Takes a picture of a frame as it shows now, or of one element in it given a CSS selector, without Truing's own marks. The canvas brings the frame into view for a moment. The picture is at most 1568 pixels on its longer side.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",

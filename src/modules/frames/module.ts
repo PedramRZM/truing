@@ -22,6 +22,12 @@ const size = {
 
 const frame = z.string().check(z.minLength(1));
 
+/** An element as a person finds it (TRU-18.4): its ARIA role and accessible name. */
+const target = {
+  role: z.string().check(z.minLength(1)),
+  name: z.string().check(z.minLength(1)),
+};
+
 export default defineModule({
   id: 'frames',
   title: 'Frames',
@@ -57,6 +63,38 @@ export default defineModule({
         description:
           "Closes a frame Claude opened. The person's own frames are theirs: ask them to close one instead.",
         input: z.object({ frame }),
+      },
+      scroll_frame: {
+        description:
+          'Scrolls the page in a frame: by a number of pixels (down when positive), or to an element given by its ARIA role and accessible name, such as role "heading" and name "Sources".',
+        input: z.object({
+          frame,
+          by: z.optional(z.number()),
+          role: z.optional(z.string()),
+          name: z.optional(z.string()),
+        }),
+      },
+      hover: {
+        description:
+          'Points at an element in a frame, given by its ARIA role and accessible name, to see its hover state. It shows an outline on the element first.',
+        input: z.object({ frame, ...target }),
+      },
+      click: {
+        description:
+          'Clicks an element in a frame, given by its ARIA role and accessible name, such as role "button" and name "Save". A click can change data, so the person is asked first, every time; if they say no, ask what they would like instead.',
+        input: z.object({ frame, ...target }),
+        asks: true,
+      },
+      type_text: {
+        description:
+          'Types text into a field in a frame, given by its ARIA role (usually "textbox") and accessible name, replacing what is there; with submit, presses Enter after. The person is asked first, every time.',
+        input: z.object({
+          frame,
+          ...target,
+          text: z.string(),
+          submit: z.optional(z.boolean()),
+        }),
+        asks: true,
       },
       screenshot: {
         description:

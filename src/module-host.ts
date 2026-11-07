@@ -199,6 +199,10 @@ export function createModuleHost(options: ModuleHostOptions) {
 
   /** Reads through whichever browser Truing connected; tests have none. */
   const screenshot: ScreenshotControl = {
+    act: (frame, action) =>
+      browser?.act
+        ? browser.act(frame, action)
+        : Promise.reject(new Error('No browser is connected.')),
     capture: (frame, options) =>
       browser?.capture
         ? browser.capture(frame, options)
@@ -726,6 +730,7 @@ export function createModuleHost(options: ModuleHostOptions) {
                 module: loaded.spec.id,
                 description: tool.description,
                 inputSchema: zm.toJSONSchema(tool.input),
+                ...(tool.asks ? { asks: true } : {}),
               }),
             )
           : [],

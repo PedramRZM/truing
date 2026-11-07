@@ -222,7 +222,12 @@ const moduleSpecSchema = z.object({
     .object({
       tools: z.record(
         z.string().regex(TOOL_NAME, 'must be snake_case'),
-        z.object({ description: z.string().trim().min(1), input: schema }),
+        z.object({
+          description: z.string().trim().min(1),
+          input: schema,
+          /** TRU-18.4: the person is asked before each call. */
+          asks: z.boolean().optional(),
+        }),
       ),
     })
     .optional(),

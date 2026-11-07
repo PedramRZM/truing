@@ -1,10 +1,13 @@
 // Pictures of what's on the canvas (TRU-5.2), for Claude and for a turn's result. It
 // crops the shell's own page instead of asking Playwright for the element: that
 // would scroll the page and the canvas into view, under the designer's hands.
-import type { Page } from 'playwright';
+import type { Frame, Page } from 'playwright';
 
 import type { ScreenshotControl } from './module';
 import { FRAME_NAME_PREFIX } from './protocol';
+
+/** Playwright's ARIA roles, which it doesn't export by name. */
+type AriaRole = Parameters<Frame['getByRole']>[0];
 
 /** Truing's own marks stay out: the overlay in the frame, the canvas's labels. */
 const HIDE_TRUING = [
@@ -45,7 +48,72 @@ export function createScreenshots(shell: Page): ScreenshotControl {
         ),
     );
 
+  const innerOf = (frame: string) =>
+    shell
+      .frames()
+      .find((candidate) => candidate.name() === `${FRAME_NAME_PREFIX}${frame}`);
+
   return {
+    async act(frame, action) {
+      const inner = innerOf(frame);
+      if (!inner) throw new Error(`Frame "${frame}" has no page loaded.`);
+      if (action.kind === 'scroll' && !action.to) {
+        const by = action.by ?? 600;
+        await inner.evaluate((dy) => window.scrollBy(0, dy), by);
+        return `Scrolled frame ${frame} by ${by} pixels.`;
+      }
+      const target = action.kind === 'scroll' ? action.to : action.target;
+      if (!target) throw new Error('Name the element by its role and name.');
+      const found = inner.getByRole(target.role as AriaRole, {
+        name: target.name,
+      });
+      const count = await found.count();
+      if (count === 0) {
+        throw new Error(
+          `No ${target.role} named "${target.name}" in frame ${frame}. A screenshot shows what is there.`,
+        );
+      }
+      const element = found.first();
+      await shell.evaluate(
+        (id) => window.__truingCapture?.show(id) ?? false,
+        frame,
+      );
+      try {
+        await element.scrollIntoViewIfNeeded({ timeout: TIMEOUT_MS });
+        // The person sees what Claude is about to use: an outline, for a moment.
+        await element.evaluate((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          const before = node.style.outline;
+          node.style.outline = '3px solid Highlight';
+          setTimeout(() => {
+            node.style.outline = before;
+          }, 800);
+        });
+        await drawn();
+        const what = `the ${target.role} "${target.name}" in frame ${frame}`;
+        // Forced: the frame is scaled on the canvas, where Playwright's own
+        // check for what's under the pointer is wrong (docs/learnings).
+        switch (action.kind) {
+          case 'scroll':
+            return `Scrolled to ${what}.`;
+          case 'hover':
+            await element.hover({ force: true, timeout: TIMEOUT_MS });
+            return `Pointed at ${what}.`;
+          case 'click':
+            await element.click({ force: true, timeout: TIMEOUT_MS });
+            return `Clicked ${what}.`;
+          case 'type':
+            await element.fill(action.text, { timeout: TIMEOUT_MS });
+            if (action.submit) await element.press('Enter');
+            return `Typed into ${what}${action.submit ? ', and pressed Enter' : ''}.`;
+        }
+      } finally {
+        await shell
+          .evaluate(() => window.__truingCapture?.restore())
+          .catch(() => {});
+      }
+    },
+
     async capture(frame, options = {}) {
       const { selector, maxSide = MAX_SIDE } = options;
       const shown = await shell.evaluate(

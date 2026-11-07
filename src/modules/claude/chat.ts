@@ -336,6 +336,9 @@ export function createChat(options: ChatOptions) {
     // has the notes to hear.
     if (stopping) return { progress, startError: null };
     notes = [];
+    // TRU-18.1: each turn has its own budget of tool calls.
+    // A bridge that failed to start has no budget to reset; the turn still runs.
+    (await bridge?.catch(() => null))?.newTurn();
     const run = start({
       args: [
         '-p',

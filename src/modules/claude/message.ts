@@ -212,6 +212,8 @@ export function promptSummary(
   if (tool === 'Skill' && typeof input.skill === 'string') {
     return `Use the skill ${input.skill}`;
   }
+  // TRU-18.4: a tool that changes the app says what it will do.
+  if (typeof input.what === 'string') return input.what;
   for (const key of ['command', 'file_path', 'notebook_path', 'url']) {
     const value = input[key];
     if (typeof value === 'string') return value;
