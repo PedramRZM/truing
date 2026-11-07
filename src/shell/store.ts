@@ -8,6 +8,7 @@ import {
   type ModuleFailure,
   parseMessage,
   type ReportEntry,
+  routeOf,
   type ShellMessage,
   type StateEntry,
   toShellSchema,
@@ -300,18 +301,6 @@ function withoutFrame(modules: ModulesState, frame: string): ModulesState {
       (failure) => !(failure.part === 'probe' && failure.frame === frame),
     ),
   };
-}
-
-export function routeOf(href: string, appOrigin: string): string | null {
-  try {
-    const url = new URL(href);
-    if (url.origin !== appOrigin) {
-      return null;
-    }
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    return null;
-  }
 }
 
 /** What a typed route box value means: a path on the app, or nothing usable. */
@@ -637,6 +626,37 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     set({ route, frames });
   }
 
+  /** Reloads each frame where it is: through its runtime, or a fresh load if it has none. */
+  function reloadFrames(targets: readonly string[]): void {
+    const live = targets.filter((id) => state.frames[id]?.connected);
+    send({ type: 'reload', frames: live });
+    const frames = { ...state.frames };
+    for (const id of targets) {
+      const frame = frames[id];
+      if (!frame) continue;
+      if (frame.connected) {
+        frames[id] = { ...frame, connected: false };
+        continue;
+      }
+      const at = frame.href ? routeOf(frame.href, state.appOrigin) : null;
+      frames[id] = { ...frame, src: at ?? frame.src, loads: frame.loads + 1 };
+    }
+    set({ frames });
+  }
+
+  /** Loads `route` afresh in one frame, or in every frame when none is named. */
+  function loadRoute(route: string, only?: string): void {
+    const frames = Object.fromEntries(
+      Object.entries(state.frames).map(([id, frame]) => [
+        id,
+        only === undefined || id === only
+          ? { ...frame, src: route, loads: frame.loads + 1, connected: false }
+          : frame,
+      ]),
+    );
+    set(only === undefined ? { route, frames } : { frames });
+  }
+
   function onLocation(id: string, href: string, title: string): void {
     setFrame(id, { href, title, connected: true });
     // Only the leader moves the others. A redirect a follower makes on its own
@@ -879,6 +899,15 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
         }
         case 'notice':
           notify(message.text);
+          return;
+        case 'frame-back':
+          reloadFrames(
+            Object.keys(state.frames).filter((id) => id !== message.frame),
+          );
+          loadRoute(message.route, message.frame);
+          return;
+        case 'reload-frames':
+          reloadFrames(message.frames);
           return;
         case 'shell-reload':
           location.reload();
@@ -1267,32 +1296,12 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
       const route = normalizeRoute(input, state.appOrigin);
       if (route === null) return false;
       // Typed by the designer: load it even when the frames are already there.
-      const frames = Object.fromEntries(
-        Object.entries(state.frames).map(([id, frame]) => [
-          id,
-          { ...frame, src: route, loads: frame.loads + 1, connected: false },
-        ]),
-      );
-      set({ route, frames });
+      loadRoute(route);
       return true;
     },
     /** Reloads each frame where it is: through its runtime, or a fresh load if it has none. */
     reload(ids?: readonly string[]) {
-      const targets = ids ?? Object.keys(state.frames);
-      const live = targets.filter((id) => state.frames[id]?.connected);
-      send({ type: 'reload', frames: live });
-      const frames = { ...state.frames };
-      for (const id of targets) {
-        const frame = frames[id];
-        if (!frame) continue;
-        if (frame.connected) {
-          frames[id] = { ...frame, connected: false };
-          continue;
-        }
-        const at = frame.href ? routeOf(frame.href, state.appOrigin) : null;
-        frames[id] = { ...frame, src: at ?? frame.src, loads: frame.loads + 1 };
-      }
-      set({ frames });
+      reloadFrames(ids ?? Object.keys(state.frames));
     },
     /**
      * Esc in Select mode: the server hands it to every frame, and one that

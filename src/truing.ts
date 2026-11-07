@@ -7,6 +7,7 @@ import path from 'node:path';
 import { type BrowserContext, chromium, type Page } from 'playwright';
 
 import { type AppHandle, ensureApp, isAppUp, systemPort } from './app-process';
+import { showAwayPagesInWindows } from './away-window';
 import { buildRuntime, buildShell, watchShell } from './build';
 import { writeFramingExtension } from './frame-headers';
 import type { TruingConfig } from './config';
@@ -248,6 +249,12 @@ async function attach(
   await shell.goto(shellOrigin);
 
   const truingServer = server;
+  showAwayPagesInWindows({
+    shell,
+    appOrigin: session.appOrigin,
+    toShells: truingServer.toShells,
+    log,
+  });
   let closing: Promise<void> | null = null;
   const close = (): Promise<void> => {
     closing ??= (async () => {

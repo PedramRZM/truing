@@ -38,6 +38,19 @@ export type Session = {
 /** The iframe `name` the shell gives each frame; the runtime reads it as `window.name`. */
 export const FRAME_NAME_PREFIX = 'truing-frame:';
 
+/** A page's route on the app (path, query and hash), or null when it is on another site. */
+export function routeOf(href: string, appOrigin: string): string | null {
+  try {
+    const url = new URL(href);
+    if (url.origin !== appOrigin) {
+      return null;
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 export const CANVAS_SHORTCUTS = [
   'zoom-in',
   'zoom-out',
@@ -306,6 +319,18 @@ export const toShellSchema = /* @__PURE__ */ (() =>
     }),
     /** A short line for whoever is looking, from the server side (TRU-5.2). */
     z.object({ type: z.literal('notice'), text: z.string() }),
+    /**
+     * TRU-10.9: the page a frame was sent to on another site, shown in a window of
+     * its own, came back to the app at `route`. That frame loads it; the others
+     * reload where they are, as a sign-in changes them too.
+     */
+    z.object({
+      type: z.literal('frame-back'),
+      frame: z.string(),
+      route: z.string(),
+    }),
+    /** TRU-10.9: frames left blank while a window of another site was open, back where they were. */
+    z.object({ type: z.literal('reload-frames'), frames: z.array(z.string()) }),
     /** The whole change set, after any change to it. */
     z.object({
       type: z.literal('changes'),

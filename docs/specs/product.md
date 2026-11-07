@@ -43,7 +43,7 @@ Truing flips the order. **The developer ships the feature to a branch. Someone e
 
 1. A developer pushes `feat/x`.
 2. The person runs one command, `truing feat/x`. It checks the machine, fetches the branch, creates or updates a hand-back branch, installs dependencies, starts the app and opens Truing in its own Chromium window. On a project Truing hasn't seen, it first checks Claude, reads the project and shows what it found, and the person confirms the start command.
-3. Truing shows the app in a frame, with a route box and viewport presets (Phone 390, Tablet 768, Desktop 1440, Custom). If the app needs a sign-in, the person signs in in that window, as in any browser.
+3. Truing shows the app in a frame, with a route box and viewport presets (Phone 390, Tablet 768, Desktop 1440, Custom). If the app needs a sign-in, the person signs in there, as in any browser; any page on another site, such as an identity provider's sign-in, opens in a window of its own, which closes when it comes back to the app.
 4. **Inspect.** In Select mode, hovering outlines elements and clicking selects one. The inspector shows:
    - the component and its variant (e.g. `Button · variant tonal-neutral · size sm`);
    - where it is used and where it is defined;

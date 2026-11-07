@@ -2,6 +2,8 @@ import { useSyncExternalStore } from 'react';
 
 import { panels } from 'truing:panels';
 
+import { routeOf } from '../protocol';
+
 import { LABEL_SPACE, type Rect } from './camera';
 import { PanelBoundary, panelProps } from './module-section';
 import {
@@ -10,7 +12,6 @@ import {
   framesInert,
   frameRects,
   isFill,
-  routeOf,
   type FrameState,
   type ShellState,
   GRIPS,

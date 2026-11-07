@@ -43,6 +43,8 @@ export type TruingServer = {
   server: Server;
   /** Tells every open shell to reload, after its bundle was rebuilt. */
   reloadShells: () => void;
+  /** Sends a message to every open shell. */
+  toShells: (message: ToShell) => void;
   close: () => Promise<void>;
 };
 
@@ -363,6 +365,7 @@ export async function startTruingServer(
   return {
     server,
     reloadShells: () => toShells({ type: 'shell-reload' }),
+    toShells,
     close: async () => {
       clearInterval(pinger);
       await modules.close();
