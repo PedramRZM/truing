@@ -45,6 +45,15 @@ Each milestone ends with `make check` green, its task's criteria checked with ev
 8. **M8 · TRU-14.5 takes.** Ask for N takes; each gets a worktree, branch, dev server and Claude session; each is a frame group "Take 2 of 3"; the prompt says it is prototyping; keep one or discard all.
 9. **M9 · TRU-18.9 compare.** Every take at every size from the same route, the same checks on each (tokens, layout shifts, performance), and Claude's recommendation with reasons. The person chooses.
 
+### M8 design (TRU-14.5), from TRU-14.4 and ADR 0008
+
+- **A `takes` module** (server part and a panel in the right panel's Claude view): op `start({ brief, count ≤ 3, directions[] })`, ops `keep(take)` and `discard()`, and state `takes: [{ id, n, of, direction, branch, origin, status, note }]`, status one of preparing, installing, starting, compiling, prototyping, ready, failed.
+- **Lifecycle**, each step logged and shown: `git worktree add -b truing/take-<id>-<n> ~/.cache/truing/takes/<project key>/<id>-<n> HEAD` from the hand-back branch; link the untracked environment files as ADR 0008 says (names only, never contents); install with the lockfile's package manager (`pnpm install --frozen-lockfile`, `npm ci`, `yarn install --frozen-lockfile`, `bun install --frozen-lockfile`); start the profile's command on a free port (`ensureApp` with the worktree as root); then a Claude run in the worktree.
+- **Frames at another origin**: a frame record gains `origin?`; the iframe loads `origin ?? appOrigin`; the server accepts a runtime from a take's origin once the take registers it; the framing extension's rule widens to `http://localhost:*` sub-frames, as every take is a localhost port. Each take is a frame group labelled "Take 2 of 3"; takes follow each other's route.
+- **The prompt**: a shared, versioned block says it is prototyping take n of N along its direction, that takes must differ along it (TRU-14.4 saw two of three converge), and that nothing is committed outside the take's branch. Evaluated with `pnpm check-claude` (real runs, on the person's usage) per the `ai-features` skill.
+- **Keep this take**: refuses when the person's checkout has uncommitted changes; commits the take's changes on its branch, merges it into the hand-back branch, then removes every take's worktree, server and branch. **Discard all** removes them all. Neither touches the hand-back branch's own work.
+- **Tests first**: the lifecycle against a fixture git repository with fake install, start and Claude commands (unit tests never start `claude`); the link step's names; keep and discard on a repository with uncommitted work.
+
 ## Concrete steps
 
 From `/home/pedrum/Dev/truing`:
@@ -78,7 +87,7 @@ To exist at the end (names may change; update here when they do):
 - [x] 2026-11-07 M5 TRU-18.2, TRU-18.3 frame tools: 866310e. Capture brings the frame into view on the canvas; pictures at most 1568 px.
 - [x] 2026-11-07 M6 ADR 0007 (15d25ce) and app actions (edc7400): asks enforced at the bridge, 60-call turn budget. Not measured: TRU-18.1's real-app sorting and cost (need real Claude runs).
 - [x] 2026-11-07 M7 TRU-14.4 spike: `docs/research/takes-worktrees-and-sessions.md`. Worktrees, cap 3, about 2.3 GB and a 45 s first compile per take, three Claude takes at once about $0.55 each. Environment files in a take need the owner's decision (ADR) before M8.
-- [ ] M8 TRU-14.5 takes
+- [ ] M8 TRU-14.5 takes: design above; ADR 0008 accepted. Next to build.
 - [ ] M9 TRU-18.9 compare
 
 ## Surprises and discoveries
@@ -100,6 +109,7 @@ To exist at the end (names may change; update here when they do):
 - M2 model: `FrameState` gains optional `viewport`, `group`, `name` and `by`; the layout's own frames (main, or Phone/Tablet/Desktop) stay one implicit group that works as today, and every other frame is a record. The top bar acts on the selected record frame's group, or on the layout when none is selected. Optional fields keep existing partial-state test fixtures valid, so no existing test changes · 2026-11-07.
 - The board is saved per project, outside the repository, next to the profile. The person's choice · 2026-11-07.
 - The takes spike may run on the reported app for real: worktrees outside its folder (removed after), installs, two or three dev servers, and real `claude` sessions on the person's plan. The person's choice · 2026-11-07.
+- A take links the project's untracked environment files (`.worktreeinclude`, else the root's `.env*` but examples), never reading them: ADR 0008, the owner's choice · 2026-11-07.
 - Prototyping and comparing are in scope: the takes spike, takes side by side, and Claude's comparison with a recommendation. The person's request · 2026-11-07.
 
 ## Outcomes and retrospective
