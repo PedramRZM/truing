@@ -75,13 +75,17 @@ To exist at the end (names may change; update here when they do):
 - [x] 2026-11-07 M2 TRU-14.2 frames as records: 6f81680, aaca591, 130d578, be3d9df, review fixes 3d6d61a. Page list moved to TRU-14.3.
 - [ ] M3 TRU-14.3 Pages
 - [x] 2026-11-07 M4 TRU-12.1 tool plumbing (MCP forwarding through the bridge, image results, `ctx.tools`): 45eb7ba, on branch TRU-12.1-claude-tools.
-- [ ] M5 TRU-18.2, TRU-18.3 frame tools
-- [ ] M6 TRU-18.1 ADR, TRU-18.4 app actions
+- [x] 2026-11-07 M5 TRU-18.2, TRU-18.3 frame tools: 866310e. Capture brings the frame into view on the canvas; pictures at most 1568 px.
+- [x] 2026-11-07 M6 ADR 0007 (15d25ce) and app actions (edc7400): asks enforced at the bridge, 60-call turn budget. Not measured: TRU-18.1's real-app sorting and cost (need real Claude runs).
 - [ ] M7 TRU-14.4 spike
 - [ ] M8 TRU-14.5 takes
 - [ ] M9 TRU-18.9 compare
 
 ## Surprises and discoveries
+
+- A module's `ctx.frames()` lists only frames running its own probe; a server-only module needs `ctx.canvas.loaded()` (TRU-18.2).
+- The module loader's spec schema strips unknown tool fields, so a new tool field (`asks`) must be added there too (TRU-18.4).
+- After a failed commit, what was staged stays staged: commit with explicit paths (`git commit -- <paths>`) so unrelated work isn't swept in.
 
 - Frames of one app share one renderer process: after the first (170 to 216 MB) each costs 30 to 60 MB, and idle CPU stays near zero (TRU-14.1).
 - `get_routes` mixes route handlers and files in with the pages; a page list must filter them (TRU-14.1).

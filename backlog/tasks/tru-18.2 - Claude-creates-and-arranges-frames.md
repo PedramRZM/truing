@@ -1,10 +1,10 @@
 ---
 id: TRU-18.2
 title: Claude creates and arranges frames
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-03 11:27'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 10:33'
 labels:
   - claude
 milestone: m-3
@@ -26,11 +26,11 @@ Give Claude tools to set up what it needs to see: open a frame at a route and si
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tools open, move, resize, navigate and close frames, and each shows on the canvas as it happens
-- [ ] #2 Frames Claude opened are marked, and closing them leaves a person's frames alone
-- [ ] #3 It honours the board's frame cap, and an error says what to do next
-- [ ] #4 Tool names, descriptions and schemas are snapshot-tested
-- [ ] #5 **Needs nothing from the project.** It works on any app Truing can open, with no config file and nothing added to the project.
+- [x] #1 Tools open, move, resize, navigate and close frames, and each shows on the canvas as it happens
+- [x] #2 Frames Claude opened are marked, and closing them leaves a person's frames alone
+- [x] #3 It honours the board's frame cap, and an error says what to do next
+- [x] #4 Tool names, descriptions and schemas are snapshot-tested
+- [x] #5 **Needs nothing from the project.** It works on any app Truing can open, with no config file and nothing added to the project.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -40,3 +40,9 @@ Give Claude tools to set up what it needs to see: open a frame at a route and si
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Evidence 2026-11-07: test/unit/frames-tools.test.ts (tool list snapshot; list; open waits for the page; cap with what to do; close refuses a person's frame; unknown frames and unsafe routes refused; navigate, resize, move ops) and test/unit/shell-store.test.ts (Claude's ops applied without moving the person's selection; a person's frame not closed). Real Chromium: every tool called through the module host on a fake app; the frame showed with its name and Claude mark, moved, resized; close refused main and closed claude-1. On by default (DEFAULT_MODULES; a saved project gets it too). make check: exit 0, 1245 tests.
+<!-- SECTION:NOTES:END -->

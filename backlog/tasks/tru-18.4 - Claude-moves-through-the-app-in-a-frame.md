@@ -1,10 +1,10 @@
 ---
 id: TRU-18.4
 title: Claude moves through the app in a frame
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-03 11:27'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 10:51'
 labels:
   - claude
 milestone: m-3
@@ -25,12 +25,12 @@ Let Claude interact with the running app: navigate, click, type, scroll and hove
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tools navigate, click, type, scroll and hover in a chosen frame, addressing elements by role and name
-- [ ] #2 An action outside the spike's allowed list asks the person first, in every permission mode
+- [x] #1 Tools navigate, click, type, scroll and hover in a chosen frame, addressing elements by role and name
+- [x] #2 An action outside the spike's allowed list asks the person first, in every permission mode
 - [ ] #3 Each action shows in the frame and in a list the person can read afterwards
 - [ ] #4 A Stop control ends the run at once, and the app is left as it is
-- [ ] #5 A run ends when it reaches its budget, and says so
-- [ ] #6 **Needs nothing from the project.** It works on any app Truing can open, with no config file and nothing added to the project.
+- [x] #5 A run ends when it reaches its budget, and says so
+- [x] #6 **Needs nothing from the project.** It works on any app Truing can open, with no config file and nothing added to the project.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -40,3 +40,9 @@ Let Claude interact with the running app: navigate, click, type, scroll and hove
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Evidence 2026-11-07: test/unit/claude-tools.test.ts (a tool with asks asks first, in words; a no runs nothing; 60-call budget, reset per turn), frames tool snapshot (click and type_text carry asks). Real Chromium on a scaled frame: hover, click (heading changed), type with Enter (form submitted), scroll to a heading and by pixels, and a missing element named in the error. Unchecked: #3 the outline shows in the frame, but "a list the person can read afterwards" relies on the chat showing tool calls, not yet seen with a real Claude turn; #4 Stop is the chat's existing Stop, not yet tried during a tool call.
+<!-- SECTION:NOTES:END -->
