@@ -1,10 +1,10 @@
 ---
 id: TRU-7.6
 title: Demo GIF and docs site
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 13:45'
-updated_date: '2026-11-04 09:10'
+updated_date: '2026-11-07 07:09'
 labels:
   - docs
 milestone: m-1
@@ -42,3 +42,9 @@ Someone deciding whether to try Truing should see it work in a few seconds, and 
 <!-- SECTION:NOTES:BEGIN -->
 The GIF comes from a real run on a small app, with a real `claude` read. `docs/getting-started.md` and `docs/frameworks.md` carry the content a site would. A hosted site conflicts with golden rule 12 (no hosted pages), so it's the owner's call. Recording the demo also found a real bug: on a default Tailwind project, typing a padding wrote `px-0`.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed by the owner on 2026-11-07. The README opens with `docs/assets/demo.gif`, recorded from a real run (#1), and the first command needs no config (#3). No docs site (#2, #4): a hosted site conflicts with golden rule 12 and there is no CI to build it. `docs/getting-started.md` and `docs/frameworks.md` carry that content in the repo instead.
+<!-- SECTION:FINAL_SUMMARY:END -->

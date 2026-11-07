@@ -1,10 +1,10 @@
 ---
 id: TRU-7.5
 title: Verify on macOS
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 13:45'
-updated_date: '2026-11-04 09:28'
+updated_date: '2026-11-07 07:09'
 labels:
   - infra
 milestone: m-1
@@ -43,3 +43,9 @@ Keys: `test/unit/commands.test.ts` covers the Mac labels, and the code handles O
 
 CI on macOS dropped on 2026-11-04: the owner removed CI. The hand run on a clean macOS account is what remains, including `make check` there.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed by the owner on 2026-11-07 without a run on a Mac. Keys (#2) and no macOS setup (#3) were checked from the code and `test/unit/commands.test.ts`, not on a Mac. #1, the hand run on a clean macOS account, was not done and stays unchecked, so macOS is still unverified.
+<!-- SECTION:FINAL_SUMMARY:END -->
