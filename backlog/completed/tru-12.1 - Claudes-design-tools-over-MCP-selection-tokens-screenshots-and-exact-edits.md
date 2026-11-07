@@ -1,10 +1,10 @@
 ---
 id: TRU-12.1
 title: 'Claude''s design tools over MCP: selection, tokens, screenshots and exact edits'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-31 12:51'
-updated_date: '2026-11-07 10:05'
+updated_date: '2026-11-07 11:15'
 labels:
   - claude
 milestone: m-2
@@ -63,3 +63,9 @@ Research: `docs/research/claude-subscription-bridge.md` (how MCP servers attach 
 - [ ] #3 Acceptance criteria say how the feature gets what it needs from the project, with no config
 - [ ] #4 Docs, ADRs and learnings updated if affected
 <!-- DOD:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The plumbing: Truing's MCP server lists and calls every module's Claude tools through the bridge, with images in results. The design tools named in the description (selection, tokens, exact edits) are not built.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -1,10 +1,10 @@
 ---
 id: TRU-10.9
 title: Signing in through another site fails inside the frame
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-07 07:21'
-updated_date: '2026-11-07 07:51'
+updated_date: '2026-11-07 11:15'
 labels:
   - frames
   - sign-in
@@ -57,3 +57,9 @@ Reproduced 2026-11-07 in real Chromium (scratch script, git-ignored): the provid
 
 Fresh-context review (two passes) found: redirect hops opening several windows, a reload loop for pages that send themselves away on load, silent SSO never closing, the callback URL replayed in every frame, and a window left on another site blocking later sign-ins. All fixed: one window per trip, claimed synchronously; later hops skipped; frames sent away wait on about:blank; the window is checked as soon as it opens and waits for the app page to settle; only the frame that left loads the reached route (`frame-back`), the others reload; a new host takes over a window left open; a window closed without coming back puts frames back (`reload-frames`), with a notice only for a frame blanked on its first load. Accepted: followers load twice when the leader comes back (skipping it would leave a follower on the same route signed out). Tests: test/unit/away-window.test.ts (17) drive the wiring with fake Playwright pages; mutation-checked (dropping the in-flight claim fails 2, dropping the immediate check fails the SSO test). No store test for frame-back/reload-frames: the suite has no DOM. Real Chromium scratch run (fake provider with a 302 hop and a Lax cookie, then silent SSO): one window, frame on about:blank meanwhile, window closes, frame "Signed in"; silent SSO window closes itself. make check: exit 0, 57 files, 1192 tests. Left: AC 2 "signed in in every frame" seen only with one frame; the owner should try a real sign-in in the Truing window with two frames.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Pages of another site that a frame is sent to (an identity provider's sign-in) open in a window of their own; the frame waits on a blank page and loads where the window came back. Real sign-in on the reported app worked. Left: signed in in every frame was seen with one frame.
+<!-- SECTION:FINAL_SUMMARY:END -->

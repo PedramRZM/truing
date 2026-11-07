@@ -1,10 +1,10 @@
 ---
 id: TRU-10.10
 title: 'Use the app when the person already runs it, and let them start it themselves'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-07 07:21'
-updated_date: '2026-11-07 08:33'
+updated_date: '2026-11-07 11:15'
 labels:
   - app-start
   - setup
@@ -62,3 +62,9 @@ Left: AC 2 holds on the setup start screen; a later start (`truing` with a saved
 
 Second review: "Start it myself" took a page server running before the wait (Storybook) for the app, and saved its port. Fixed: the wait ignores page servers that were already running, unless the start command started them or they are on the port on record. AC 1 reworded to the rule the code follows (only what the start command started is used without asking), as decided after the first review. Route tests added: setup waits for the app started by hand, opens it and saves its port; a wait the window gave up on opens nothing and saves nothing. 16 tests in test/unit/running-app.test.ts; the before-the-wait filter and the cancel path (both layers together) mutation-checked.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Truing uses a server the project's start command already started on any port, waits for one the person starts themselves (Start it myself), and never takes Storybook, an API's error page or another Truing for the app. Left: later starts say 'already running' in the console only.
+<!-- SECTION:FINAL_SUMMARY:END -->

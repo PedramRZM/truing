@@ -1,10 +1,10 @@
 ---
 id: TRU-18.2
 title: Claude creates and arranges frames
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 11:27'
-updated_date: '2026-11-07 10:33'
+updated_date: '2026-11-07 11:15'
 labels:
   - claude
 milestone: m-3
@@ -46,3 +46,9 @@ Give Claude tools to set up what it needs to see: open a frame at a route and si
 <!-- SECTION:NOTES:BEGIN -->
 Evidence 2026-11-07: test/unit/frames-tools.test.ts (tool list snapshot; list; open waits for the page; cap with what to do; close refuses a person's frame; unknown frames and unsafe routes refused; navigate, resize, move ops) and test/unit/shell-store.test.ts (Claude's ops applied without moving the person's selection; a person's frame not closed). Real Chromium: every tool called through the module host on a fake app; the frame showed with its name and Claude mark, moved, resized; close refused main and closed claude-1. On by default (DEFAULT_MODULES; a saved project gets it too). make check: exit 0, 1245 tests.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+A frames module gives Claude tools to list, open, move, resize, navigate and close frames on the person's board; Claude's frames are marked and a person's are never closed.
+<!-- SECTION:FINAL_SUMMARY:END -->

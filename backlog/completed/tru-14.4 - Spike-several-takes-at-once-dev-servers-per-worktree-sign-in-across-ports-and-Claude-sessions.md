@@ -3,10 +3,10 @@ id: TRU-14.4
 title: >-
   Spike: several takes at once: dev servers per worktree, sign-in across ports,
   and Claude sessions
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 11:02'
+updated_date: '2026-11-07 11:15'
 labels:
   - spike
 milestone: m-3
@@ -58,3 +58,9 @@ Research: the note above; Claude Code worktrees (`--worktree`, `.worktreeinclude
 <!-- SECTION:NOTES:BEGIN -->
 Done 2026-11-07 on the reported app with the owner's agreement; all worktrees, branches and servers removed after, checkout clean. Open: environment files in a take (owner decision), warming the first compile, sign-in end to end in a take, one machine only.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+docs/research/takes-worktrees-and-sessions.md: worktrees, cap 3, about 2.3 GB and a 45 s first compile per take, three Claude takes about $0.55 each. ADR 0008 decides environment files in a take.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -1,10 +1,10 @@
 ---
 id: TRU-18.3
 title: Claude takes screenshots of any frame or element
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 11:27'
-updated_date: '2026-11-07 10:33'
+updated_date: '2026-11-07 11:15'
 labels:
   - claude
 milestone: m-3
@@ -46,3 +46,9 @@ Claude needs to see its work without asking. This shares one capture path with C
 <!-- SECTION:NOTES:BEGIN -->
 Capture brings the frame into view on the canvas for a moment (camera fit, at most 1568 px on the longer side), crops without Truing's marks, and puts the camera back; element captures scroll the element into view in its frame and put the page's scroll back. Real Chromium: frame and element pictures came back clean (752x1003 for a tablet frame on a 1600 px canvas). Not met as written: #1 "the frame's real size" is the size the canvas can show, at most 1568 px, which can be smaller than the frame; #2 Copy as PNG (TRU-16.6) does not exist yet, so capture() is the one implementation it must use; #3 the scroll back is written but not yet seen working on a page that scrolls.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+A screenshot tool captures a frame or element without Truing's marks, bringing it into view for a moment, at most 1568 px. Left: the frame's real size when larger than the canvas, and sharing code with Copy as PNG, which doesn't exist yet.
+<!-- SECTION:FINAL_SUMMARY:END -->

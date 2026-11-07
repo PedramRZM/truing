@@ -1,10 +1,10 @@
 ---
 id: TRU-14.2
 title: 'Frames from pages: a saved board of routes'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 10:21'
+updated_date: '2026-11-07 11:15'
 labels:
   - panels
 milestone: m-3
@@ -61,3 +61,9 @@ Rescoped 2026-11-07 after review: the page list (old #2 in part, #3) moved to TR
 
 Evidence 2026-11-07: unit tests test/unit/opened-frames.test.ts (records, Side by side and fold, device, group route, link frames), test/unit/board.test.ts (file round trip, broken and unsafe boards refused, state round trip), test/unit/shell-store.test.ts (the store itself through a fake socket: group follow and turn-back, next leader after close, cap, Undo within the cap, debounced save, fresh ids after restart), each guard mutation-checked. Real Chromium scratch scripts: select a new frame, type a route, Side by side, group follows, fold; board survives a restart; New frame, rename, close and Undo, Ctrl-click a link, right-click "Open link in new frame", the cap notice; a pick in a frame drives the panels (frameToShow). UI at 1280 light and 1440 dark: notice with Undo, close and New frame buttons; hit areas 24x24 or more. Code review (fresh context) found ten issues, all fixed in 3d6d61a; copy review found three, fixed. The board file is plain JSON next to the profile, for Claude's tools in TRU-18.2. make check: exit 0, 1235 tests.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Frames are records: the selected frame owns the top bar, Side by side per frame, groups follow their leader, links and New frame make frames, rename, close with Undo, a cap of 12, and the board saved per project. Page list moved to TRU-14.3.
+<!-- SECTION:FINAL_SUMMARY:END -->

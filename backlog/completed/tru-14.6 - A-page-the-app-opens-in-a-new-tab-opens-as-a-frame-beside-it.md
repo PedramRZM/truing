@@ -1,10 +1,10 @@
 ---
 id: TRU-14.6
 title: A page the app opens in a new tab opens as a frame beside it
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-07 08:44'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 11:15'
 labels:
   - frames
 milestone: m-1
@@ -53,3 +53,9 @@ This is the first slice of TRU-14.2 (frames as records, each navigating on its o
 <!-- SECTION:NOTES:BEGIN -->
 Evidence: test/unit/away-window.test.ts (21, four new: app page -> open-frame and tab closed; blank tab sent somewhere in script; another site stays a tab; Truing's own sign-in window landing on the app is not taken for one) and test/unit/opened-frames.test.ts (3: placement and size, leader size, close). Real Chromium scratch run with a fake app: target=_blank and window.open became frames tab-1 and tab-2, no tab left; an outside link stayed a tab; the main frame navigating and a typed route moved neither new frame; side by side and back kept them; Close removed one. make check: exit 0, 1215 tests. A first version added an `opened` field to the shell state, which broke two existing tests' partial state fixtures; rather than edit those tests, the opened frames are derived from `frames`. Left: the real app's research-space link in Truing (AC 5, second half), and the page loads once in the tab before it closes, so a page that does something on load does it twice.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+A page the app opens in a new tab opens as a frame beside the one it came from; another site's stays a tab. Checked on the reported app's research spaces.
+<!-- SECTION:FINAL_SUMMARY:END -->

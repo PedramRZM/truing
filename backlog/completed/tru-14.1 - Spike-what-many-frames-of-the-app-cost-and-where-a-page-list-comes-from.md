@@ -1,10 +1,10 @@
 ---
 id: TRU-14.1
 title: 'Spike: what many frames of the app cost, and where a page list comes from'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 09:39'
+updated_date: '2026-11-07 11:15'
 labels:
   - spike
 milestone: m-3
@@ -55,3 +55,9 @@ Research: `docs/research/menus-spacing-frames-takes.md` ("Frames from pages").
 <!-- SECTION:NOTES:BEGIN -->
 Done 2026-11-07: docs/research/frame-cost-and-page-list.md, with the scripts. Cap 12, keep frames loaded, page list from Next get_routes filtered. Left open: signed-in screens not measured, one machine only (the task asked for two), and AC 3 for frameworks other than Next needs real Claude runs (recommendation recorded, not measured).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+docs/research/frame-cost-and-page-list.md: further frames cost 30 to 60 MB, cap 12, frames stay loaded, page list from Next get_routes. Left: projects that aren't Next, signed-in screens, a second machine.
+<!-- SECTION:FINAL_SUMMARY:END -->

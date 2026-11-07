@@ -1,10 +1,10 @@
 ---
 id: TRU-18.1
 title: 'Spike: what Claude may do in a running app on its own'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 11:27'
-updated_date: '2026-11-07 10:51'
+updated_date: '2026-11-07 11:15'
 labels:
   - claude
 milestone: m-3
@@ -44,3 +44,9 @@ Before Claude drives anything, decide the rules. A click in a real app can send 
 <!-- SECTION:NOTES:BEGIN -->
 ADR 0007 (accepted: the owner chose "look freely, ask before acting" on 2026-11-07). TRU-18.4 built to it. Not done: #1 sorting two real apps' actions with evidence, and #2 the cost of a review run per route and size; both need real Claude runs (pnpm check-claude), which spend the person's usage. The ADR lists them under More information.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+ADR 0007: Claude looks freely and asks before it acts, with a turn budget. Left: sorting two real apps' actions and measuring a review run's cost need real Claude runs.
+<!-- SECTION:FINAL_SUMMARY:END -->

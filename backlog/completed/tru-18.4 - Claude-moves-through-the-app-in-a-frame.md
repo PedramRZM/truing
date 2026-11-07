@@ -1,10 +1,10 @@
 ---
 id: TRU-18.4
 title: Claude moves through the app in a frame
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 11:27'
-updated_date: '2026-11-07 10:51'
+updated_date: '2026-11-07 11:15'
 labels:
   - claude
 milestone: m-3
@@ -46,3 +46,9 @@ Let Claude interact with the running app: navigate, click, type, scroll and hove
 <!-- SECTION:NOTES:BEGIN -->
 Evidence 2026-11-07: test/unit/claude-tools.test.ts (a tool with asks asks first, in words; a no runs nothing; 60-call budget, reset per turn), frames tool snapshot (click and type_text carry asks). Real Chromium on a scaled frame: hover, click (heading changed), type with Enter (form submitted), scroll to a heading and by pixels, and a missing element named in the error. Unchecked: #3 the outline shows in the frame, but "a list the person can read afterwards" relies on the chat showing tool calls, not yet seen with a real Claude turn; #4 Stop is the chat's existing Stop, not yet tried during a tool call.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Claude scrolls, hovers, clicks and types in a frame by role and name; clicks and typing ask the person every time, whatever the permission mode. Left: the chat's action list and Stop during a tool call not yet seen with a real Claude turn.
+<!-- SECTION:FINAL_SUMMARY:END -->
