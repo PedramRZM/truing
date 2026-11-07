@@ -169,6 +169,71 @@ function frameIds(layout: Layout): readonly string[] {
   return layout === 'single' ? [SINGLE_FRAME] : PRESET_IDS;
 }
 
+/**
+ * TRU-14.6: the frames for pages the app opened in a new tab, in the order they
+ * opened: every frame that isn't one of the layout's own. Each navigates on its own.
+ */
+export function openedIds(
+  state: Pick<ShellState, 'layout' | 'frames'>,
+): string[] {
+  const own = frameIds(state.layout);
+  return Object.keys(state.frames).filter((id) => !own.includes(id));
+}
+
+/** Every frame's id in display order: the layout's frames, then the opened ones. */
+function displayIds(state: Pick<ShellState, 'layout' | 'frames'>): string[] {
+  return [...frameIds(state.layout), ...openedIds(state)];
+}
+
+/** What `record` holds for opened frames, kept when the layout's frames are rebuilt. */
+function ofOpened<T>(
+  state: Pick<ShellState, 'layout' | 'frames'>,
+  record: Record<string, T>,
+): Record<string, T> {
+  const opened = openedIds(state);
+  return Object.fromEntries(
+    Object.entries(record).filter(([id]) => opened.includes(id)),
+  );
+}
+
+/**
+ * TRU-14.6: a frame for a page the app opened in a new tab, beside the others
+ * and at the size of the frame it most likely came from: the active one, or
+ * the leader.
+ */
+export function withOpenedFrame(
+  state: ShellState,
+  id: string,
+  route: string,
+): Pick<ShellState, 'frames' | 'resized'> {
+  const placed = frameRects(state);
+  const from = state.activeFrame ?? state.leader;
+  const rect = (placed.find(({ frame }) => frame.id === from) ?? placed[0])
+    ?.rect;
+  return {
+    frames: { ...state.frames, [id]: newFrame(id, route) },
+    resized: rect
+      ? { ...state.resized, [id]: { width: rect.width, height: rect.height } }
+      : state.resized,
+  };
+}
+
+/** The state without an opened frame, or null for any other frame. */
+export function withoutOpenedFrame(
+  state: ShellState,
+  id: string,
+): Pick<ShellState, 'frames' | 'resized' | 'offsets' | 'activeFrame'> | null {
+  if (!openedIds(state).includes(id)) return null;
+  const without = <T>(record: Record<string, T>): Record<string, T> =>
+    Object.fromEntries(Object.entries(record).filter(([key]) => key !== id));
+  return {
+    frames: without(state.frames),
+    resized: without(state.resized),
+    offsets: without(state.offsets),
+    activeFrame: state.activeFrame === id ? null : state.activeFrame,
+  };
+}
+
 function defaultLeader(layout: Layout): string {
   return layout === 'single' ? SINGLE_FRAME : 'desktop';
 }
@@ -204,7 +269,7 @@ export function frameViewport(state: ShellState, id: string): Viewport {
 export function frameRects(
   state: ShellState,
 ): Array<{ frame: FrameState; rect: Rect }> {
-  const frames = frameIds(state.layout).flatMap((id) => state.frames[id] ?? []);
+  const frames = displayIds(state).flatMap((id) => state.frames[id] ?? []);
   const rects = layoutFrames(
     frames.map((frame) => ({
       size: sizeOf(frameViewport(state, frame.id), state.canvas),
@@ -241,6 +306,7 @@ export function safeRect(state: ShellState): Rect {
 
 /** Our preset's name, or the device a custom size matches in Airship's list, or Custom. */
 export function frameLabel(state: ShellState, id: string): string {
+  if (openedIds(state).includes(id)) return 'New tab';
   const viewport = frameViewport(state, id);
   if (viewport.kind === 'preset') {
     return PRESETS[viewport.preset].label;
@@ -372,6 +438,8 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   /** Until the designer pans or zooms, the frames are kept fitted as things change. */
   let followFit = true;
+  /** Frames opened from new tabs so far, for their ids (TRU-14.6). */
+  let openedFrames = 0;
 
   function set(next: Partial<ShellState>): void {
     state = { ...state, ...next };
@@ -598,16 +666,24 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     layout: Layout,
     route: string,
   ): Record<string, FrameState> {
-    return Object.fromEntries(
-      frameIds(layout).map((id) => [id, newFrame(id, route)]),
-    );
+    return {
+      ...Object.fromEntries(
+        frameIds(layout).map((id) => [id, newFrame(id, route)]),
+      ),
+      ...ofOpened(state, state.frames),
+    };
+  }
+
+  /** A frame that opened from a new tab leads no one: it navigates on its own. */
+  function leaderFor(id: string): string {
+    return openedIds(state).includes(id) ? state.leader : id;
   }
 
   /** Sends every frame but `except` to `route`, unless it is already there. */
   function follow(route: string, except: string): void {
     const frames = { ...state.frames };
     for (const [id, frame] of Object.entries(frames)) {
-      if (id === except) continue;
+      if (id === except || openedIds(state).includes(id)) continue;
       // Where the frame is: its reported address while connected; while a load
       // is in flight that address is stale, so where it was sent instead.
       // (Leader on A, then B, then A again before the others load: they must
@@ -649,7 +725,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     const frames = Object.fromEntries(
       Object.entries(state.frames).map(([id, frame]) => [
         id,
-        only === undefined || id === only
+        id === only || (only === undefined && !openedIds(state).includes(id))
           ? { ...frame, src: route, loads: frame.loads + 1, connected: false }
           : frame,
       ]),
@@ -773,7 +849,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
           // shell's own page never sees.
           closeMenu();
           if (message.frame !== state.leader && state.frames[message.frame]) {
-            set({ leader: message.frame });
+            set({ leader: leaderFor(message.frame) });
           }
           return;
         case 'context-menu': {
@@ -909,6 +985,10 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
         case 'reload-frames':
           reloadFrames(message.frames);
           return;
+        case 'open-frame':
+          openedFrames += 1;
+          set(withOpenedFrame(state, `tab-${openedFrames}`, message.route));
+          return;
         case 'shell-reload':
           location.reload();
           return;
@@ -933,7 +1013,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     set({
       menu: { id: menuId, ...at, point: at.point ?? null },
       activeFrame: at.frame,
-      leader: state.frames[at.frame] ? at.frame : state.leader,
+      leader: state.frames[at.frame] ? leaderFor(at.frame) : state.leader,
     });
   }
 
@@ -1008,12 +1088,16 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
         activeFrame: null,
         leader: defaultLeader('single'),
         frames: framesFor('single', state.route),
-        resized: {},
-        offsets: {},
+        resized: ofOpened(state, state.resized),
+        offsets: ofOpened(state, state.offsets),
       });
       return;
     }
-    set({ viewport, resized: {}, offsets: {} });
+    set({
+      viewport,
+      resized: ofOpened(state, state.resized),
+      offsets: ofOpened(state, state.offsets),
+    });
   }
 
   function setLayout(layout: Layout): void {
@@ -1024,8 +1108,8 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
       activeFrame: null,
       leader: defaultLeader(layout),
       frames: framesFor(layout, state.route),
-      resized: {},
-      offsets: {},
+      resized: ofOpened(state, state.resized),
+      offsets: ofOpened(state, state.offsets),
     });
   }
 
@@ -1040,7 +1124,11 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     } = beforeFill;
     setLayout(layout);
     followFit = wasFitted;
-    set(view);
+    set({
+      ...view,
+      resized: { ...view.resized, ...ofOpened(state, state.resized) },
+      offsets: { ...view.offsets, ...ofOpened(state, state.offsets) },
+    });
     // A fitted view has just fitted itself again.
     if (!wasFitted) moveCamera(before);
   }
@@ -1289,8 +1377,16 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     startResize,
     moveResize,
     endResize,
+    /** Closes a frame opened from a new tab; the layout's own frames stay. */
+    closeFrame(id: string) {
+      const next = withoutOpenedFrame(state, id);
+      if (!next) return;
+      set({ ...next, modules: withoutFrame(state.modules, id) });
+    },
     selectFrame(id: string | null) {
-      set(id ? { activeFrame: id, leader: id } : { activeFrame: null });
+      set(
+        id ? { activeFrame: id, leader: leaderFor(id) } : { activeFrame: null },
+      );
     },
     navigate(input: string): boolean {
       const route = normalizeRoute(input, state.appOrigin);

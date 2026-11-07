@@ -438,6 +438,29 @@ strong {
   color: var(--ds-text);
 }
 
+/* TRU-14.6: closes a frame opened from a new tab; 24 px hit area, like the name. */
+.frame-close {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ds-text-3);
+  cursor: pointer;
+}
+
+.frame-close::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.frame-close:hover {
+  color: var(--ds-text);
+}
+
 .frame-size,
 .frame-route {
   color: var(--ds-text-4);

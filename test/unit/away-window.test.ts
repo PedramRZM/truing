@@ -102,6 +102,13 @@ class FakePage extends EventEmitter {
   }
   async bringToFront(): Promise<void> {}
   async waitForLoadState(): Promise<void> {}
+  /** Resolves once the page commits somewhere that isn't blank. */
+  waitForURL(): Promise<void> {
+    if (this.at !== 'about:blank') return Promise.resolve();
+    return new Promise((resolve) =>
+      this.once('framenavigated', () => resolve()),
+    );
+  }
   async goto(url: string): Promise<null> {
     this.emit('goto', url);
     return null;
@@ -319,6 +326,53 @@ describe('showAwayPagesInWindows', () => {
     await tick();
     await shell.close();
     expect(shell.windows[0]?.isClosed()).toBe(true);
+  });
+});
+
+describe('a new tab the app opens (TRU-14.6)', () => {
+  it('opens a page of the app as a new frame, and closes the tab', async () => {
+    const { shell, sent } = setUp();
+    const tab = new FakePage(`${APP}/research-spaces/42?from=list`);
+    shell.emit('popup', tab);
+    await tick();
+    expect(sent).toContainEqual({
+      type: 'open-frame',
+      route: '/research-spaces/42?from=list',
+    });
+    expect(tab.isClosed()).toBe(true);
+  });
+
+  it('waits for a tab opened empty and sent somewhere in script', async () => {
+    const { shell, sent } = setUp();
+    const tab = new FakePage();
+    shell.emit('popup', tab);
+    await tick();
+    tab.commit(`${APP}/library`);
+    await tick();
+    expect(sent).toContainEqual({ type: 'open-frame', route: '/library' });
+  });
+
+  it('leaves a page of another site in its tab', async () => {
+    const { shell, sent } = setUp();
+    const tab = new FakePage('https://docs.example.test/guide');
+    shell.emit('popup', tab);
+    await tick();
+    expect(sent.filter((message) => message.type === 'open-frame')).toEqual([]);
+    expect(tab.isClosed()).toBe(false);
+  });
+
+  it('never takes Truing’s own sign-in window for one, even when it lands on the app', async () => {
+    const { shell, sent } = setUp();
+    shell.landsAt = () => `${APP}/`;
+    shell.navigate(shell.frame('desktop'), PROVIDER);
+    await tick();
+    await tick();
+    expect(sent.filter((message) => message.type === 'open-frame')).toEqual([]);
+    expect(sent).toContainEqual({
+      type: 'frame-back',
+      frame: 'desktop',
+      route: '/',
+    });
   });
 });
 

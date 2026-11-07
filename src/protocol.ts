@@ -331,6 +331,8 @@ export const toShellSchema = /* @__PURE__ */ (() =>
     }),
     /** TRU-10.9: frames left blank while a window of another site was open, back where they were. */
     z.object({ type: z.literal('reload-frames'), frames: z.array(z.string()) }),
+    /** TRU-14.6: the app opened one of its own pages in a new tab: a frame of its own instead. */
+    z.object({ type: z.literal('open-frame'), route: z.string() }),
     /** The whole change set, after any change to it. */
     z.object({
       type: z.literal('changes'),

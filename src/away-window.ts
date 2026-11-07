@@ -82,6 +82,8 @@ export function showAwayPagesInWindows(options: {
   const settleMs = options.settleMs ?? SETTLE_MS;
   /** Claimed before the window opens, so a second hop or frame can't open another. */
   let trip: Trip | null = null;
+  /** Truing's own windows asked for and not yet seen: the next popup is one of them. */
+  const ours: Array<(page: Page) => void> = [];
 
   /** The window closed, or never opened, without coming back to the app. */
   function giveUp(ended: Trip, text?: string): void {
@@ -103,11 +105,20 @@ export function showAwayPagesInWindows(options: {
   }
 
   async function open(current: Trip, url: string): Promise<void> {
-    const opened = shell.waitForEvent('popup');
-    // No opener: the other site's page can't reach the shell, which holds the token.
-    await shell.evaluate((href) => {
-      window.open(href, '_blank', 'noopener,popup,width=520,height=720');
-    }, url);
+    let take: (page: Page) => void = () => {};
+    const opened = new Promise<Page>((resolve) => {
+      take = resolve;
+    });
+    ours.push(take);
+    try {
+      // No opener: the other site's page can't reach the shell, which holds the token.
+      await shell.evaluate((href) => {
+        window.open(href, '_blank', 'noopener,popup,width=520,height=720');
+      }, url);
+    } catch (error) {
+      ours.splice(ours.indexOf(take), 1);
+      throw error;
+    }
     const page = await opened;
     current.page = page;
 
@@ -207,6 +218,37 @@ export function showAwayPagesInWindows(options: {
       );
       giveUp(current, `Truing couldn't open ${host} in a window.`);
     });
+  });
+
+  /**
+   * TRU-14.6: a page of the app that a frame opened in a new tab becomes a
+   * frame of its own, where it can be inspected; another site's stays a tab.
+   */
+  async function newTab(page: Page): Promise<void> {
+    // A tab opened empty and sent somewhere in script lands a moment later.
+    if (page.url() === 'about:blank') {
+      await page
+        .waitForURL((url) => url.href !== 'about:blank', {
+          waitUntil: 'commit',
+          timeout: 5000,
+        })
+        .catch(() => {});
+    }
+    const route = routeOf(page.url(), appOrigin);
+    if (route === null) return;
+    // The path only: a query may hold something private.
+    log(`[truing] ${new URL(page.url()).pathname} opens in a new frame`);
+    toShells({ type: 'open-frame', route });
+    await page.close().catch(() => {});
+  }
+
+  shell.on('popup', (page) => {
+    const own = ours.shift();
+    if (own) {
+      own(page);
+      return;
+    }
+    void newTab(page);
   });
 
   shell.once('close', () => {

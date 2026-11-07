@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 
 import { panels } from 'truing:panels';
@@ -11,6 +12,7 @@ import {
   frameName,
   framesInert,
   frameRects,
+  openedIds,
   isFill,
   type FrameState,
   type ShellState,
@@ -231,6 +233,16 @@ function FrameChrome({
             >
               {at ?? frame.src}
             </span>
+            {openedIds(state).includes(frame.id) ? (
+              <button
+                type="button"
+                className="frame-close"
+                aria-label={`Close the frame at ${at ?? frame.src}`}
+                onClick={() => store.closeFrame(frame.id)}
+              >
+                <X aria-hidden size={12} />
+              </button>
+            ) : null}
           </div>
         );
       })}
