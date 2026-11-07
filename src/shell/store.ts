@@ -62,6 +62,17 @@ export type FrameState = {
   title: string;
   connected: boolean;
   pingMs: number | null;
+  /**
+   * TRU-14.2: a record frame's own device. The layout's frames (main, or Phone,
+   * Tablet and Desktop) have none and take the layout's.
+   */
+  viewport?: Viewport;
+  /** Record frames with the same group follow each other's route. */
+  group?: string;
+  /** What the person or Claude called it; the device's name otherwise. */
+  name?: string;
+  /** Who opened it: Claude's frames are marked, and closing them leaves a person's. */
+  by?: 'person' | 'claude';
 };
 
 /** module → report name → frame → the latest payload */
@@ -205,16 +216,186 @@ export function withOpenedFrame(
   state: ShellState,
   id: string,
   route: string,
+  options: { name?: string; by?: 'person' | 'claude' } = {},
 ): Pick<ShellState, 'frames' | 'resized'> {
-  const placed = frameRects(state);
   const from = state.activeFrame ?? state.leader;
-  const rect = (placed.find(({ frame }) => frame.id === from) ?? placed[0])
-    ?.rect;
+  const opener = state.frames[from] ? from : Object.keys(state.frames)[0];
   return {
-    frames: { ...state.frames, [id]: newFrame(id, route) },
-    resized: rect
-      ? { ...state.resized, [id]: { width: rect.width, height: rect.height } }
-      : state.resized,
+    frames: {
+      ...state.frames,
+      [id]: {
+        ...newFrame(id, route),
+        // The device of the frame it came from, so it reads as the same size.
+        ...(opener ? { viewport: frameViewport(state, opener) } : {}),
+        name: options.name ?? 'New tab',
+        by: options.by ?? 'person',
+      },
+    },
+    resized: state.resized,
+  };
+}
+
+/** A frame's route: where it reports it is, or where it was sent while it loads. */
+export function routeOfFrame(state: ShellState, id: string): string | null {
+  const frame = state.frames[id];
+  if (!frame) return null;
+  return (frame.href && routeOf(frame.href, state.appOrigin)) ?? frame.src;
+}
+
+/** The record frames that follow each other with `id`, itself included, in display order. */
+export function groupOf(state: ShellState, id: string): string[] {
+  const group = state.frames[id]?.group;
+  if (!group || !openedIds(state).includes(id)) return [id];
+  return openedIds(state).filter((key) => state.frames[key]?.group === group);
+}
+
+/** The record frame the top bar acts on, or null when it acts on the layout. */
+export function selectedRecord(state: ShellState): string | null {
+  const id = state.activeFrame;
+  return id && openedIds(state).includes(id) ? id : null;
+}
+
+/** What the top bar shows: the selected record frame's, or the layout's (TRU-14.2). */
+export function barView(state: ShellState): {
+  route: string;
+  viewport: Viewport;
+  sideBySide: boolean;
+} {
+  const id = selectedRecord(state);
+  if (!id) {
+    return {
+      route: state.route,
+      viewport: state.viewport,
+      sideBySide: state.layout === 'side-by-side',
+    };
+  }
+  return {
+    route: routeOfFrame(state, id) ?? state.route,
+    viewport: frameViewport(state, id),
+    sideBySide: groupOf(state, id).length > 1,
+  };
+}
+
+type FramesPatch = Pick<
+  ShellState,
+  'frames' | 'resized' | 'offsets' | 'activeFrame'
+>;
+
+/** `frames` with `id` replaced by `entries`, in its place, so the display order holds. */
+function replacing(
+  frames: Record<string, FrameState>,
+  id: string,
+  entries: Array<[string, FrameState]>,
+): Record<string, FrameState> {
+  return Object.fromEntries(
+    Object.entries(frames).flatMap(([key, frame]) =>
+      key === id ? entries : [[key, frame] as [string, FrameState]],
+    ),
+  );
+}
+
+function withoutKeys<T>(
+  record: Record<string, T>,
+  keys: readonly string[],
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => !keys.includes(key)),
+  );
+}
+
+/** A record frame's group folded back to `id` alone, at its own device. */
+function folded(state: ShellState, id: string): FramesPatch {
+  const others = groupOf(state, id).filter((key) => key !== id);
+  const frame = state.frames[id];
+  const frames = withoutKeys(state.frames, others);
+  if (frame) {
+    const { group: _group, ...alone } = frame;
+    frames[id] = { ...alone, viewport: frameViewport(state, id) };
+  }
+  return {
+    frames,
+    resized: withoutKeys(state.resized, others),
+    offsets: withoutKeys(state.offsets, others),
+    activeFrame: id,
+  };
+}
+
+/**
+ * TRU-14.2: Side by side for a record frame. One frame becomes a Phone, Tablet
+ * and Desktop group on one route, the frame itself the Desktop; a group folds
+ * back to the selected frame. Null for the layout's frames, which the layout
+ * toggle handles.
+ */
+export function withSideBySide(
+  state: ShellState,
+  id: string,
+): FramesPatch | null {
+  const frame = state.frames[id];
+  if (!frame || !openedIds(state).includes(id)) return null;
+  if (groupOf(state, id).length > 1) return folded(state, id);
+  const route = routeOfFrame(state, id) ?? frame.src;
+  const copy = (preset: PresetId): [string, FrameState] => [
+    `${id}-${preset}`,
+    {
+      ...newFrame(`${id}-${preset}`, route),
+      viewport: { kind: 'preset', preset },
+      group: id,
+      ...(frame.by ? { by: frame.by } : {}),
+    },
+  ];
+  const others = PRESET_IDS.filter((preset) => preset !== 'desktop');
+  return {
+    frames: replacing(state.frames, id, [
+      ...others.map(copy),
+      [
+        id,
+        {
+          ...frame,
+          viewport: { kind: 'preset', preset: 'desktop' },
+          group: id,
+        },
+      ],
+    ]),
+    resized: withoutKeys(state.resized, [id]),
+    offsets: state.offsets,
+    activeFrame: id,
+  };
+}
+
+/** The device menu for a record frame: its own device; a group folds back to it first. */
+export function withFrameViewport(
+  state: ShellState,
+  id: string,
+  viewport: Viewport,
+): FramesPatch | null {
+  if (!openedIds(state).includes(id)) return null;
+  const alone = folded(state, id);
+  const frame = alone.frames[id];
+  if (!frame) return null;
+  return {
+    ...alone,
+    frames: { ...alone.frames, [id]: { ...frame, viewport } },
+    resized: withoutKeys(alone.resized, [id]),
+  };
+}
+
+/** The route box for a record frame: its whole group goes there. */
+export function withGroupRoute(
+  state: ShellState,
+  id: string,
+  route: string,
+): Pick<ShellState, 'frames'> | null {
+  if (!openedIds(state).includes(id)) return null;
+  const members = groupOf(state, id);
+  return {
+    frames: Object.fromEntries(
+      Object.entries(state.frames).map(([key, frame]) => [
+        key,
+        members.includes(key)
+          ? { ...frame, src: route, loads: frame.loads + 1, connected: false }
+          : frame,
+      ]),
+    ),
   };
 }
 
@@ -259,6 +440,8 @@ export function frameViewport(state: ShellState, id: string): Viewport {
   if (own) {
     return { kind: 'custom', width: own.width, height: own.height };
   }
+  const record = state.frames[id]?.viewport;
+  if (record) return record;
   if (state.layout === 'side-by-side' && isPresetId(id)) {
     return { kind: 'preset', preset: id };
   }
@@ -304,9 +487,13 @@ export function safeRect(state: ShellState): Rect {
   };
 }
 
-/** Our preset's name, or the device a custom size matches in Airship's list, or Custom. */
+/**
+ * A frame's name, or its device: our preset's name, the device a custom size
+ * matches in Airship's list, or Custom. In a group the device tells them apart.
+ */
 export function frameLabel(state: ShellState, id: string): string {
-  if (openedIds(state).includes(id)) return 'New tab';
+  const name = state.frames[id]?.name;
+  if (name && groupOf(state, id).length === 1) return name;
   const viewport = frameViewport(state, id);
   if (viewport.kind === 'preset') {
     return PRESETS[viewport.preset].label;
@@ -440,6 +627,8 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
   let followFit = true;
   /** Frames opened from new tabs so far, for their ids (TRU-14.6). */
   let openedFrames = 0;
+  /** The frame each record group follows: the one last clicked in it (TRU-14.2). */
+  const groupLeaders = new Map<string, string>();
 
   function set(next: Partial<ShellState>): void {
     state = { ...state, ...next };
@@ -674,8 +863,10 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     };
   }
 
-  /** A frame that opened from a new tab leads no one: it navigates on its own. */
+  /** A record frame never leads the layout's frames: it navigates on its own. */
   function leaderFor(id: string): string {
+    const group = state.frames[id]?.group;
+    if (group && openedIds(state).includes(id)) groupLeaders.set(group, id);
     return openedIds(state).includes(id) ? state.leader : id;
   }
 
@@ -735,6 +926,27 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
 
   function onLocation(id: string, href: string, title: string): void {
     setFrame(id, { href, title, connected: true });
+    // TRU-14.2: a record frame's group follows its own leader, as the layout's do.
+    const group = state.frames[id]?.group;
+    if (openedIds(state).includes(id)) {
+      if (!group || (groupLeaders.get(group) ?? group) !== id) return;
+      const route = routeOf(href, state.appOrigin);
+      if (route === null) return;
+      const frames = { ...state.frames };
+      for (const key of groupOf(state, id)) {
+        const frame = frames[key];
+        if (!frame || key === id || routeOfFrame(state, key) === route)
+          continue;
+        frames[key] = {
+          ...frame,
+          src: route,
+          loads: frame.loads + 1,
+          connected: false,
+        };
+      }
+      set({ frames });
+      return;
+    }
     // Only the leader moves the others. A redirect a follower makes on its own
     // (an app whose / opens a new chat each time) must not start a chase.
     if (id !== state.leader) {
@@ -848,8 +1060,16 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
           // A click in a frame is a click outside the menu, which the
           // shell's own page never sees.
           closeMenu();
-          if (message.frame !== state.leader && state.frames[message.frame]) {
-            set({ leader: leaderFor(message.frame) });
+          // TRU-14.2: a click in a frame selects it, so the top bar acts on it.
+          if (
+            state.frames[message.frame] &&
+            (message.frame !== state.leader ||
+              message.frame !== state.activeFrame)
+          ) {
+            set({
+              leader: leaderFor(message.frame),
+              activeFrame: message.frame,
+            });
           }
           return;
         case 'context-menu': {
@@ -1070,6 +1290,12 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
   }
 
   function setViewport(viewport: Viewport): void {
+    const record = selectedRecord(state);
+    if (record) {
+      const next = withFrameViewport(state, record, viewport);
+      if (next) set(next);
+      return;
+    }
     if (viewport.kind === 'fill' && !isFill(state)) {
       beforeFill = {
         layout: state.layout,
@@ -1391,9 +1617,29 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     navigate(input: string): boolean {
       const route = normalizeRoute(input, state.appOrigin);
       if (route === null) return false;
+      // TRU-14.2: the selected record frame's group, or the layout's frames.
+      const record = selectedRecord(state);
+      const next = record ? withGroupRoute(state, record, route) : null;
+      if (next) {
+        set(next);
+        return true;
+      }
       // Typed by the designer: load it even when the frames are already there.
       loadRoute(route);
       return true;
+    },
+    /** Side by side: the selected record frame's own group, or the layout's. */
+    toggleSideBySide() {
+      const record = selectedRecord(state);
+      if (record) {
+        const next = withSideBySide(state, record);
+        if (next) {
+          followFit = true;
+          set(next);
+        }
+        return;
+      }
+      setLayout(state.layout === 'side-by-side' ? 'single' : 'side-by-side');
     },
     /** Reloads each frame where it is: through its runtime, or a fresh load if it has none. */
     reload(ids?: readonly string[]) {

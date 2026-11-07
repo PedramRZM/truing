@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, Columns3, RotateCw } from 'lucide-react';
 
 import { PRESET_GROUPS } from '../vendor/airship/frames';
 
-import type { ShellState, ShellStore } from './store';
+import { barView, type ShellState, type ShellStore } from './store';
 import {
   clampSize,
   MAX_SIZE,
@@ -19,13 +19,14 @@ type CanvasBarProps = {
 
 /** Along the canvas's top edge: what the canvas shows, and how it's connected (TRU-3.5). */
 export function CanvasBar({ state, store }: CanvasBarProps) {
-  const sideBySide = state.layout === 'side-by-side';
-  const current = sizeOf(state.viewport, state.canvas);
+  // TRU-14.2: the selected record frame's view, or the layout's.
+  const { route, viewport, sideBySide } = barView(state);
+  const current = sizeOf(viewport, state.canvas);
   const deviceLabel = sideBySide
     ? 'Phone, Tablet, Desktop'
-    : state.viewport.kind === 'preset'
-      ? `${PRESETS[state.viewport.preset].label} · ${current.width} × ${current.height}`
-      : state.viewport.kind === 'fill'
+    : viewport.kind === 'preset'
+      ? `${PRESETS[viewport.preset].label} · ${current.width} × ${current.height}`
+      : viewport.kind === 'fill'
         ? `Fill · ${current.width} × ${current.height}`
         : `Custom · ${current.width} × ${current.height}`;
   const canvasSize = sizeOf({ kind: 'fill' }, state.canvas);
@@ -42,15 +43,15 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
       >
         {/* Keyed by the route, so it shows where the frames are without mirroring state. */}
         <input
-          key={state.route}
+          key={route}
           name="route"
           aria-label="Route"
-          defaultValue={state.route}
+          defaultValue={route}
           spellCheck={false}
           autoComplete="off"
           onKeyDown={(event) => {
             if (event.key !== 'Escape') return;
-            event.currentTarget.value = state.route;
+            event.currentTarget.value = route;
             event.currentTarget.blur();
           }}
         />
@@ -90,8 +91,8 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
               className="menu-row"
               aria-pressed={
                 !sideBySide &&
-                state.viewport.kind === 'preset' &&
-                state.viewport.preset === id
+                viewport.kind === 'preset' &&
+                viewport.preset === id
               }
               popoverTarget="device-menu"
               popoverTargetAction="hide"
@@ -108,7 +109,7 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
         <button
           type="button"
           className="menu-row"
-          aria-pressed={!sideBySide && state.viewport.kind === 'fill'}
+          aria-pressed={!sideBySide && viewport.kind === 'fill'}
           popoverTarget="device-menu"
           popoverTargetAction="hide"
           onClick={() => store.setViewport({ kind: 'fill' })}
@@ -132,9 +133,9 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
                 className="menu-row menu-row-device"
                 aria-pressed={
                   !sideBySide &&
-                  state.viewport.kind === 'custom' &&
-                  state.viewport.width === device.width &&
-                  state.viewport.height === device.height
+                  viewport.kind === 'custom' &&
+                  viewport.width === device.width &&
+                  viewport.height === device.height
                 }
                 popoverTarget="device-menu"
                 popoverTargetAction="hide"
@@ -200,7 +201,7 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
         aria-pressed={sideBySide}
         aria-label="Side by side"
         title="Phone, Tablet and Desktop side by side"
-        onClick={() => store.setLayout(sideBySide ? 'single' : 'side-by-side')}
+        onClick={() => store.toggleSideBySide()}
       >
         <Columns3 aria-hidden size={16} />
       </button>

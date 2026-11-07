@@ -4,12 +4,16 @@ import { expect, it } from 'vitest';
 
 import { MODES } from '../../src/protocol';
 import {
+  barView,
   frameLabel,
   frameRects,
   type FrameState,
   type ShellState,
+  withFrameViewport,
+  withGroupRoute,
   withOpenedFrame,
   withoutOpenedFrame,
+  withSideBySide,
 } from '../../src/shell/store';
 
 function frame(id: string, src = '/'): FrameState {
@@ -99,4 +103,87 @@ it('closes a new frame, and nothing else', () => {
   expect(closed?.resized['tab-1']).toBeUndefined();
   expect(closed?.activeFrame).toBeNull();
   expect(withoutOpenedFrame(active, 'desktop')).toBeNull();
+});
+
+// TRU-14.2: the selected record frame owns the top bar.
+
+function withTab(patch: Partial<ShellState> = {}): ShellState {
+  const before = shell(patch);
+  return shell({
+    ...before,
+    ...withOpenedFrame(before, 'tab-1', '/research-spaces/42'),
+  });
+}
+
+it('shows the layout in the top bar until a record frame is selected, then that frame', () => {
+  const state = withTab();
+  expect(barView(state)).toMatchObject({
+    route: '/research-spaces',
+    sideBySide: true,
+  });
+  expect(barView({ ...state, activeFrame: 'tab-1' })).toMatchObject({
+    route: '/research-spaces/42',
+    viewport: { kind: 'preset', preset: 'desktop' },
+    sideBySide: false,
+  });
+});
+
+it('turns a selected frame into Phone, Tablet and Desktop on its route, and folds it back', () => {
+  const state = withTab({ activeFrame: 'tab-1' });
+  const wide = shell({ ...state, ...withSideBySide(state, 'tab-1') });
+  const placed = frameRects(wide);
+  expect(placed.map(({ frame }) => frame.id).slice(-3)).toEqual([
+    'tab-1-phone',
+    'tab-1-tablet',
+    'tab-1',
+  ]);
+  expect(placed.slice(-3).map(({ frame }) => frame.src)).toEqual([
+    '/research-spaces/42',
+    '/research-spaces/42',
+    '/research-spaces/42',
+  ]);
+  expect(
+    placed.slice(-3).map(({ frame }) => frameLabel(wide, frame.id)),
+  ).toEqual(['Phone', 'Tablet', 'Desktop']);
+  expect(barView(wide).sideBySide).toBe(true);
+
+  const back = shell({ ...wide, ...withSideBySide(wide, 'tab-1') });
+  expect(Object.keys(back.frames)).toEqual([
+    'phone',
+    'tablet',
+    'desktop',
+    'tab-1',
+  ]);
+  expect(frameLabel(back, 'tab-1')).toBe('New tab');
+});
+
+it('gives a selected frame its own device, folding its group first', () => {
+  const state = withTab({ activeFrame: 'tab-1' });
+  const wide = shell({ ...state, ...withSideBySide(state, 'tab-1') });
+  const phone = { kind: 'preset', preset: 'phone' } as const;
+  const next = shell({ ...wide, ...withFrameViewport(wide, 'tab-1', phone) });
+  expect(Object.keys(next.frames)).not.toContain('tab-1-phone');
+  expect(next.frames['tab-1']?.viewport).toEqual(phone);
+  expect(next.frames.desktop?.viewport).toBeUndefined();
+});
+
+it('sends only the selected frame’s group to a typed route', () => {
+  const state = withTab({ activeFrame: 'tab-1' });
+  const wide = shell({ ...state, ...withSideBySide(state, 'tab-1') });
+  const moved = shell({
+    ...wide,
+    ...withGroupRoute(wide, 'tab-1', '/library'),
+  });
+  expect(moved.frames['tab-1']?.src).toBe('/library');
+  expect(moved.frames['tab-1-phone']?.src).toBe('/library');
+  expect(moved.frames.desktop?.src).toBe('/');
+});
+
+it('leaves the layout’s own frames to the layout', () => {
+  const state = withTab();
+  expect(withSideBySide(state, 'desktop')).toBeNull();
+  expect(
+    withFrameViewport(state, 'desktop', { kind: 'preset', preset: 'phone' }),
+  ).toBeNull();
+  expect(withGroupRoute(state, 'desktop', '/x')).toBeNull();
 });
