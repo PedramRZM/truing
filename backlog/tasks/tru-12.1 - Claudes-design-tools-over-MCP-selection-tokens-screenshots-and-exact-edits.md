@@ -1,10 +1,10 @@
 ---
 id: TRU-12.1
 title: 'Claude''s design tools over MCP: selection, tokens, screenshots and exact edits'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-31 12:51'
-updated_date: '2026-11-07 09:06'
+updated_date: '2026-11-07 10:05'
 labels:
   - claude
 milestone: m-2

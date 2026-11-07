@@ -72,9 +72,9 @@ To exist at the end (names may change; update here when they do):
 
 - [x] 2026-11-07 Scope, order and the person's decisions recorded (this file).
 - [x] 2026-11-07 M1 TRU-14.1 spike: `docs/research/frame-cost-and-page-list.md`. Cap 12, keep frames loaded, page list from Next `get_routes` filtered; signed-in screens and non-Next projects not measured.
-- [ ] M2 TRU-14.2 frames as records
+- [x] 2026-11-07 M2 TRU-14.2 frames as records: 6f81680, aaca591, 130d578, be3d9df, review fixes 3d6d61a. Page list moved to TRU-14.3.
 - [ ] M3 TRU-14.3 Pages
-- [ ] M4 TRU-12.1 tool plumbing
+- [x] 2026-11-07 M4 TRU-12.1 tool plumbing (MCP forwarding through the bridge, image results, `ctx.tools`): 45eb7ba, on branch TRU-12.1-claude-tools.
 - [ ] M5 TRU-18.2, TRU-18.3 frame tools
 - [ ] M6 TRU-18.1 ADR, TRU-18.4 app actions
 - [ ] M7 TRU-14.4 spike
@@ -93,6 +93,7 @@ To exist at the end (names may change; update here when they do):
 
 - The top bar acts on the selected frame; Side by side turns the selected frame into a Phone/Tablet/Desktop group. The person's choice · 2026-11-07.
 - Claude may look without asking (frames, navigate, scroll, hover, screenshots); clicking, typing and submitting ask the person every time. The person's choice · 2026-11-07. To be recorded as an ADR in M6.
+- M2 model: `FrameState` gains optional `viewport`, `group`, `name` and `by`; the layout's own frames (main, or Phone/Tablet/Desktop) stay one implicit group that works as today, and every other frame is a record. The top bar acts on the selected record frame's group, or on the layout when none is selected. Optional fields keep existing partial-state test fixtures valid, so no existing test changes · 2026-11-07.
 - The board is saved per project, outside the repository, next to the profile. The person's choice · 2026-11-07.
 - Prototyping and comparing are in scope: the takes spike, takes side by side, and Claude's comparison with a recommendation. The person's request · 2026-11-07.
 

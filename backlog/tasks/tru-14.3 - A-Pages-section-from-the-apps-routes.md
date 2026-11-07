@@ -4,7 +4,7 @@ title: A Pages section from the app's routes
 status: To Do
 assignee: []
 created_date: '2026-11-02 09:28'
-updated_date: '2026-11-07 09:39'
+updated_date: '2026-11-07 10:14'
 labels:
   - panels
 milestone: m-3
@@ -36,6 +36,7 @@ Research: TRU-14.1's outcome and TRU-14.2's board; `docs/research/paper-design-t
 - [ ] #6 **No setup.** The route source comes from a framework adapter where one exists, and otherwise from Claude's read of the routes in the profile. There is nothing to configure. If neither finds routes, the section says so and the route box still works.
 - [ ] #7 **Tests.** Unit tests for route listing on the fixture app. Playwright: click a page, and enter a parameter.
 - [ ] #8 **UI checked.** Screens and text checked against `docs/design-language.md`.
+- [ ] #9 **A page as a new frame.** A page in the list can also open as a new frame beside the selected one (TRU-14.2's records).
 <!-- AC:END -->
 
 ## Definition of Done

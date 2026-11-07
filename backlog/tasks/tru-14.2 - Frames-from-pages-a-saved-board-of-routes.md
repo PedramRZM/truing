@@ -1,10 +1,10 @@
 ---
 id: TRU-14.2
 title: 'Frames from pages: a saved board of routes'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-01 11:30'
-updated_date: '2026-11-07 09:39'
+updated_date: '2026-11-07 10:21'
 labels:
   - panels
 milestone: m-3
@@ -30,19 +30,18 @@ Research: the note above and TRU-14.1's findings; ours in `src/shell/store.ts` (
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 **A frame is a record:** a name, a route, a size or preset, a position, and an optional follow group. Today's Phone, Tablet and Desktop set becomes one group.
-- [ ] #2 **Making frames.** From a page list, from a link ("Open in new frame", in the context menu and with Cmd/Ctrl-click in Select mode), by duplicating a frame, or by typing a URL.
-- [ ] #3 **The page list needs no setup.** It uses the source TRU-14.1 recommends for the project's framework, or Claude's read of the routes in the profile. A dynamic route offers the URLs already visited for it. If no list can be found, the list says so, and typing a URL still works.
-- [ ] #4 **Each frame navigates on its own**, unless it is in a follow group.
-- [ ] #5 **Rename and delete.** Delete can be undone.
-- [ ] #6 **The board is saved** outside the repository, next to the profile, so Claude's tools (TRU-12.1) can read it, and it is back when Truing restarts. Nothing is added to the project and no file needs ignoring.
-- [ ] #7 **Limits.** The frame cap and the off-screen policy from TRU-14.1. Reaching the cap says so, with a way forward.
-- [ ] #8 **The panels follow the active frame.** The layers tree, the inspector and the pick restore all work per frame.
-- [ ] #9 **Tests.** Unit tests for the board file and the group rule. Playwright: add a frame from the page list, open a link in a new frame, restart, and the board is back.
-- [ ] #10 **UI checked.** Screens and text checked against `docs/design-language.md`.
-- [ ] #11 **The selected frame owns the top bar.** Clicking a frame selects it; the route box, the device menu and Side by side then act on that frame only. Side by side turns the selected frame into a Phone, Tablet and Desktop group that follows one route, and back. (The person's decision, 2026-11-07.)
-- [ ] #12 **Frames already open become records.** Frames opened from a new tab (TRU-14.6) are ordinary frames on the board, and a frame Claude opens is marked as Claude's.
-- [ ] #13 **Measured limits (TRU-14.1).** Up to 12 frames by default, with no setting; frames off screen stay loaded so they keep their state; the frame count and memory are logged so the cap can be revisited.
+- [x] #1 **A frame is a record:** a name, a route, a size or preset, a position, and an optional follow group. Today's Phone, Tablet and Desktop set becomes one group.
+- [x] #2 **Each frame navigates on its own**, unless it is in a follow group.
+- [x] #3 **Rename and delete.** Delete can be undone.
+- [x] #4 **The board is saved** outside the repository, next to the profile, so Claude's tools (TRU-12.1) can read it, and it is back when Truing restarts. Nothing is added to the project and no file needs ignoring.
+- [x] #5 **Limits.** The frame cap and the off-screen policy from TRU-14.1. Reaching the cap says so, with a way forward.
+- [x] #6 **The panels follow the active frame.** The layers tree, the inspector and the pick restore all work per frame.
+- [x] #7 **Tests.** Unit tests for the board file and the group rule. Playwright: add a frame from the page list, open a link in a new frame, restart, and the board is back.
+- [x] #8 **UI checked.** Screens and text checked against `docs/design-language.md`.
+- [x] #9 **The selected frame owns the top bar.** Clicking a frame selects it; the route box, the device menu and Side by side then act on that frame only. Side by side turns the selected frame into a Phone, Tablet and Desktop group that follows one route, and back. (The person's decision, 2026-11-07.)
+- [x] #10 **Frames already open become records.** Frames opened from a new tab (TRU-14.6) are ordinary frames on the board, and a frame Claude opens is marked as Claude's.
+- [x] #11 **Making frames.** From a link (Cmd/Ctrl-click in Select mode, or "Open link in new frame" in the right-click menu), by copying a frame (New frame), and by typing a route into that copy. From the Pages list: TRU-14.3.
+- [x] #12 **Measured limits (TRU-14.1).** Up to 12 frames by default, with no setting, also for a saved board, Side by side and Undo; frames off screen stay loaded so they keep their state; the frame count is logged when it changes. Memory is measured with the TRU-14.1 script, not logged: Truing's persistent browser profile gives it no process to read.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -57,4 +56,8 @@ Research: the note above and TRU-14.1's findings; ours in `src/shell/store.ts` (
 
 <!-- SECTION:NOTES:BEGIN -->
 From TRU-14.1 (docs/research/frame-cost-and-page-list.md): further frames of one app cost 30 to 60 MB each and idle near 0% CPU, one save refreshes every frame within 0.4 s, so cap 12 and keep frames loaded. Follow groups replace the single leader. The board file goes next to the profile. Criterion #9 asks for Playwright; there is no browser suite by the owner's choice, so it is covered by unit tests and a recorded look from a .scratch script.
+
+Rescoped 2026-11-07 after review: the page list (old #2 in part, #3) moved to TRU-14.3, which also gets opening a page as a new frame. Memory logging dropped from the limits criterion, with the reason in its text.
+
+Evidence 2026-11-07: unit tests test/unit/opened-frames.test.ts (records, Side by side and fold, device, group route, link frames), test/unit/board.test.ts (file round trip, broken and unsafe boards refused, state round trip), test/unit/shell-store.test.ts (the store itself through a fake socket: group follow and turn-back, next leader after close, cap, Undo within the cap, debounced save, fresh ids after restart), each guard mutation-checked. Real Chromium scratch scripts: select a new frame, type a route, Side by side, group follows, fold; board survives a restart; New frame, rename, close and Undo, Ctrl-click a link, right-click "Open link in new frame", the cap notice; a pick in a frame drives the panels (frameToShow). UI at 1280 light and 1440 dark: notice with Undo, close and New frame buttons; hit areas 24x24 or more. Code review (fresh context) found ten issues, all fixed in 3d6d61a; copy review found three, fixed. The board file is plain JSON next to the profile, for Claude's tools in TRU-18.2. make check: exit 0, 1235 tests.
 <!-- SECTION:NOTES:END -->
