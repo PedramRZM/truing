@@ -17,7 +17,11 @@ import {
   writableRules,
 } from '../../claude/session';
 import type { TruingConfig } from '../../config';
-import { messageOf, type ScreenshotControl } from '../../module';
+import {
+  type ClaudeTools,
+  messageOf,
+  type ScreenshotControl,
+} from '../../module';
 
 import { type Bridge, type Decision, startBridge } from './bridge';
 import {
@@ -114,6 +118,8 @@ export type ChatOptions = {
   screenshot: ScreenshotControl;
   frames: () => readonly string[];
   log: (line: string) => void;
+  /** Every module's Claude tools, served to the session through the bridge (TRU-12.1). */
+  tools?: ClaudeTools;
   /** The tests start a fake. */
   start?: StartRun;
   runCli?: RunClaude;
@@ -286,7 +292,7 @@ export function createChat(options: ChatOptions) {
   }
 
   function bridgeOnce(): Promise<Bridge> {
-    bridge ??= startBridge(askDesigner);
+    bridge ??= startBridge(askDesigner, options.tools);
     return bridge;
   }
 

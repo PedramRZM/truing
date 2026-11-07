@@ -10,7 +10,9 @@ import {
   applyResultSchema,
   type ChangesControl,
   changeSchemas,
+  type ClaudeTools,
   type DraftChange,
+  isToolImage,
   messageOf,
   type ModuleSpec,
   type Reach,
@@ -20,6 +22,8 @@ import {
   STAGED_CHANGE_VERSION,
   type StagedChange,
   type StageInput,
+  type ToolInfo,
+  type ToolResult,
 } from './module';
 import { importServerPart, type LoadedModule } from './module-loader';
 import type {
@@ -37,20 +41,6 @@ export type Bus = {
   toShells: (message: ToShell) => void;
   /** False if no runtime is connected in that frame. */
   toRuntime: (frame: string, message: ToRuntime) => boolean;
-};
-
-/** A Claude tool as an MCP server lists it (TRU-12.1 serves this list). */
-export type ToolInfo = {
-  name: string;
-  module: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-};
-
-/** A tool's answer, MCP-shaped: text content, or an error Claude can read. */
-export type ToolResult = {
-  content: Array<{ type: 'text'; text: string }>;
-  isError?: boolean;
 };
 
 type Handler = (input: unknown) => unknown;
@@ -606,6 +596,7 @@ export function createModuleHost(options: ModuleHostOptions) {
         publish: (name, value) => publishState(id, name, value),
         exclusive,
         screenshot,
+        tools,
       });
       const parsed = handlersSchema.safeParse(returned ?? {});
       if (!parsed.success) {
@@ -696,6 +687,75 @@ export function createModuleHost(options: ModuleHostOptions) {
     }
     entry.resolve(output.value);
   }
+
+  /** The Claude tools of every module that started; TRU-12.1 serves them over MCP. */
+  const tools: ClaudeTools = {
+    list(): ToolInfo[] {
+      return modules.flatMap((loaded) =>
+        handlers.has(loaded.spec.id)
+          ? Object.entries(loaded.spec.claude?.tools ?? {}).map(
+              ([name, tool]) => ({
+                name,
+                module: loaded.spec.id,
+                description: tool.description,
+                inputSchema: zm.toJSONSchema(tool.input),
+              }),
+            )
+          : [],
+      );
+    },
+
+    async call(name: string, input: unknown): Promise<ToolResult> {
+      const error = (text: string): ToolResult => ({
+        content: [{ type: 'text', text }],
+        isError: true,
+      });
+      const owner = modules.find(
+        (loaded) =>
+          handlers.has(loaded.spec.id) &&
+          own(loaded.spec.claude?.tools, name) !== undefined,
+      );
+      const tool = own(owner?.spec.claude?.tools, name);
+      const run = owner && own(handlers.get(owner.spec.id)?.tools, name);
+      if (!owner || !tool || !run) {
+        return error(`No tool "${name}".`);
+      }
+      const parsed = parse(tool.input, input ?? {}, `input for ${name}`);
+      if (!parsed.ok) {
+        return error(parsed.error);
+      }
+      try {
+        const value = await run(parsed.value);
+        if (isToolImage(value)) {
+          return {
+            content: [
+              {
+                type: 'image',
+                data: Buffer.from(value.data).toString('base64'),
+                mimeType: value.mimeType,
+              },
+              ...(value.text
+                ? [{ type: 'text' as const, text: value.text }]
+                : []),
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                typeof value === 'string'
+                  ? value
+                  : JSON.stringify(value ?? null),
+            },
+          ],
+        };
+      } catch (thrown) {
+        return error(messageOf(thrown));
+      }
+    },
+  };
 
   return {
     /** The ids of the listed modules, in config order. */
@@ -811,60 +871,7 @@ export function createModuleHost(options: ModuleHostOptions) {
     call: callOp,
     command,
 
-    /** The Claude tools of every module that started; TRU-12.1 serves them over MCP. */
-    tools: {
-      list(): ToolInfo[] {
-        return modules.flatMap((loaded) =>
-          handlers.has(loaded.spec.id)
-            ? Object.entries(loaded.spec.claude?.tools ?? {}).map(
-                ([name, tool]) => ({
-                  name,
-                  module: loaded.spec.id,
-                  description: tool.description,
-                  inputSchema: zm.toJSONSchema(tool.input),
-                }),
-              )
-            : [],
-        );
-      },
-
-      async call(name: string, input: unknown): Promise<ToolResult> {
-        const error = (text: string): ToolResult => ({
-          content: [{ type: 'text', text }],
-          isError: true,
-        });
-        const owner = modules.find(
-          (loaded) =>
-            handlers.has(loaded.spec.id) &&
-            own(loaded.spec.claude?.tools, name) !== undefined,
-        );
-        const tool = own(owner?.spec.claude?.tools, name);
-        const run = owner && own(handlers.get(owner.spec.id)?.tools, name);
-        if (!owner || !tool || !run) {
-          return error(`No tool "${name}".`);
-        }
-        const parsed = parse(tool.input, input ?? {}, `input for ${name}`);
-        if (!parsed.ok) {
-          return error(parsed.error);
-        }
-        try {
-          const value = await run(parsed.value);
-          return {
-            content: [
-              {
-                type: 'text',
-                text:
-                  typeof value === 'string'
-                    ? value
-                    : JSON.stringify(value ?? null),
-              },
-            ],
-          };
-        } catch (thrown) {
-          return error(messageOf(thrown));
-        }
-      },
-    },
+    tools,
 
     changes: changesControl,
 

@@ -17,6 +17,7 @@ export default defineServer(claude, (ctx) => {
     screenshot: ctx.screenshot,
     frames: ctx.frames,
     log: ctx.log,
+    tools: ctx.tools,
   });
   chat.publishInitial();
 

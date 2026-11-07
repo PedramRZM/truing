@@ -9,6 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { z } from 'zod';
 
 import type { BridgeAddress } from '../../claude/session';
+import type { ClaudeTools } from '../../module';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 
@@ -66,9 +67,19 @@ function sameSecret(given: string, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** `gone` fires when nobody is left to hear the answer. */
+const callSchema = z.object({
+  name: z.string(),
+  arguments: z.unknown().optional(),
+});
+
+/**
+ * `gone` fires when nobody is left to hear the answer. With `tools`, the session's
+ * MCP server also lists and calls every module's Claude tools here (TRU-12.1),
+ * behind the same Host and token checks.
+ */
 export async function startBridge(
   ask: (prompt: PermissionPrompt, gone: AbortSignal) => Promise<Decision>,
+  tools?: ClaudeTools,
 ): Promise<Bridge> {
   const token = randomBytes(32).toString('hex');
   let host = '';
@@ -88,6 +99,31 @@ export async function startBridge(
     const given = (request.headers.authorization ?? '').replace(/^Bearer /, '');
     if (!sameSecret(given, token)) {
       reply(401, { error: 'Unauthorised.' });
+      return;
+    }
+    if (request.method === 'POST' && request.url === '/tools/list') {
+      reply(200, {
+        tools: (tools?.list() ?? []).map(
+          ({ module: _module, ...tool }) => tool,
+        ),
+      });
+      return;
+    }
+    if (request.method === 'POST' && request.url === '/tools/call') {
+      void bodyOf(request)
+        .then(async (body) => {
+          const call = callSchema.parse(JSON.parse(body));
+          reply(
+            200,
+            tools
+              ? await tools.call(call.name, call.arguments ?? {})
+              : {
+                  content: [{ type: 'text', text: `No tool "${call.name}".` }],
+                  isError: true,
+                },
+          );
+        })
+        .catch(() => reply(400, { error: 'Bad request.' }));
       return;
     }
     if (request.method !== 'POST' || request.url !== '/permission') {

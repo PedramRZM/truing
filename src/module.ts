@@ -923,7 +923,61 @@ export type ServerContext<M extends ModuleSpec> = {
   exclusive: <T>(job: () => Promise<T>) => Promise<T>;
   /** Truing's browser, for what shows on the canvas (TRU-5.2). */
   screenshot: ScreenshotControl;
+  /**
+   * Every started module's Claude tools (TRU-12.1): what Truing's MCP server
+   * lists and calls for a Claude session, through the claude module's bridge.
+   */
+  tools: ClaudeTools;
 };
+
+/** A Claude tool as an MCP server lists it. */
+export type ToolInfo = {
+  name: string;
+  module: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
+/** A tool's answer, MCP-shaped: text and images, or an error Claude can read. */
+export type ToolResult = {
+  content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; data: string; mimeType: string }
+  >;
+  isError?: boolean;
+};
+
+export type ClaudeTools = {
+  list: () => ToolInfo[];
+  call: (name: string, input: unknown) => Promise<ToolResult>;
+};
+
+/**
+ * A global symbol, not a class: a module's server part may load through its own
+ * copy of this file, where `instanceof` would fail.
+ */
+const TOOL_IMAGE = Symbol.for('truing.tool-image');
+
+export type ToolImage = {
+  [TOOL_IMAGE]: true;
+  data: Uint8Array;
+  mimeType: 'image/png' | 'image/jpeg';
+  /** A line Claude reads with the picture. */
+  text?: string;
+};
+
+/** A tool's answer that is a picture, such as a screenshot (TRU-18.3). */
+export function toolImage(
+  data: Uint8Array,
+  mimeType: ToolImage['mimeType'],
+  text?: string,
+): ToolImage {
+  return { [TOOL_IMAGE]: true, data, mimeType, ...(text ? { text } : {}) };
+}
+
+export function isToolImage(value: unknown): value is ToolImage {
+  return typeof value === 'object' && value !== null && TOOL_IMAGE in value;
+}
 
 /**
  * A picture of what's on the canvas, cropped to what's in view: the page never

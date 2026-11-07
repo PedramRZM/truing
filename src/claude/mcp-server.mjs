@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Truing's MCP server for a Claude session (TRU-5.2, from TRU-1.2): stdio, no
 // dependencies. It holds the permission prompt tool, which asks the designer
-// through the bridge. TRU-12.1 adds the design tools here. Its token reaches it only
+// through the bridge, and lists and calls every module's Claude tools there
+// (TRU-12.1). Its token reaches it only
 // through the session's MCP config, never Claude's environment, and can ask a
 // prompt but never answer one. With no bridge to ask, every call is denied.
 import { request } from 'node:http';
@@ -36,16 +37,15 @@ const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
 
 /**
- * The reply is the bridge's, as it holds the rule on what an allow may carry. Node's
- * own client, as `fetch` gives up on a reply after five minutes, which answered no
- * for a designer who was still deciding (TRU-5.3). This one waits for as long as the
- * connection lasts.
+ * A POST to the bridge, and its JSON reply, or null. Node's own client, as `fetch`
+ * gives up on a reply after five minutes, which answered no for a designer who was
+ * still deciding (TRU-5.3). This one waits for as long as the connection lasts.
  */
-function approve(args) {
-  if (!BRIDGE || !TOKEN) return Promise.resolve(DENY);
+function post(path, body) {
+  if (!BRIDGE || !TOKEN) return Promise.resolve(null);
   return new Promise((resolve) => {
     const asking = request(
-      `${BRIDGE}/permission`,
+      `${BRIDGE}${path}`,
       {
         method: 'POST',
         headers: {
@@ -59,19 +59,31 @@ function approve(args) {
         response.on('data', (chunk) => {
           body += chunk;
         });
-        response.on('error', () => resolve(DENY));
+        response.on('error', () => resolve(null));
         response.on('end', () => {
           try {
-            resolve(response.statusCode === 200 ? JSON.parse(body) : DENY);
+            resolve(response.statusCode === 200 ? JSON.parse(body) : null);
           } catch {
-            resolve(DENY);
+            resolve(null);
           }
         });
       },
     );
-    asking.on('error', () => resolve(DENY));
-    asking.end(JSON.stringify(args));
+    asking.on('error', () => resolve(null));
+    asking.end(JSON.stringify(body));
   });
+}
+
+/** The reply is the bridge's, as it holds the rule on what an allow may carry. */
+async function approve(args) {
+  return (await post('/permission', args)) ?? DENY;
+}
+
+/** The modules' tools, after the prompt tool, which keeps its name. */
+async function moduleTools() {
+  const listed = await post('/tools/list', {});
+  const tools = Array.isArray(listed?.tools) ? listed.tools : [];
+  return tools.filter((tool) => tool?.name !== 'approve');
 }
 
 async function handle({ id, method, params }) {
@@ -87,16 +99,22 @@ async function handle({ id, method, params }) {
     return;
   }
   if (method === 'tools/list') {
-    send({ id, result: { tools: TOOLS } });
+    send({ id, result: { tools: [...TOOLS, ...(await moduleTools())] } });
     return;
   }
   if (method === 'tools/call') {
     if (params?.name !== 'approve') {
+      const result = await post('/tools/call', {
+        name: params?.name,
+        arguments: params?.arguments ?? {},
+      });
       send({
         id,
-        result: {
+        result: result ?? {
           isError: true,
-          content: [{ type: 'text', text: `No tool "${params?.name}".` }],
+          content: [
+            { type: 'text', text: `Truing couldn't run "${params?.name}".` },
+          ],
         },
       });
       return;
