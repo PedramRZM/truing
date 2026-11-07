@@ -438,6 +438,17 @@ strong {
   color: var(--ds-text);
 }
 
+/* TRU-14.2: the mark on a frame Claude opened. */
+.frame-by {
+  flex-shrink: 0;
+  padding: 0 var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  color: var(--ds-text-3);
+  font-size: var(--ds-text-12);
+  line-height: 16px;
+}
+
 /* TRU-14.2: a record frame's name, being renamed. */
 .frame-rename {
   width: 16ch;

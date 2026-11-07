@@ -216,6 +216,10 @@ function FrameChrome({
               renames={openedIds(state).includes(frame.id)}
               store={store}
             />
+            {frame.by === 'claude' ? (
+              // TRU-14.2: Claude's frames are marked, so a person tells them apart.
+              <span className="frame-by">Claude</span>
+            ) : null}
             <span className="frame-size">
               {rect.width} × {rect.height}
             </span>
