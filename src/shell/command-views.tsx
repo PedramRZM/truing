@@ -94,7 +94,18 @@ export function Notice({ state }: { state: ShellState }) {
     <p className="notice" role="status">
       {state.notice ? (
         // A new node per notice, so the same text twice is read twice.
-        <span key={state.notice.id}>{state.notice.text}</span>
+        <span key={state.notice.id}>
+          {state.notice.text}
+          {state.notice.action ? (
+            <button
+              type="button"
+              className="notice-action"
+              onClick={state.notice.action.run}
+            >
+              {state.notice.action.label}
+            </button>
+          ) : null}
+        </span>
       ) : null}
     </p>
   );

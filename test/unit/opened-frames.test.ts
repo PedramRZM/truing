@@ -187,3 +187,19 @@ it('leaves the layout’s own frames to the layout', () => {
   ).toBeNull();
   expect(withGroupRoute(state, 'desktop', '/x')).toBeNull();
 });
+
+it('opens a link in a frame at the device of the frame it came from, named by its device', () => {
+  const before = shell();
+  const after = shell({
+    ...before,
+    ...withOpenedFrame(before, 'tab-1', '/space/1', {
+      from: 'phone',
+      name: null,
+    }),
+  });
+  expect(after.frames['tab-1']?.viewport).toEqual({
+    kind: 'preset',
+    preset: 'phone',
+  });
+  expect(frameLabel(after, 'tab-1')).toBe('Phone');
+});

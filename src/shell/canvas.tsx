@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 
 import { panels } from 'truing:panels';
 
@@ -209,14 +209,13 @@ function FrameChrome({
               width: rect.width * scale,
             }}
           >
-            <button
-              type="button"
-              className="frame-name"
-              aria-pressed={state.activeFrame === frame.id}
-              onClick={() => store.selectFrame(frame.id)}
-            >
-              {label}
-            </button>
+            <FrameName
+              id={frame.id}
+              label={label}
+              active={state.activeFrame === frame.id}
+              renames={openedIds(state).includes(frame.id)}
+              store={store}
+            />
             <span className="frame-size">
               {rect.width} × {rect.height}
             </span>
@@ -247,6 +246,71 @@ function FrameChrome({
         );
       })}
     </>
+  );
+}
+
+/**
+ * A frame's name, which selects it. A record frame's is renamed in place with
+ * a double-click: Enter or leaving the field keeps it, Esc puts it back (TRU-14.2).
+ */
+function FrameName({
+  id,
+  label,
+  active,
+  renames,
+  store,
+}: {
+  id: string;
+  label: string;
+  active: boolean;
+  renames: boolean;
+  store: ShellStore;
+}) {
+  const [editing, setEditing] = useState(false);
+  // Esc closes the field, and the blur that may follow must not keep the name.
+  const cancelled = useRef(false);
+  if (editing) {
+    return (
+      <input
+        className="frame-rename"
+        aria-label="Frame name"
+        defaultValue={label}
+        // The person asked for this field with a double-click.
+        autoFocus
+        onFocus={(event) => event.currentTarget.select()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            cancelled.current = true;
+            setEditing(false);
+          }
+        }}
+        onBlur={(event) => {
+          if (!cancelled.current) {
+            store.renameFrame(id, event.currentTarget.value);
+          }
+          cancelled.current = false;
+          setEditing(false);
+        }}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="frame-name"
+      aria-pressed={active}
+      title={renames ? 'Double-click to rename' : undefined}
+      onClick={() => store.selectFrame(id)}
+      onDoubleClick={() => {
+        if (!renames) return;
+        cancelled.current = false;
+        setEditing(true);
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

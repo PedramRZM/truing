@@ -308,6 +308,21 @@ function createRuntime(frame: string): { connect: () => void } {
         }
         event.preventDefault();
         event.stopImmediatePropagation();
+        // TRU-14.2: Cmd/Ctrl-click on a link opens it in a frame of its own.
+        const link =
+          event instanceof MouseEvent && event.target instanceof Element
+            ? event.target.closest('a[href]')
+            : null;
+        const href = link instanceof HTMLAnchorElement ? link.href : null;
+        if (
+          type === 'click' &&
+          event instanceof MouseEvent &&
+          (event.metaKey || event.ctrlKey) &&
+          href
+        ) {
+          send({ type: 'open-in-frame', frame, href });
+          return;
+        }
         // The click is the designer picking something: the modules get it.
         if (type === 'click' && event instanceof MouseEvent) {
           modules?.pick(event);
@@ -324,6 +339,7 @@ function createRuntime(frame: string): { connect: () => void } {
             frame,
             x: event.clientX,
             y: event.clientY,
+            ...(href ? { link: href } : {}),
           });
         }
       },

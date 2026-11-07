@@ -15,6 +15,7 @@ import {
 import { Check, ChevronRight } from 'lucide-react';
 
 import type { MenuHeader, MenuItem } from '../module';
+import { routeOf } from '../protocol';
 
 import {
   KEYS,
@@ -407,7 +408,12 @@ function MenuView({ state, store, menu }: ViewProps & { menu: MenuState }) {
       list,
     })),
   ]);
-  if (groups.length === 0 && added.headers.length === 0) return null;
+  // TRU-14.2: a link of the app under the pointer can open in a frame of its own.
+  const link =
+    menu.link && routeOf(menu.link, state.appOrigin) !== null
+      ? menu.link
+      : null;
+  if (groups.length === 0 && added.headers.length === 0 && !link) return null;
   const arrived = (): void => {
     if (crossing.current) clearTimeout(crossing.current);
     crossing.current = null;
@@ -485,9 +491,28 @@ function MenuView({ state, store, menu }: ViewProps & { menu: MenuState }) {
       {added.headers.map((header) => (
         <Header key={header.id} read={header.read} store={store} />
       ))}
+      {link ? (
+        <>
+          {added.headers.length > 0 ? (
+            <div role="separator" className="context-separator" />
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-row context-row"
+            onPointerEnter={closeList}
+            onClick={() => {
+              store.openLink(link, menu.frame);
+              store.closeMenu();
+            }}
+          >
+            <span>Open link in new frame</span>
+          </button>
+        </>
+      ) : null}
       {groups.map(({ group, rows }, index) => (
         <Fragment key={group}>
-          {index > 0 || added.headers.length > 0 ? (
+          {index > 0 || added.headers.length > 0 || link ? (
             <div role="separator" className="context-separator" />
           ) : null}
           {rows.map((row) =>

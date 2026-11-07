@@ -438,6 +438,18 @@ strong {
   color: var(--ds-text);
 }
 
+/* TRU-14.2: a record frame's name, being renamed. */
+.frame-rename {
+  width: 16ch;
+  height: 18px;
+  padding: 0 var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-control-fill);
+  color: var(--ds-text);
+  font-size: var(--ds-text-12);
+}
+
 /* TRU-14.6: closes a frame opened from a new tab; 24 px hit area, like the name. */
 .frame-close {
   position: relative;
@@ -2360,13 +2372,38 @@ details.design-section[open] > summary {
 }
 
 .notice span {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-3);
   padding: var(--ds-space-1) var(--ds-space-3);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius);
   background: var(--ds-panel);
   box-shadow: var(--ds-shadow-float);
   font-size: var(--ds-text-12);
+}
+
+/* TRU-14.2: Undo on a notice; the notice itself lets the pointer through. */
+.notice-action {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* The accent is under 4.5:1 as text, so the text colour, underlined. */
+  color: var(--ds-text);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* A 24 px tall hit area without moving the line. */
+.notice-action::after {
+  content: '';
+  position: absolute;
+  inset: -6px -4px;
 }
 
 /* A <details>'s line (fold.tsx), and `→` drawn as an icon. */

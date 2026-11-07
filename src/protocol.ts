@@ -93,6 +93,8 @@ const contextMenuMessage = z.object({
   frame: z.string().check(z.minLength(1)),
   x: z.number(),
   y: z.number(),
+  /** TRU-14.2: the link under the pointer, when there is one. */
+  link: z.optional(z.string()),
 });
 
 /** Space held or released inside a frame in Select mode: the canvas pans while it is held. */
@@ -129,6 +131,12 @@ const moduleResult = z.object({
 });
 
 export const runtimeMessageSchema = z.discriminatedUnion('type', [
+  /** TRU-14.2: a link Cmd/Ctrl-clicked in Select mode, to open in a frame of its own. */
+  z.object({
+    type: z.literal('open-in-frame'),
+    frame: z.string(),
+    href: z.string(),
+  }),
   z.object({
     type: z.literal('hello'),
     frame: z.string().check(z.minLength(1)),
@@ -376,8 +384,15 @@ export const toShellSchema = /* @__PURE__ */ (() =>
     }),
     /** TRU-10.9: frames left blank while a window of another site was open, back where they were. */
     z.object({ type: z.literal('reload-frames'), frames: z.array(z.string()) }),
-    /** TRU-14.6: the app opened one of its own pages in a new tab: a frame of its own instead. */
-    z.object({ type: z.literal('open-frame'), route: z.string() }),
+    /**
+     * TRU-14.6, TRU-14.2: a page of the app to open as a frame of its own: a new
+     * tab the app opened, or a link Cmd/Ctrl-clicked in a frame (`from`).
+     */
+    z.object({
+      type: z.literal('open-frame'),
+      route: z.string(),
+      from: z.optional(z.string()),
+    }),
     /** The whole change set, after any change to it. */
     z.object({
       type: z.literal('changes'),

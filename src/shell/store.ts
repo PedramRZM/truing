@@ -135,7 +135,12 @@ export type ShellState = {
   /** The context menu, open at a point on the screen for a frame's pick. */
   menu: ContextMenu | null;
   /** The last short confirmation ("Copied the path"); `id` tells two of the same text apart. */
-  notice: { id: number; text: string } | null;
+  notice: {
+    id: number;
+    text: string;
+    /** One thing to do about it, such as Undo (TRU-14.2). */
+    action?: { label: string; run: () => void };
+  } | null;
 };
 
 /** Where the menu is on the screen, and the right-click in the frame's own pixels (null from a tree row). */
@@ -145,10 +150,18 @@ export type ContextMenu = {
   x: number;
   y: number;
   point: { x: number; y: number } | null;
+  /** TRU-14.2: the link under the pointer, when there is one. */
+  link?: string;
 };
 
 /** How long a notice stays: the design language's Toast. */
 const NOTICE_MS = 1500;
+
+/** A notice that offers Undo stays long enough to reach it. */
+const UNDO_MS = 6000;
+
+/** TRU-14.1 measured 12 frames of a heavy page at about 620 MB: the default cap. */
+export const FRAME_CAP = 12;
 
 const CHROME_HIDDEN_NOTICE = 'Press the period key to bring everything back.';
 
@@ -217,10 +230,20 @@ export function withOpenedFrame(
   state: ShellState,
   id: string,
   route: string,
-  options: { name?: string; by?: 'person' | 'claude' } = {},
+  options: {
+    /** The frame it came from, whose device it takes; the selected one otherwise. */
+    from?: string;
+    /** Its name; none shows its device. A new tab is called New tab. */
+    name?: string | null;
+    by?: 'person' | 'claude';
+  } = {},
 ): Pick<ShellState, 'frames' | 'resized'> {
-  const from = state.activeFrame ?? state.leader;
+  const from =
+    options.from && state.frames[options.from]
+      ? options.from
+      : (state.activeFrame ?? state.leader);
   const opener = state.frames[from] ? from : Object.keys(state.frames)[0];
+  const name = options.name === null ? null : (options.name ?? 'New tab');
   return {
     frames: {
       ...state.frames,
@@ -228,7 +251,7 @@ export function withOpenedFrame(
         ...newFrame(id, route),
         // The device of the frame it came from, so it reads as the same size.
         ...(opener ? { viewport: frameViewport(state, opener) } : {}),
-        name: options.name ?? 'New tab',
+        ...(name ? { name } : {}),
         by: options.by ?? 'person',
       },
     },
@@ -1183,6 +1206,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
           );
           if (!placed) return;
           openMenu({
+            ...(message.link ? { link: message.link } : {}),
             frame: message.frame,
             x:
               canvasLeft(state) +
@@ -1310,8 +1334,11 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
           reloadFrames(message.frames);
           return;
         case 'open-frame':
-          openedFrames += 1;
-          set(withOpenedFrame(state, `tab-${openedFrames}`, message.route));
+          // A link opened on purpose shows its device; a new tab says so.
+          openFrame(
+            message.route,
+            message.from ? { from: message.from, name: null } : {},
+          );
           return;
         case 'shell-reload':
           location.reload();
@@ -1325,6 +1352,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     x: number;
     y: number;
     point?: { x: number; y: number };
+    link?: string;
   }): void {
     menuId += 1;
     // Where focus goes back to when the menu closes.
@@ -1342,15 +1370,52 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
   }
 
   /** A confirmation goes after a moment; a failure stays until the next notice. */
-  function notify(text: string, options: { stays?: boolean } = {}): void {
+  function notify(
+    text: string,
+    options: {
+      stays?: boolean;
+      action?: { label: string; run: () => void };
+    } = {},
+  ): void {
     if (noticeTimer) clearTimeout(noticeTimer);
     noticeTimer = null;
-    set({ notice: { id: (state.notice?.id ?? 0) + 1, text } });
+    const { action } = options;
+    set({
+      notice: {
+        id: (state.notice?.id ?? 0) + 1,
+        text,
+        ...(action ? { action } : {}),
+      },
+    });
     if (options.stays) return;
-    noticeTimer = setTimeout(() => {
-      noticeTimer = null;
-      set({ notice: null });
-    }, NOTICE_MS);
+    noticeTimer = setTimeout(
+      () => {
+        noticeTimer = null;
+        set({ notice: null });
+      },
+      action ? UNDO_MS : NOTICE_MS,
+    );
+  }
+
+  /**
+   * TRU-14.2: every way a frame is made ends here: a new tab, a link, a
+   * duplicate, a page, or Claude. It is selected, so the top bar acts on it.
+   */
+  function openFrame(
+    route: string,
+    options: Parameters<typeof withOpenedFrame>[3] = {},
+  ): string | null {
+    if (Object.keys(state.frames).length >= FRAME_CAP) {
+      notify(
+        `The canvas holds ${FRAME_CAP} frames. Close one to open another.`,
+      );
+      return null;
+    }
+    openedFrames += 1;
+    const id = `tab-${openedFrames}`;
+    followFit = true;
+    set({ ...withOpenedFrame(state, id, route, options), activeFrame: id });
+    return id;
   }
 
   function closeMenu(): void {
@@ -1710,8 +1775,55 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     /** Closes a frame opened from a new tab; the layout's own frames stay. */
     closeFrame(id: string) {
       const next = withoutOpenedFrame(state, id);
-      if (!next) return;
+      const frame = state.frames[id];
+      if (!next || !frame) return;
+      const size = state.resized[id];
+      const offset = state.offsets[id];
       set({ ...next, modules: withoutFrame(state.modules, id) });
+      // TRU-14.2: a closed frame comes back, where it was sent, until the notice goes.
+      notify('Frame closed', {
+        action: {
+          label: 'Undo',
+          run: () => {
+            if (state.frames[id]) return;
+            set({
+              frames: {
+                ...state.frames,
+                [id]: { ...frame, loads: frame.loads + 1, connected: false },
+              },
+              resized: size ? { ...state.resized, [id]: size } : state.resized,
+              offsets: offset
+                ? { ...state.offsets, [id]: offset }
+                : state.offsets,
+              notice: null,
+            });
+          },
+        },
+      });
+    },
+    /** A copy of the selected frame, at its route and device. */
+    newFrame() {
+      const from = state.activeFrame ?? state.leader;
+      const route = routeOfFrame(state, from) ?? state.route;
+      openFrame(route, { from, name: null });
+    },
+    /** Opens a link of the app in a frame of its own; another site's is not the app's. */
+    openLink(href: string, from: string) {
+      const route = routeOf(href, state.appOrigin);
+      if (route !== null) openFrame(route, { from, name: null });
+    },
+    /** A record frame's name; an empty one shows its device again. */
+    renameFrame(id: string, name: string) {
+      const frame = state.frames[id];
+      if (!frame || !openedIds(state).includes(id)) return;
+      const { name: _old, ...rest } = frame;
+      const trimmed = name.trim();
+      set({
+        frames: {
+          ...state.frames,
+          [id]: trimmed ? { ...rest, name: trimmed } : rest,
+        },
+      });
     },
     selectFrame(id: string | null) {
       set(
@@ -1735,6 +1847,13 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     /** Side by side: the selected record frame's own group, or the layout's. */
     toggleSideBySide() {
       const record = selectedRecord(state);
+      const adds = record && groupOf(state, record).length === 1 ? 2 : 0;
+      if (adds && Object.keys(state.frames).length + adds > FRAME_CAP) {
+        notify(
+          `The canvas holds ${FRAME_CAP} frames. Close one to see this one side by side.`,
+        );
+        return;
+      }
       if (record) {
         const next = withSideBySide(state, record);
         if (next) {

@@ -1,4 +1,10 @@
-import { ChevronDown, ChevronRight, Columns3, RotateCw } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Columns3,
+  Plus,
+  RotateCw,
+} from 'lucide-react';
 
 import { PRESET_GROUPS } from '../vendor/airship/frames';
 
@@ -204,6 +210,16 @@ export function CanvasBar({ state, store }: CanvasBarProps) {
         onClick={() => store.toggleSideBySide()}
       >
         <Columns3 aria-hidden size={16} />
+      </button>
+      {/* TRU-14.2: a copy of the selected frame; type a route to move it. */}
+      <button
+        type="button"
+        className="tool"
+        aria-label="New frame"
+        title="A new frame like the selected one"
+        onClick={() => store.newFrame()}
+      >
+        <Plus aria-hidden size={16} />
       </button>
 
       <output

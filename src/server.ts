@@ -9,6 +9,7 @@ import type { ModuleHost } from './module-host';
 import {
   type Board,
   DEFAULT_VIEW,
+  routeOf,
   MODES,
   type Mode,
   parseMessage,
@@ -340,6 +341,14 @@ export async function startTruingServer(
           const from = frame;
           if (!from || runtimes.get(from)?.socket !== ws) return;
           guard(() => modules.onRuntimeMessage(from, message));
+          return;
+        }
+        case 'open-in-frame': {
+          // A link to another site is not the app's to show.
+          const route = routeOf(message.href, session.appOrigin);
+          if (route !== null) {
+            toShells({ type: 'open-frame', route, from: message.frame });
+          }
           return;
         }
         case 'interaction':
