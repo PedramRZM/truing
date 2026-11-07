@@ -13,7 +13,14 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { type AppHandle, AppStartError, ensureApp } from '../app-process';
+import {
+  type AppHandle,
+  AppStartError,
+  ChooseServerError,
+  ensureApp,
+  TRUING_HEADER,
+  waitForApp,
+} from '../app-process';
 import { loadConfig, type TruingConfig } from '../config';
 
 import { checkConnection, type Connection, startSignIn } from './connection';
@@ -74,7 +81,10 @@ const readBody = rootBody.extend({
     .array(z.object({ question: z.string(), answer: z.string() }))
     .optional(),
 });
-const startBody = rootBody.extend({
+/** TRU-10.10: `self` when the person starts the app themselves, and Truing only waits. */
+const selfBody = z.object({ self: z.boolean().optional() });
+const openBody = rootBody.extend(selfBody.shape);
+const startBody = openBody.extend({
   draft: z.custom<Draft>(
     (value) => typeof value === 'object' && value !== null,
   ),
@@ -177,22 +187,28 @@ export async function startSetupServer(
     root: string,
     config: TruingConfig,
     saved: Pick<Profile, 'framework' | 'evidence' | 'folders' | 'yours'> | null,
+    self = false,
   ): Promise<void> {
     const write = openStream(response);
     if (saved) saveProfile({ root, config, ...saved }, env);
+    // Waiting ends when the window stops listening.
+    const gone = new AbortController();
+    response.once('close', () => gone.abort());
+    const where = {
+      root,
+      port: config.app.port,
+      ...(config.app.dir ? { appDir: path.resolve(root, config.app.dir) } : {}),
+      log: (line: string) => {
+        log(line);
+        write({ type: 'log', line });
+      },
+    };
     try {
-      const app = await ensureApp({
-        root,
-        command: config.app.devCommand,
-        port: config.app.port,
-        ...(config.app.dir
-          ? { appDir: path.resolve(root, config.app.dir) }
-          : {}),
-        log: (line) => {
-          log(line);
-          write({ type: 'log', line });
-        },
-      });
+      const app = self
+        ? await waitForApp({ ...where, signal: gone.signal })
+        : await ensureApp({ ...where, command: config.app.devCommand });
+      // A wait the window gave up on: a new attempt may already be starting it.
+      if (self && gone.signal.aborted) return;
       // A port learned at the start, or a server that moved, stays for next time.
       const adopted = config.app.port !== app.port;
       const next = adopted ? withAppPort(config, app.port) : config;
@@ -201,10 +217,13 @@ export async function startSetupServer(
       response.end();
       resolveResult({ root, config: next, app });
     } catch (error) {
+      if (gone.signal.aborted) return;
       write({
         type: 'failed',
         message: error instanceof Error ? error.message : String(error),
         output: error instanceof AppStartError ? error.output.slice(-40) : [],
+        // TRU-10.10: running, but which server is the app is the person's call.
+        choose: error instanceof ChooseServerError,
       });
       response.end();
     }
@@ -297,7 +316,7 @@ export async function startSetupServer(
       sendJson(response, emptyDraft(root));
     },
     '/api/start': async (request, response) => {
-      const { root, draft } = startBody.parse(await bodyOf(request));
+      const { root, draft, self } = startBody.parse(await bodyOf(request));
       const problem = draftProblem(draft) ?? pathProblem(root, draft);
       if (problem) {
         sendJson(response, { problem }, 400);
@@ -305,15 +324,21 @@ export async function startSetupServer(
       }
       const checked = await checkedTokens(root, draft);
       const folders = foldersOf(checked);
-      await startProject(response, root, draftToConfig(checked), {
-        framework: checked.framework,
-        evidence: checked.evidence,
-        ...(folders ? { folders } : {}),
-        ...(checked.yours ? { yours: checked.yours } : {}),
-      });
+      await startProject(
+        response,
+        root,
+        draftToConfig(checked),
+        {
+          framework: checked.framework,
+          evidence: checked.evidence,
+          ...(folders ? { folders } : {}),
+          ...(checked.yours ? { yours: checked.yours } : {}),
+        },
+        self,
+      );
     },
     '/api/open': async (request, response) => {
-      const { root } = rootBody.parse(await bodyOf(request));
+      const { root, self } = openBody.parse(await bodyOf(request));
       const profile = loadProfile(root, env);
       if (!profile) {
         sendJson(
@@ -323,12 +348,18 @@ export async function startSetupServer(
         );
         return;
       }
-      await startProject(response, root, profile.config, {
-        framework: profile.framework,
-        evidence: profile.evidence,
-        ...(profile.folders ? { folders: profile.folders } : {}),
-        ...(profile.yours ? { yours: profile.yours } : {}),
-      });
+      await startProject(
+        response,
+        root,
+        profile.config,
+        {
+          framework: profile.framework,
+          evidence: profile.evidence,
+          ...(profile.folders ? { folders: profile.folders } : {}),
+          ...(profile.yours ? { yours: profile.yours } : {}),
+        },
+        self,
+      );
     },
     '/api/saved-draft': async (request, response) => {
       const { root } = rootBody.parse(await bodyOf(request));
@@ -343,7 +374,8 @@ export async function startSetupServer(
       }
       sendJson(response, profileToDraft(profile));
     },
-    '/api/confirm': async (_request, response) => {
+    '/api/confirm': async (request, response) => {
+      const { self } = selfBody.parse(await bodyOf(request));
       if (!options.confirm) {
         sendJson(response, { problem: 'Nothing to confirm.' }, 400);
         return;
@@ -362,11 +394,12 @@ export async function startSetupServer(
       trustConfig(options.confirm, env);
       // Loading the file runs it, so this is the first time it does.
       const { config } = await loadConfig(options.confirm);
-      await startProject(response, options.confirm, config, null);
+      await startProject(response, options.confirm, config, null, self);
     },
   };
 
   const server: Server = createServer((request, response) => {
+    response.setHeader(TRUING_HEADER, '1');
     const allowed =
       request.headers.host === `localhost:${port}` ||
       request.headers.host === `127.0.0.1:${port}`;

@@ -3,6 +3,7 @@ import { realpathSync } from 'node:fs';
 import { readlink } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { promisify, stripVTControlCharacters } from 'node:util';
 
 const run = promisify(execFile);
@@ -189,14 +190,267 @@ export async function portOwner(
   const pid = await listenerPid(port);
   const cwd = pid === null ? null : await cwdOf(pid);
   if (!cwd) return { kind: 'unknown' };
+  return worksIn(cwd, root, appDir)
+    ? { kind: 'ours' }
+    : { kind: 'other', cwd: real(cwd) };
+}
+
+/**
+ * Whether a process working in `cwd` is this project's, or this app's in a
+ * monorepo. `next dev apps/web` runs from the root itself, with the app as an
+ * argument, so the root counts too unless `fromRoot` is false.
+ */
+function worksIn(
+  cwd: string,
+  root: string,
+  appDir?: string,
+  fromRoot = true,
+): boolean {
   const there = real(cwd);
   const isIn = (dir: string): boolean => {
     const here = real(dir);
     return there === here || there.startsWith(`${here}${path.sep}`);
   };
-  // `next dev apps/web` runs from the root itself, with the app as an argument.
-  const ours = appDir ? there === real(root) || isIn(appDir) : isIn(root);
-  return ours ? { kind: 'ours' } : { kind: 'other', cwd: there };
+  if (!appDir) return isIn(root);
+  return isIn(appDir) || (fromRoot && there === real(root));
+}
+
+/**
+ * Every TCP port something listens on, with the process that does. Both tools,
+ * as each can miss what the other lists: on Linux lsof has left out a dev
+ * server that ss showed, and macOS has no ss.
+ */
+async function listeners(): Promise<Array<{ port: number; pid: number }>> {
+  const found: Array<{ port: number; pid: number }> = [];
+  try {
+    const { stdout } = await run('lsof', [
+      '-nP',
+      '-iTCP',
+      '-sTCP:LISTEN',
+      '-Fpn',
+    ]);
+    let pid: number | null = null;
+    for (const line of stdout.split('\n')) {
+      if (line.startsWith('p')) pid = Number(line.slice(1));
+      const port = /^n.*:(\d+)$/.exec(line)?.[1];
+      if (pid && port) found.push({ port: Number(port), pid });
+    }
+  } catch {
+    // lsof exits 1 when nothing matches, and may not be installed.
+  }
+  try {
+    const { stdout } = await run('ss', ['-ltnpH']);
+    for (const line of stdout.split('\n')) {
+      const port = /:(\d+)$/.exec(line.trim().split(/\s+/)[3] ?? '')?.[1];
+      if (!port) continue;
+      for (const [, pid] of line.matchAll(/pid=(\d+)/g)) {
+        found.push({ port: Number(port), pid: Number(pid) });
+      }
+    }
+  } catch {
+    // No ss (macOS): what lsof found is all there is.
+  }
+  return found;
+}
+
+/** Sent by Truing's own servers, so a scan never takes one, of any Truing, for the app. */
+export const TRUING_HEADER = 'x-truing';
+
+/**
+ * A page, or a redirect to one: what a dev server answers at its root. An API's
+ * error page, a debugger and Truing's own servers don't count.
+ */
+async function servesPage(origin: string): Promise<boolean> {
+  try {
+    const response = await fetch(origin, {
+      redirect: 'manual',
+      headers: { accept: 'text/html' },
+      signal: AbortSignal.timeout(5000),
+    });
+    await response.body?.cancel();
+    if (response.headers.has(TRUING_HEADER)) return false;
+    if (response.status >= 300 && response.status < 400) return true;
+    return (
+      response.status < 300 &&
+      (response.headers.get('content-type') ?? '').includes('text/html')
+    );
+  } catch {
+    return false;
+  }
+}
+
+const PACKAGE_MANAGERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
+
+/**
+ * A command's words as a process lists them: names without their folder or a
+ * script extension, no leading `VAR=value`, and no `run` after a package
+ * manager, as `pnpm run dev` and `pnpm dev` are the same.
+ */
+export function commandWords(command: string): string[] {
+  const words = command.trim().split(/\s+/).filter(Boolean);
+  while (words[0] && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0])) words.shift();
+  const names = words.map((word) =>
+    path
+      .basename(word)
+      .replace(/\.(c|m)?js$|\.exe$/, '')
+      .replace(/^npm-cli$/, 'npm'),
+  );
+  return names.filter(
+    (word, index) =>
+      !(word === 'run' && PACKAGE_MANAGERS.has(names[index - 1] ?? '')),
+  );
+}
+
+/** Whether `words` holds `part` in order, one after another. */
+function holds(words: readonly string[], part: readonly string[]): boolean {
+  if (part.length === 0) return false;
+  for (let at = 0; at + part.length <= words.length; at += 1) {
+    if (part.every((word, offset) => words[at + offset] === word)) return true;
+  }
+  return false;
+}
+
+/** Whether the start command, run anywhere, started this process or one of its parents. */
+async function startedBy(pid: number, command: string): Promise<boolean> {
+  const wanted = commandWords(command);
+  let at = pid;
+  for (let hops = 0; at > 1 && hops < 16; hops += 1) {
+    try {
+      const { stdout } = await run('ps', [
+        '-ww',
+        '-o',
+        'ppid=',
+        '-o',
+        'args=',
+        '-p',
+        String(at),
+      ]);
+      const [, parent, args] = /^\s*(\d+)\s+(.*)$/.exec(stdout.trim()) ?? [];
+      if (args && holds(commandWords(args), wanted)) return true;
+      at = Number(parent ?? 0);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * TRU-10.10: the ports of the servers this project already runs, on any port: a
+ * process working in the project, or in the app's own folder in a monorepo,
+ * listens there and serves a page. With `command`, only what it started counts.
+ */
+export async function runningServers(
+  root: string,
+  options: { appDir?: string; command?: string } = {},
+): Promise<number[]> {
+  const { appDir, command } = options;
+  const byPort = new Map<number, Set<number>>();
+  for (const { port, pid } of await listeners()) {
+    byPort.set(port, (byPort.get(port) ?? new Set()).add(pid));
+  }
+  const checked = await Promise.all(
+    [...byPort].map(async ([port, pids]) => {
+      for (const pid of pids) {
+        const cwd = await cwdOf(pid);
+        // Any app run from the root may be another app's, so only its own folder counts.
+        if (pid === process.pid || !cwd || !worksIn(cwd, root, appDir, false)) {
+          continue;
+        }
+        if (command !== undefined && !(await startedBy(pid, command))) continue;
+        return (await servesPage(`http://localhost:${port}`)) ? port : null;
+      }
+      return null;
+    }),
+  );
+  return checked.filter((port) => port !== null).sort((a, b) => a - b);
+}
+
+/** The project runs several servers that could be the app: which is the person's call. */
+export class ChooseServerError extends AppStartError {
+  constructor(
+    readonly ports: readonly number[],
+    output: readonly string[],
+  ) {
+    const list = new Intl.ListFormat('en', { type: 'conjunction' }).format(
+      ports.map(String),
+    );
+    super(
+      `This project runs servers on ports ${list}. Set the app's port to one of them.`,
+      output,
+    );
+  }
+}
+
+/** The one port of `ports`, or null for none. Several are the person's to choose. */
+function onePort(
+  ports: readonly number[],
+  output: readonly string[],
+): number | null {
+  if (ports.length > 1) throw new ChooseServerError(ports, output);
+  return ports[0] ?? null;
+}
+
+/** An app Truing found running: it is left running when Truing closes. */
+function runningApp(
+  port: number,
+  recorded: number | undefined,
+  note: string | null,
+  output: string[],
+): AppHandle {
+  return {
+    startedByTruing: false,
+    origin: `http://localhost:${port}`,
+    port,
+    moved: recorded !== undefined && port !== recorded,
+    note,
+    output: () => output,
+    stop: async () => {},
+    killNow: () => {},
+  };
+}
+
+/**
+ * TRU-10.10: runs nothing, and waits until the person has started the app
+ * themselves, for a start command that can't run under Truing. The port on
+ * record wins; otherwise any server of the project that serves a page.
+ */
+export async function waitForApp(options: {
+  root: string;
+  appDir?: string;
+  port?: number | undefined;
+  signal: AbortSignal;
+  log?: (line: string) => void;
+}): Promise<AppHandle> {
+  const { root, appDir, port: recorded, signal } = options;
+  const log = options.log ?? ((line) => console.log(line));
+  const found = (port: number): AppHandle => {
+    log(`[truing] the app is running at http://localhost:${port}`);
+    return runningApp(port, recorded, null, []);
+  };
+  log('[truing] waiting for the app to answer');
+  for (;;) {
+    signal.throwIfAborted();
+    if (recorded !== undefined) {
+      // The person said they started it: a server the system won't name (in a
+      // container, say) on the port on record counts too.
+      const { kind } = await portOwner(root, recorded, appDir);
+      if (
+        (kind === 'ours' || kind === 'unknown') &&
+        (await answersHttp(`http://localhost:${recorded}`, 5000))
+      ) {
+        signal.throwIfAborted();
+        return found(recorded);
+      }
+    }
+    const port = onePort(
+      await runningServers(root, appDir ? { appDir } : {}),
+      [],
+    );
+    signal.throwIfAborted();
+    if (port !== null) return found(port);
+    await sleep(1000, undefined, { signal });
+  }
 }
 
 /** The command with its port changed, for flags and an inline `PORT=`. */
@@ -265,16 +519,12 @@ export async function ensureApp(options: {
 
   const reused = (port: number): AppHandle => {
     log(`[truing] the app is already running at ${originOf(port)}`);
-    return {
-      startedByTruing: false,
-      origin: originOf(port),
+    return runningApp(
       port,
-      moved: recorded !== undefined && port !== recorded,
-      note: null,
-      output: () => output,
-      stop: async () => {},
-      killNow: () => {},
-    };
+      recorded,
+      `It was already running on port ${port}.`,
+      output,
+    );
   };
 
   const owner: PortOwner =
@@ -290,6 +540,17 @@ export async function ensureApp(options: {
       output,
     );
   }
+
+  // TRU-10.10: the person ran the start command themselves, and its server
+  // answers on another port: nothing to run.
+  const running = onePort(
+    await runningServers(root, {
+      ...(appDir ? { appDir } : {}),
+      command: options.command,
+    }),
+    output,
+  );
+  if (running !== null) return reused(running);
 
   let wanted = recorded;
   let note: string | null = null;

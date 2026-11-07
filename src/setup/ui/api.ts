@@ -29,11 +29,13 @@ export async function stream<E>(
   url: string,
   body: unknown,
   onEvent: (event: E) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await fetch(url, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok || !response.body) {
     const value = (await response.json().catch(() => ({}))) as {

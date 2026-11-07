@@ -3,7 +3,7 @@ title: "What running on real projects found that tests didn't"
 date: 2026-11-03
 category: testing
 status: active
-related: [TRU-6.4, TRU-6.6, TRU-6.9, TRU-6.12, TRU-10.9]
+related: [TRU-6.4, TRU-6.6, TRU-6.9, TRU-6.12, TRU-10.9, TRU-10.10]
 ---
 
 # What running on real projects found that tests didn't
@@ -17,4 +17,5 @@ Found while extracting Truing and running it on projects it had never seen.
 - **Playwright doesn't allow for a frame's own scale,** in its click check or its element boxes. To test one, move the real mouse to where the element shows, or multiply the box by the frame's scale.
 - **Playwright's click check is wrong inside a scaled iframe.** Clicks in a frame at 63% failed with "`<main>` intercepts pointer events", though a person's click works. Tests run in a window wide enough for frames at 100% (`src/truing.ts`). Grep this before debugging a click that fails only in e2e.
 - **A port being busy says nothing about whose server it is.** Two projects default to 3000 all the time, so ask who holds it (`portOwner`) before attaching.
+- **`lsof` can leave out a listener that `ss` lists.** On Linux, `lsof -iTCP -sTCP:LISTEN` returned other sockets but not a running Next dev server, so a scan that trusted it found nothing. Listing every port asks both and merges them (TRU-10.10, `runningServers`); a lookup by one port only worked because `lsof` exits 1 there and the code falls back to `ss`.
 - **Renames miss uppercase and joined forms.** Replacing a name left `DESIGN-TRUING-OVERLAY` next to a real element called `truing-overlay`, so picks hit Truing's own overlay. Only the browser tests caught it.

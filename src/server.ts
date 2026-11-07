@@ -4,6 +4,7 @@ import type { Duplex } from 'node:stream';
 
 import { WebSocket, WebSocketServer } from 'ws';
 
+import { TRUING_HEADER } from './app-process';
 import type { ModuleHost } from './module-host';
 import {
   DEFAULT_VIEW,
@@ -135,6 +136,7 @@ export async function startTruingServer(
   };
 
   const server = createServer((request, response) => {
+    response.setHeader(TRUING_HEADER, '1');
     if (!isAllowedHost(request.headers.host, port)) {
       response.writeHead(403).end();
       return;

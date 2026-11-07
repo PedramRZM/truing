@@ -34,7 +34,7 @@ type Screen =
       answers: Answer[];
       problem: string | null;
     }
-  | { name: 'starting'; root: string; start: Start };
+  | { name: 'starting'; root: string; start: Start; yourself?: boolean };
 
 /** How a project starts: from the review, from what's saved, or from a confirmed file. */
 type Start =
@@ -736,7 +736,8 @@ function ReviewScreen({
   initial: Draft;
   answers: Answer[];
   problem: string | null;
-  onStart: (draft: Draft, answers: Answer[]) => void;
+  /** `yourself`: the person starts the app in their own terminal (TRU-10.10). */
+  onStart: (draft: Draft, answers: Answer[], yourself?: boolean) => void;
   onBack: () => void;
   onReadAgain: (answers: Answer[]) => void;
 }) {
@@ -755,6 +756,20 @@ function ReviewScreen({
     ? `${draft.framework.name} ${draft.framework.version}`
     : draft.framework.name;
   const onNext = /next/i.test(draft.framework.name);
+  const start = (yourself: boolean): void =>
+    onStart(
+      {
+        ...draft,
+        yours: [
+          ...new Set([
+            ...(draft.yours ?? []),
+            ...changedFields(baseline, draft),
+          ]),
+        ],
+      },
+      answered,
+      yourself,
+    );
 
   return (
     <section
@@ -1132,23 +1147,20 @@ function ReviewScreen({
           type="button"
           className="setup-primary"
           disabled={!canStart}
-          onClick={() =>
-            onStart(
-              {
-                ...draft,
-                yours: [
-                  ...new Set([
-                    ...(draft.yours ?? []),
-                    ...changedFields(baseline, draft),
-                  ]),
-                ],
-              },
-              answered,
-            )
-          }
+          onClick={() => start(false)}
         >
           Start {draft.name}
         </button>
+        {problem ? (
+          <button
+            type="button"
+            className="setup-secondary"
+            disabled={!canStart}
+            onClick={() => start(true)}
+          >
+            Start it myself
+          </button>
+        ) : null}
         <button type="button" className="setup-text" onClick={onBack}>
           Choose another project
         </button>
@@ -1197,31 +1209,44 @@ function ConfirmScreen({
 type StartLine =
   | { type: 'log'; line: string }
   | { type: 'up'; port: number; moved: boolean; note: string | null }
-  | { type: 'failed'; message: string; output: string[] };
+  | { type: 'failed'; message: string; output: string[]; choose?: boolean };
 
+/**
+ * Runs the start command, or with `waiting` (TRU-10.10) only waits for the app
+ * the person starts themselves, until the signal ends the wait.
+ */
 function beginStart(
   root: string,
   start: Start,
   onEvent: (event: StartLine) => void,
+  waiting?: AbortSignal,
 ): Promise<void> {
+  const self = waiting ? { self: true } : {};
   switch (start.from) {
     case 'draft':
-      return stream('/api/start', { root, draft: start.draft }, onEvent);
+      return stream(
+        '/api/start',
+        { root, draft: start.draft, ...self },
+        onEvent,
+        waiting,
+      );
     case 'saved':
-      return stream('/api/open', { root }, onEvent);
+      return stream('/api/open', { root, ...self }, onEvent, waiting);
     case 'config':
-      return stream('/api/confirm', {}, onEvent);
+      return stream('/api/confirm', self, onEvent, waiting);
   }
 }
 
 function StartingScreen({
   root,
   start,
+  initialYourself,
   onChange,
   onBack,
 }: {
   root: string;
   start: Start;
+  initialYourself: boolean;
   onChange: (draft: Draft, answers: Answer[]) => void;
   onBack: () => void;
 }) {
@@ -1229,8 +1254,13 @@ function StartingScreen({
   const [up, setUp] = useState<{ port: number; note: string | null } | null>(
     null,
   );
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{
+    message: string;
+    choose: boolean;
+  } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  /** The person starts the app in their own terminal, and Truing only waits. */
+  const [yourself, setYourself] = useState(initialYourself);
   const logEnd = useRef<HTMLLIElement>(null);
   const name =
     start.from === 'draft'
@@ -1250,14 +1280,27 @@ function StartingScreen({
         setUp({ port: event.port, note: event.note });
         return;
       }
-      setProblem(event.message);
+      setProblem({ message: event.message, choose: event.choose ?? false });
     };
-    beginStart(root, start, onEvent).catch((error: unknown) =>
-      setProblem(error instanceof Error ? error.message : String(error)),
+    const waiting = yourself ? new AbortController() : null;
+    beginStart(root, start, onEvent, waiting?.signal).catch(
+      (error: unknown) => {
+        if (waiting?.signal.aborted) return;
+        setProblem({
+          message: error instanceof Error ? error.message : String(error),
+          choose: false,
+        });
+      },
     );
+    return () => waiting?.abort();
     // Starts once per attempt, not when a parent re-renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [root, attempt]);
+
+  const retry = (self: boolean): void => {
+    setYourself(self);
+    setAttempt((value) => value + 1);
+  };
 
   useEffect(() => {
     logEnd.current?.scrollIntoView({ block: 'nearest' });
@@ -1273,9 +1316,11 @@ function StartingScreen({
     );
   };
 
-  let title = `Starting ${name}`;
+  let title = yourself ? `Waiting for ${name}` : `Starting ${name}`;
   if (up !== null) title = `Opening ${name}`;
-  if (problem) title = `${name} didn't start`;
+  if (problem) {
+    title = problem.choose ? `Couldn't open ${name}` : `${name} didn't start`;
+  }
 
   return (
     <section
@@ -1284,10 +1329,12 @@ function StartingScreen({
     >
       <h1 id="start-title">{title}</h1>
       <p className="setup-lead">
-        {problem ??
+        {problem?.message ??
           (up !== null
             ? (up.note ?? `It answered on port ${up.port}.`)
-            : 'The first start can take a minute while the app compiles.')}
+            : yourself
+              ? 'Start it in your own terminal. It opens here once it answers.'
+              : 'The first start can take a minute while the app compiles.')}
       </p>
       {problem || up !== null ? null : (
         <div className="setup-progress" aria-hidden="true">
@@ -1305,10 +1352,19 @@ function StartingScreen({
           <button
             type="button"
             className="setup-primary"
-            onClick={() => setAttempt((value) => value + 1)}
+            onClick={() => retry(yourself)}
           >
             Try again
           </button>
+          {yourself ? null : (
+            <button
+              type="button"
+              className="setup-secondary"
+              onClick={() => retry(true)}
+            >
+              Start it myself
+            </button>
+          )}
           {start.from === 'config' ? null : (
             <button type="button" className="setup-secondary" onClick={change}>
               Change settings
@@ -1316,6 +1372,17 @@ function StartingScreen({
           )}
           <button type="button" className="setup-text" onClick={onBack}>
             Choose another project
+          </button>
+        </div>
+      ) : null}
+      {yourself && !problem && up === null ? (
+        <div className="setup-actions">
+          <button
+            type="button"
+            className="setup-secondary"
+            onClick={() => retry(false)}
+          >
+            Run the start command
           </button>
         </div>
       ) : null}
@@ -1416,11 +1483,12 @@ export function App() {
             initial={screen.draft}
             answers={screen.answers}
             problem={screen.problem}
-            onStart={(draft, answers) =>
+            onStart={(draft, answers, yourself) =>
               setScreen({
                 name: 'starting',
                 root: screen.root,
                 start: { from: 'draft', draft, answers },
+                yourself: yourself ?? false,
               })
             }
             onBack={toProjects}
@@ -1433,6 +1501,7 @@ export function App() {
           <StartingScreen
             root={screen.root}
             start={screen.start}
+            initialYourself={screen.yourself ?? false}
             onChange={(draft, answers) => toReview(screen.root, draft, answers)}
             onBack={toProjects}
           />
