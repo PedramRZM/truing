@@ -213,3 +213,32 @@ it('applies Claude’s frame changes without moving the person’s selection', (
   shell.receive({ type: 'frame-op', op: { kind: 'close', frame: 'claude-1' } });
   expect(shell.state().frames['claude-1']).toBeUndefined();
 });
+
+// #80: the outlines start hidden, and only Select's Outlines tool shows them.
+it('starts with the outlines hidden, and toggles them only in Select mode', () => {
+  const shell = open();
+  const views = () =>
+    FakeSocket.last?.sent.flatMap((message) =>
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      message.type === 'set-view' &&
+      'view' in message
+        ? [message.view]
+        : [],
+    ) ?? [];
+  expect(shell.state().outlines).toBe(false);
+
+  // The welcome said Interact: B is the app's there.
+  shell.store.runShortcut('outlines');
+  expect(shell.state().outlines).toBe(false);
+
+  shell.receive({ type: 'mode', mode: 'select' });
+  shell.store.runShortcut('outlines');
+  expect(shell.state().outlines).toBe(true);
+  expect(views().at(-1)).toMatchObject({ outlines: true, spacing: false });
+
+  shell.store.runShortcut('outlines');
+  expect(shell.state().outlines).toBe(false);
+  expect(views().at(-1)).toMatchObject({ outlines: false });
+});

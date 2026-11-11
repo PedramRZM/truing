@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 
-import { Eye, Hand, MousePointer2, Ruler } from 'lucide-react';
+import {
+  Eye,
+  Hand,
+  MousePointer2,
+  Ruler,
+  SquareDashedMousePointer,
+} from 'lucide-react';
 
 import { type CommandSpec, CORE_COMMANDS } from '../commands';
 import { MODES } from '../protocol';
@@ -66,6 +72,15 @@ export function Rail({ state, store }: RailProps) {
           onClick={() => store.runShortcut('spacing')}
         >
           <Ruler aria-hidden size={16} />
+        </RailTool>
+        {/* #80: off at start, so the outlines don't cover a change being judged. */}
+        <RailTool
+          command={CORE_COMMANDS.outlines}
+          pressed={state.outlines && state.mode === MODES.select}
+          disabled={state.mode !== MODES.select}
+          onClick={() => store.runShortcut('outlines')}
+        >
+          <SquareDashedMousePointer aria-hidden size={16} />
         </RailTool>
       </div>
     </aside>

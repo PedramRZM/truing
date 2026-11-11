@@ -16,16 +16,20 @@ const modeSchema = z.enum([MODES.select, MODES.interact]);
 
 /**
  * How the shell shows the frames, which the probes draw for (TRU-2.5): the
- * canvas's zoom, so labels stay at screen size, and the Spacing toggle.
+ * canvas's zoom, so labels stay at screen size, and the Spacing and Outlines
+ * toggles.
  */
 export const viewSchema = z.object({
   /** The camera's scale: a frame's CSS pixel is this many screen pixels. */
   scale: z.number(),
   /** Spacing is on: hovering shows the box model and distances without Alt. */
   spacing: z.boolean(),
+  /** #80: Outlines is on: the hover, the pick, its parent and instances show their outlines and labels. */
+  outlines: z.boolean(),
 });
 export type View = z.infer<typeof viewSchema>;
-export const DEFAULT_VIEW: View = { scale: 1, spacing: false };
+// #80: the outlines start hidden, so they don't cover the page while it is edited.
+export const DEFAULT_VIEW: View = { scale: 1, spacing: false, outlines: false };
 
 /** What the init script compiles into the runtime's closure, per session. */
 export type Session = {
@@ -58,6 +62,7 @@ export const CANVAS_SHORTCUTS = [
   'fit',
   'hand-tool',
   'spacing',
+  'outlines',
   'collapse-panels',
   'hide-ui',
   'tab-design',
