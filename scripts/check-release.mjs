@@ -1,9 +1,18 @@
 // TRU-7.4: what has to be true before a version is published. `npm publish` runs it,
-// through prepublishOnly, as `release: v<version>`.
+// through prepublishOnly, as `release: v<version>`. With `--notes <version>` it prints
+// that version's CHANGELOG.md entry instead: the GitHub Release's notes (decision 0004),
+// so the two never say different things.
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-function entryOf(changelog, version) {
+/**
+ * A version's CHANGELOG.md entry, without its heading; null if it has none.
+ *
+ * @param {string} changelog CHANGELOG.md's text
+ * @param {string} version without the `v`
+ * @returns {string | null}
+ */
+export function entryOf(changelog, version) {
   const lines = changelog.split('\n');
   const start = lines.findIndex(
     (line) => line === `## ${version}` || line.startsWith(`## ${version} `),
@@ -38,6 +47,16 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  if (process.argv[2] === '--notes') {
+    const version = (process.argv[3] ?? '').replace(/^v/, '');
+    const entry = entryOf(readFileSync('CHANGELOG.md', 'utf8'), version);
+    if (!entry) {
+      console.error(`CHANGELOG.md has no entry for "${version}".`);
+      process.exit(1);
+    }
+    console.log(entry);
+    process.exit(0);
+  }
   const [subject = ''] = (process.argv[2] ?? '').split('\n');
   const tag = /^release: (\S+)$/.exec(subject.trim())?.[1];
   if (!tag) {

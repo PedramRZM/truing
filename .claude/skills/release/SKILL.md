@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare a Truing release of the npm package truing-cli. Compares what is published on npm with main, picks the next version from the policy, drafts a CHANGELOG.md entry a user wants to read, opens the `release: v<version>` pull request, and walks the person through publishing and checking it. Use when asked to cut, prepare or ship a release, bump the version, write or update the changelog, see what changed since the last release, or publish to npm or npx. Never publishes by itself.
+description: Prepare a Truing release of the npm package truing-cli. Compares what is published on npm with main, picks the next version from the policy, writes the version's CHANGELOG.md entry, opens the `release: v<version>` pull request, walks the person through publishing, then tags it and makes the GitHub Release whose notes are that entry. Use when asked to cut, prepare or ship a release, bump the version, write or update the changelog or release notes, make a GitHub Release, see what changed since the last release, or publish to npm or npx. Never runs npm publish.
 ---
 
 # Release
@@ -79,19 +79,33 @@ npm whoami || npm login
 git clone <repo> /tmp/truing-release && cd /tmp/truing-release
 pnpm install --frozen-lockfile
 npm publish --access public          # runs make check and check-release first, asks for the 2FA code
-git tag v<version> && git push origin v<version>
 ```
 
-The tag goes on the merged release commit, and only after the publish succeeded.
+## 6. Tag it and make the GitHub Release
 
-## 6. Check it from outside
+Only once `npm view truing-cli version` shows the new version. Every published version gets a
+Release (decision 0004), and its notes are the `CHANGELOG.md` entry word for word; never write
+them separately. You may run these when the person says the publish went through; settings ask
+before `gh release`:
+
+```sh
+git fetch origin && git tag v<version> <the merged release commit> && git push origin v<version>
+node scripts/check-release.mjs --notes <version> > /tmp/truing-notes-<version>.md
+gh release create v<version> --verify-tag --title "Truing <version>" --notes-file /tmp/truing-notes-<version>.md
+```
+
+`--verify-tag` refuses to make a tag of its own, so a Release can only sit on the pushed one.
+
+## 7. Check it from outside
 
 ```sh
 npm view truing-cli version gitHead     # the new version, built from the tagged commit
+git rev-parse v<version>                 # the same commit
+gh release view v<version> --json name,tagName,url
 cd "$(mktemp -d)" && npx -y truing-cli@<version> --version
 ```
 
-Report both outputs. Then delete the clean clone.
+Report the outputs, with the Release's URL. Then delete the clean clone.
 
 ## Gotchas
 
@@ -100,4 +114,7 @@ Report both outputs. Then delete the clean clone.
   publish from a clean clone of the merged commit.
 - A published version can't be reused, even after `npm unpublish`. A mistake ships as the next
   patch, with `npm deprecate` on the bad one if it is harmful; both are the person's call.
-- No GitHub Release: ADR 0004 leaves open whether it counts as hosted output. Ask before making one.
+- The GitHub Release is the one exception to "no hosted output" (AGENTS.md). It holds only the
+  changelog entry: no gists, attachments or other pages. To fix its notes, fix `CHANGELOG.md` and
+  run `gh release edit v<version> --notes-file` with the printed entry.
+- A version published before a Release existed gets one the same way, on its own tag.
