@@ -92,6 +92,8 @@ export type Overlay = {
    * gaps, and the hovered its distances to the pick: Spacing is on, or Alt is held.
    */
   measuring(on: boolean): void;
+  /** #80: whether the hover, the pick, its parent and instances show their outlines and labels. */
+  outlines(on: boolean): void;
   /** Keeps the distances from the pick to an element on screen; false if there is nothing to measure. */
   pin(element: Element): boolean;
   /** Clears the pinned measurements; false if there were none. */
@@ -186,6 +188,20 @@ function layoutParent(element: Element | null): Element | null {
   return parent === document.documentElement ? null : parent;
 }
 
+/**
+ * #80: what gets an outline and a label. Nothing while Outlines is off, so the
+ * page stays clear while a change is judged; over the pick, the hover's would
+ * repeat the pick's own.
+ */
+export function outlineTargets<T>(
+  on: boolean,
+  hovered: T | null,
+  picked: T | null,
+): { hover: T | null; pick: T | null } {
+  if (!on) return { hover: null, pick: null };
+  return { hover: hovered === picked ? null : hovered, pick: picked };
+}
+
 function placeBox(node: HTMLElement, box: Box): void {
   Object.assign(node.style, {
     left: `${box.left}px`,
@@ -205,6 +221,7 @@ export function createOverlay(options: {
   let pickedElement: Element | null = null;
   let pickLabel: string | null = null;
   let measuringOn = false;
+  let outlinesOn = false;
   let pins: Array<{ from: Element; to: Element }> = [];
   let instanceElements: readonly Element[] = [];
   /** One screen pixel, in the frame's pixels. */
@@ -458,6 +475,8 @@ export function createOverlay(options: {
     instanceElements = instanceElements.filter(
       (element) => element.isConnected,
     );
+    // Kept while hidden, so turning Outlines on shows them again.
+    if (!outlinesOn) return;
     for (const element of instanceElements) {
       const box = newDiv();
       box.dataset.instance = '';
@@ -534,11 +553,10 @@ export function createOverlay(options: {
     }
     const parts = layer();
     drawInstances(parts.instances);
-    // Over the pick, its own label says it; the hover's would repeat it.
-    const showHover = hovered !== null && hovered !== pickedElement;
-    const rect = place(parts.hover, showHover ? hovered : null, 1);
-    const pickRect = place(parts.picked, pickedElement, 2);
-    place(parts.parent, layoutParent(pickedElement), 1);
+    const outlined = outlineTargets(outlinesOn, hovered, pickedElement);
+    const rect = place(parts.hover, outlined.hover, 1);
+    const pickRect = place(parts.picked, outlined.pick, 2);
+    place(parts.parent, layoutParent(outlined.pick), 1);
     // Only while measuring: otherwise the pick stays clear to work on.
     drawBoxModel(parts.bands, measuringOn ? pickedElement : null);
     drawBoxModel(parts.hoverBands, measuredElement());
@@ -554,7 +572,7 @@ export function createOverlay(options: {
       parts.pickLabel.style.display === 'none'
         ? []
         : [parts.pickLabel.getBoundingClientRect()];
-    placeLabel(parts.label, showHover ? hoverLabel : null, rect, [
+    placeLabel(parts.label, outlined.hover ? hoverLabel : null, rect, [
       ...chips,
       ...pickLabelBox,
     ]);
@@ -574,6 +592,11 @@ export function createOverlay(options: {
     measuring(on) {
       if (on === measuringOn) return;
       measuringOn = on;
+      redraw();
+    },
+    outlines(on) {
+      if (on === outlinesOn) return;
+      outlinesOn = on;
       redraw();
     },
     pin(element) {

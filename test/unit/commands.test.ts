@@ -202,6 +202,7 @@ describe('commandForKey', () => {
       'mode-interact',
       'hand-tool',
       'spacing',
+      'outlines',
       'zoom-in',
       'zoom-out',
       'zoom-reset',

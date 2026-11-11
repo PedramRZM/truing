@@ -145,7 +145,10 @@ function createRuntime(frame: string): { connect: () => void } {
   }
 
   function setView(next: View): void {
-    const changed = next.scale !== view.scale || next.spacing !== view.spacing;
+    const changed =
+      next.scale !== view.scale ||
+      next.spacing !== view.spacing ||
+      next.outlines !== view.outlines;
     view = next;
     if (changed) modules?.setView(next);
   }
@@ -391,8 +394,13 @@ function createRuntime(frame: string): { connect: () => void } {
       if (!command) {
         return;
       }
-      // Spacing does nothing in Interact, so S is the app's there.
-      if (command === 'spacing' && mode === MODES.interact) return;
+      // Spacing and Outlines do nothing in Interact, so S and B are the app's there.
+      if (
+        (command === 'spacing' || command === 'outlines') &&
+        mode === MODES.interact
+      ) {
+        return;
+      }
       event.preventDefault();
       event.stopImmediatePropagation();
       if (command === 'mode-select' || command === 'mode-interact') {

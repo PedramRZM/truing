@@ -252,6 +252,7 @@ export default defineProbe(selection, (ctx) => {
     spacingClasses: (element) => spacing.get(ids.element(element)) ?? [],
   });
   overlay.scale(ctx.view().scale);
+  overlay.outlines(ctx.view().outlines);
   let hovered: Element | null = null;
   let picked: Element | null = null;
   let identity: Identity | null = null;
@@ -370,6 +371,7 @@ export default defineProbe(selection, (ctx) => {
   });
   ctx.onView((view) => {
     overlay.scale(view.scale);
+    overlay.outlines(view.outlines);
     overlay.measuring(measuring());
   });
   const inline = createInlineText({

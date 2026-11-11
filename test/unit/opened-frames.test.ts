@@ -52,6 +52,7 @@ function shell(patch: Partial<ShellState> = {}): ShellState {
     chromeHidden: false,
     handTool: false,
     spacing: false,
+    outlines: false,
     spaceHeld: false,
     panning: false,
     resized: {},

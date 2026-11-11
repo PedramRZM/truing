@@ -125,6 +125,8 @@ export type ShellState = {
   handTool: boolean;
   /** Spacing (S, TRU-2.5): hovering shows the box model and distances without Alt. */
   spacing: boolean;
+  /** Outlines (B, #80): the hover and the pick show their outlines; off at start. */
+  outlines: boolean;
   /** Space is held: the canvas pans while it is. */
   spaceHeld: boolean;
   /** A pan drag is under way. */
@@ -740,6 +742,7 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     chromeHidden: false,
     handTool: false,
     spacing: false,
+    outlines: false,
     spaceHeld: false,
     panning: false,
     resized: {},
@@ -837,12 +840,20 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
     });
   }
 
-  // What the frames draw for: the zoom and the Spacing toggle, sent when
-  // either changes (not on a pan).
+  // What the frames draw for: the zoom and the Spacing and Outlines toggles,
+  // sent when one changes (not on a pan).
   let sentView: View | null = null;
   function sendView(): void {
-    const view: View = { scale: camera.scale, spacing: state.spacing };
-    if (sentView?.scale === view.scale && sentView.spacing === view.spacing) {
+    const view: View = {
+      scale: camera.scale,
+      spacing: state.spacing,
+      outlines: state.outlines,
+    };
+    if (
+      sentView?.scale === view.scale &&
+      sentView.spacing === view.spacing &&
+      sentView.outlines === view.outlines
+    ) {
       return;
     }
     if (socket?.readyState !== WebSocket.OPEN) return;
@@ -1705,6 +1716,10 @@ export function createShellStore(rightViews: readonly RightView[] = []) {
       case 'spacing':
         // It reads the hover in Select mode, so in Interact it would do nothing.
         if (state.mode === MODES.select) set({ spacing: !state.spacing });
+        return;
+      case 'outlines':
+        // Like Spacing: the outlines are Select's, so in Interact it does nothing.
+        if (state.mode === MODES.select) set({ outlines: !state.outlines });
         return;
       case 'collapse-panels':
         toggleBothPanels();

@@ -48,6 +48,7 @@ const MODE_SELECT_KEYS = [{ key: 'v' }] as const;
 const MODE_INTERACT_KEYS = [{ key: 'i' }] as const;
 const HAND_TOOL_KEYS = [{ key: 'h' }] as const;
 const SPACING_KEYS = [{ key: 's' }] as const;
+const OUTLINES_KEYS = [{ key: 'b' }] as const;
 const ZOOM_IN_KEYS = [
   {
     codes: ['Equal', 'NumpadAdd'],
@@ -86,6 +87,7 @@ const FRAME_KEYS = {
   'mode-interact': MODE_INTERACT_KEYS,
   'hand-tool': HAND_TOOL_KEYS,
   spacing: SPACING_KEYS,
+  outlines: OUTLINES_KEYS,
   'zoom-in': ZOOM_IN_KEYS,
   'zoom-out': ZOOM_OUT_KEYS,
   'zoom-reset': ZOOM_RESET_KEYS,
@@ -122,6 +124,12 @@ export const CORE_COMMANDS = {
     title: 'Spacing',
     hint: 'In Select mode, shows padding, margins and gaps on the selection and what you hover, and the distances between them.',
     keys: SPACING_KEYS,
+  },
+  outlines: {
+    group: 'Tools',
+    title: 'Outlines',
+    hint: 'In Select mode, outlines and names the selection and what you hover. Off, the page stays clear to judge a change.',
+    keys: OUTLINES_KEYS,
   },
   'zoom-in': {
     group: 'Canvas',

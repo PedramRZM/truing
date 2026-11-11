@@ -105,7 +105,8 @@ Use these before inventing another. A new one is added here in the same pull req
 - **Markdown (TRU-5.2):** a file's Markdown and Claude's answers read as text in the panel's measures: headings in weight 500, 12 or 13 px, never larger. Tables have 1 px lines, and a wide one scrolls by itself. A file's frontmatter shows first, in mono. HTML stays text and it can't load a picture. A web or mail link opens outside Truing and shows its address on hover, and any other link stays words (TRU-5.3).
 - **Label on the canvas:** mono at screen size, on the accent fill, at any zoom. The frame can't load the shell's fonts, so it's the system's mono, at 12 px as these labels hold numbers. Spacing chips keep their kind's fill (margin, padding, gap, measure): on one accent they couldn't be told apart (TRU-3.10).
 - **A label stays off what it names.** A pick's or hover's label sits above the outline, or below it when there's no room above: a nav bar at the page's top stays in full view. It goes inside only an element that fills the frame (TRU-4.5).
-- **Measuring is a tool.** A pick shows its outline and name. Its padding, margin, gaps and their tokens show only while Spacing is on, or Alt is held, so the page stays clear to judge a change.
+- **Outlines are a tool.** The hover's and the pick's outlines and names show only while Outlines (B) is on, which it isn't at start, so they never cover a change being judged (#80).
+- **Measuring is a tool.** The pick's padding, margin, gaps and their tokens show only while Spacing is on, or Alt is held, so the page stays clear to judge a change.
 
 ## The properties panel
 
