@@ -56,7 +56,8 @@ These are what a reviewer checks first; `docs/architecture/golden-principles.md`
 - **Borrowed code is declared:** a compatible licence, its header and a row in
   `THIRD_PARTY_NOTICES.md`. Never copy from `refs/` (read-only clones, git-ignored).
 - **No hosted output.** No Claude artifacts, Claude Docs, gists or hosted pages; every output is a
-  file here. Settings deny the artifact tools.
+  file here. Settings deny the artifact tools. The one exception: a GitHub Release on a published
+  version's tag, whose notes are that version's `CHANGELOG.md` entry (decision 0004).
 - **Hard-to-reverse choices** (protocols, the module API, a new dependency, anything a user's
   project comes to rely on) get a record in `docs/decisions/` that the owner accepts first. If a
   change would contradict an accepted record, stop and ask.
@@ -104,3 +105,4 @@ when you learn something a future session would need, append one dated line to
   Read the relevant one before changing what it covers.
 - `docs/specs/`: specs for larger features. `docs/plans/`: the plan and progress log of a task in flight.
 - `docs/roadmap.md`: the epics in order. `docs/maintaining.md`: triage and releases (a person publishes).
+  The `release` skill drafts a release, from what changed since npm to the commands that publish it.

@@ -27,7 +27,12 @@ The steps are in [ADR 0004](decisions/0004-versions-and-releases.md), and an age
    pnpm install --frozen-lockfile
    npm publish --access public
    git tag v<version> && git push origin v<version>
+   node scripts/check-release.mjs --notes <version> > notes.md
+   gh release create v<version> --verify-tag --title "Truing <version>" --notes-file notes.md
    ```
+
+   The GitHub Release's notes are the version's `CHANGELOG.md` entry, as decision 0004 says. The
+   `release` skill can run the tag and the Release for you once the publish has gone through.
 
 `npm publish` runs `make check` first, then checks that the version has a changelog entry, and stops if either fails. It asks for your two-factor code. Nobody stores an npm token anywhere.
 

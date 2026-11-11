@@ -30,7 +30,7 @@ Truing has no release process yet, and people will come to rely on its command, 
 Chosen option: "a hand-curated changelog drafted by an agent", because Truing publishes one package, and generated changelogs read like commit logs.
 
 - **Versions.** While on 0.x, the middle number goes up for anything breaking in the `truing` command, the module API or a saved profile that can't migrate itself, and the last number for everything else.
-- **Flow.** A person runs the `release` skill with their own agent, which drafts a PR. A person merges it, then publishes from a clean clone with `npm publish`, which runs the gates first and asks for their two-factor code. The owner removed CI on 2026-11-04, so nothing runs on a server.
+- **Flow.** A person runs the `release` skill with their own agent, which drafts a PR. A person merges it, then publishes from a clean clone with `npm publish`, which runs the gates first and asks for their two-factor code. The owner removed CI on 2026-11-04, so nothing runs on a server. Then the tag is pushed and a GitHub Release is made on it from the changelog entry (see More information).
 
 ### Consequences
 
@@ -50,4 +50,4 @@ Chosen option: "a hand-curated changelog drafted by an agent", because Truing pu
 
 ## More information
 
-Open for the owner to decide: whether a GitHub Release counts as hosted output under golden rule 12.
+The owner decided on 2026-11-11 that each published version gets a GitHub Release, despite the rule against hosted output (AGENTS.md). Its notes are the version's `CHANGELOG.md` entry, word for word: `node scripts/check-release.mjs --notes <version>` prints it. The Release is made on the version's tag only after `npm publish` succeeded, so it never announces a version npm doesn't have. `CHANGELOG.md` stays the source, and the Release is a copy of it.

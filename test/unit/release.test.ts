@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { releaseProblem } from '../../scripts/check-release.mjs';
+import { entryOf, releaseProblem } from '../../scripts/check-release.mjs';
 import { loadProfile, profileFile } from '../../src/setup/profile';
 
 const CHANGELOG = `# Changelog
@@ -23,6 +23,20 @@ You can now change settings later.
 
 The first version.
 `;
+
+// Decision 0004: a GitHub Release's notes are its CHANGELOG.md entry, word for word.
+describe('the notes of a release', () => {
+  it('are the version’s entry, without its heading or the next one', () => {
+    expect(entryOf(CHANGELOG, '0.2.0')).toBe(
+      'You can now change settings later.',
+    );
+    expect(entryOf(CHANGELOG, '0.1.0')).toBe('The first version.');
+  });
+
+  it('are missing for a version the changelog doesn’t have', () => {
+    expect(entryOf(CHANGELOG, '0.3.0')).toBeNull();
+  });
+});
 
 describe('a version that may be published', () => {
   it('passes when the tag, the package and the changelog agree', () => {
