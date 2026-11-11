@@ -11,7 +11,9 @@
       "Bash(dangerouslyDisableSandbox:true)",
       "Bash(gh release *)",
       "Bash(pnpm publish *)",
-      "Bash(npm publish *)"
+      "Bash(npm publish *)",
+      "Bash(npm unpublish *)",
+      "Bash(npm deprecate *)"
     ],
     "deny": [
       "Read(.env)",

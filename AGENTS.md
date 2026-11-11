@@ -104,3 +104,4 @@ when you learn something a future session would need, append one dated line to
   Read the relevant one before changing what it covers.
 - `docs/specs/`: specs for larger features. `docs/plans/`: the plan and progress log of a task in flight.
 - `docs/roadmap.md`: the epics in order. `docs/maintaining.md`: triage and releases (a person publishes).
+  The `release` skill drafts a release, from what changed since npm to the commands that publish it.
