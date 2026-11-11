@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Print the task an agent should work on next. Selection is a fixed rule, not a judgement call.
+
+    scripts/agent/next-task                 pick from tasks/*.md (the files tracker)
+    scripts/agent/next-task --github        pick from GitHub issues with the gh CLI
+    scripts/agent/next-task --claim         also mark the chosen task in progress
+    scripts/agent/next-task --list          show every eligible task, in order
+
+Eligible: ready, not an epic, not interactive, not claimed, and not blocked by an unfinished
+task. Order: priority p0 first, then the oldest (lowest id, or earliest created issue).
+Exit code 0 with a task printed, 1 when nothing is eligible.
+
+Files tracker fields are described in tasks/TEMPLATE.md. For GitHub the state is carried by
+labels: ready, in-progress, needs-human, interactive, epic, blocked, p0..p3.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+def repo_root() -> Path:
+    out = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+    return Path(out.stdout.strip() or ".")
+
+
+def front_matter(text: str) -> dict[str, str]:
+    """The simple `key: value` front matter used by tasks/TEMPLATE.md (no nested YAML)."""
+    if not text.startswith("---"):
+        return {}
+    block = text.split("---", 2)[1]
+    fields: dict[str, str] = {}
+    for line in block.splitlines():
+        if ":" in line and not line.lstrip().startswith("#"):
+            key, _, value = line.partition(":")
+            fields[key.strip()] = value.split(" #")[0].strip().strip("\"'")
+    return fields
+
+
+def ids(value: str) -> list[str]:
+    return re.findall(r"[A-Za-z0-9]+", value)
+
+
+def priority_rank(value: str) -> int:
+    match = re.search(r"p([0-3])", value or "")
+    return int(match.group(1)) if match else 2
+
+
+def from_files(root: Path) -> list[dict]:
+    folder = root / "tasks"
+    tasks = {}
+    for path in sorted(folder.glob("*.md")):
+        if path.name in ("TEMPLATE.md", "README.md"):
+            continue
+        fields = front_matter(path.read_text(encoding="utf-8"))
+        if fields.get("id"):
+            tasks[fields["id"]] = {**fields, "path": str(path.relative_to(root))}
+    eligible = []
+    for task in tasks.values():
+        if task.get("status") != "ready" or task.get("type", "task") == "epic":
+            continue
+        if task.get("interactive", "false").lower() in ("true", "yes", "1"):
+            continue
+        blockers = [b for b in ids(task.get("blocked-by", "")) if tasks.get(b, {}).get("status") != "done"]
+        if blockers:
+            continue
+        order = int(task["id"]) if task["id"].isdigit() else 10**9
+        eligible.append({"id": task["id"], "title": task.get("title", ""), "where": task["path"],
+                         "sort": (priority_rank(task.get("priority", "")), order, task["id"])})
+    return sorted(eligible, key=lambda t: t["sort"])
+
+
+def claim_file(root: Path, task: dict) -> None:
+    path = root / task["where"]
+    text = path.read_text(encoding="utf-8")
+    path.write_text(re.sub(r"(?m)^status:\s*ready\b", "status: in-progress", text, count=1), encoding="utf-8")
+
+
+def gh(*args: str) -> str:
+    out = subprocess.run(["gh", *args], capture_output=True, text=True, check=False)
+    if out.returncode != 0:
+        sys.exit(f"gh {' '.join(args[:3])} failed: {out.stderr.strip()}")
+    return out.stdout
+
+
+def from_github() -> list[dict]:
+    raw = gh("issue", "list", "--state", "open", "--label", "ready", "--limit", "200",
+             "--json", "number,title,labels,assignees,createdAt")
+    skip = {"in-progress", "needs-human", "interactive", "epic", "blocked"}
+    eligible = []
+    for issue in json.loads(raw):
+        labels = {label["name"] for label in issue.get("labels", [])}
+        if labels & skip or issue.get("assignees"):
+            continue
+        rank = min((priority_rank(name) for name in labels if re.fullmatch(r"p[0-3]", name)), default=2)
+        eligible.append({"id": str(issue["number"]), "title": issue["title"], "where": f"issue #{issue['number']}",
+                         "sort": (rank, issue["createdAt"])})
+    return sorted(eligible, key=lambda t: t["sort"])
+
+
+def claim_github(task: dict) -> None:
+    gh("issue", "edit", task["id"], "--add-assignee", "@me", "--add-label", "in-progress")
+    # There is no atomic claim on GitHub: re-read and back off if someone else also took it.
+    state = json.loads(gh("issue", "view", task["id"], "--json", "assignees"))
+    if len(state.get("assignees", [])) > 1:
+        gh("issue", "edit", task["id"], "--remove-assignee", "@me", "--remove-label", "in-progress")
+        sys.exit(f"issue #{task['id']} was claimed by someone else at the same time; run again")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--github", action="store_true")
+    parser.add_argument("--claim", action="store_true")
+    parser.add_argument("--list", action="store_true")
+    args = parser.parse_args()
+    root = repo_root()
+    eligible = from_github() if args.github else from_files(root)
+    if not eligible:
+        print("no eligible task: nothing is ready, unclaimed and unblocked")
+        return 1
+    if args.list:
+        for task in eligible:
+            print(f"{task['id']}\t{task['title']}\t{task['where']}")
+        return 0
+    task = eligible[0]
+    if args.claim:
+        claim_github(task) if args.github else claim_file(root, task)
+    slug = re.sub(r"[^a-z0-9]+", "-", task["title"].lower()).strip("-")[:40]
+    print(f"task {task['id']}: {task['title']}")
+    print(f"where: {task['where']}")
+    print(f"branch: task/{task['id']}-{slug}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -4,7 +4,7 @@ Truing is an open-source local tool. Run it in any folder, it opens your real ru
 
 Every milestone holds to one rule: no config. A feature gets what it needs from the saved project profile or by asking Claude to read the project, and it asks you when Claude can't tell. `truing.config.ts` stays optional.
 
-Milestones are in order, and they have no dates. An epic's number is its place in that order, and a task's number is its place in the epic: `TRU-6.4` is the fourth thing to do in the sixth epic. To see an epic's tasks with their status, run `backlog task list -p TRU-6 --plain`.
+Milestones are in order, and they have no dates. Epics and tasks are GitHub issues, and an epic's tasks are its sub-issues. Epics TRU-7 to TRU-20 kept their numbers as issues #7 to #20, and finished epics and tasks keep their `TRU-` ids in this file. To see an epic's tasks, open its issue, or run `gh issue view 8`.
 
 ## Already built
 
@@ -15,7 +15,7 @@ Milestones are in order, and they have no dates. An epic's number is its place i
 | TRU-3 | A shell that works like a design tool: theme, fonts, panels, tool rail, layers and the shared controls     |
 | TRU-4 | Edit on tokens, and stage every change: the Changes tray, the direct edit engine and the properties panels |
 
-The decisions behind them are in [ADR 0001](adr/0001-compose-our-own-injected-browser-modules.md).
+The decisions behind them are in [ADR 0001](decisions/0001-compose-our-own-injected-browser-modules.md).
 
 ## v0.1 Zero-config foundation
 

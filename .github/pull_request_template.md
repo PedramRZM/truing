@@ -1,23 +1,22 @@
-## Task
+Closes #
 
-<!-- The issue this closes (#123), or the backlog task (TRU-6.4). Either is fine. -->
+## Intent
 
-Refs:
+<!-- What this does, in one or two sentences a reviewer can read without opening the diff. -->
 
-## What changed and why
+Door: <!-- two-way (easy to change later) | one-way (data, contracts, security, money, public names) -->
 
-## How it was verified
+## Evidence
 
-<!-- Commands you ran and their results. Paste the `make check` output, and say if you looked at it in the browser. -->
+<!-- One line per acceptance criterion: the check that was run and what it showed.
+     Paste output or attach the screenshot. Do not summarise a result you did not see.
+     If an existing test's expectation changed, say why. -->
 
-## Agent disclosure
+- AC1:
+- Checks: `scripts/agent/check` ->
+- Not verified:
 
-- Harness and model used, if any:
-- Human who reviewed and owns this change:
+## Risk and how to revert
 
-## Checklist
-
-- [ ] Acceptance criteria met, with evidence above
-- [ ] No test deleted, skipped or weakened; no gate bypassed
-- [ ] Zero config: nothing new needs a config file or a hard-coded path, port, framework or token location
-- [ ] Docs, ADRs, specs and learnings updated if affected
+<!-- What could break and who would notice. The one step that undoes this change.
+     Anything a user could notice goes behind a flag or gets a decision first. -->

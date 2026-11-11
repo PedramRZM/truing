@@ -1,0 +1,4 @@
+# Session transcripts exported for the dream pass can contain anything a session saw.
+.transcripts/
+# Where the last dream stopped. Sessions are local to a machine, so this is too.
+.last-dream

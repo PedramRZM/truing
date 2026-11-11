@@ -1,7 +1,7 @@
 # Product spec: Truing
 
 - Status: living document, adopted from the first spec on 2026-10-31
-- Epic: TRU-20. Workflow: [code-first-workflow.md](code-first-workflow.md). Decision: [ADR 0001](../adr/0001-compose-our-own-injected-browser-modules.md)
+- Epic: TRU-20. Workflow: [code-first-workflow.md](code-first-workflow.md). Decision: [ADR 0001](../decisions/0001-compose-our-own-injected-browser-modules.md)
 
 ## User problem
 
@@ -20,7 +20,7 @@ Truing flips the order. **The developer ships the feature to a branch. Someone e
 - **Hand-back.** Truing commits to a hand-back branch cut from the feature branch, and opens a PR into the feature branch. The developer reviews the diff and CI runs before it lands. Branch names and PR conventions are read from the project.
 - **Local app.** The app runs on the person's machine, however that project runs it.
 - **Tokens.** Code first. The project's token source is the source of truth. People create and change tokens through reviewed PRs, and any Figma file is updated from code.
-- **Base and shape** ([ADR 0001](../adr/0001-compose-our-own-injected-browser-modules.md)): our own tool, injected by its own browser, with nothing added to the app and no proxy. Every feature is a module.
+- **Base and shape** ([ADR 0001](../decisions/0001-compose-our-own-injected-browser-modules.md)): our own tool, injected by its own browser, with nothing added to the app and no proxy. Every feature is a module.
 
 ## User stories
 

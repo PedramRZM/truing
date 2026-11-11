@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# The one command that says whether this repository is healthy.
+#
+#   scripts/agent/check           everything: types, lint, tests
+#   scripts/agent/check --quick   the fast subset (no full test run); used by the Stop hook
+#
+# Agents run this before saying work is done, and paste its output as evidence. It prints one
+# line per check and shows a failing check's last lines, so a pass costs almost no context.
+#
+# Exit codes: 0 all passed, 1 a check failed, 3 nothing is configured.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+quick=0
+[ "${1:-}" = "--quick" ] && quick=1
+failed=0
+ran=0
+
+run() { # run <name> <command...>
+  local name="$1" out start
+  shift
+  ran=$((ran + 1))
+  start=$SECONDS
+  if out="$("$@" 2>&1)"; then
+    echo "ok    $name ($((SECONDS - start))s)"
+  else
+    failed=$((failed + 1))
+    echo "FAIL  $name ($((SECONDS - start))s): $*"
+    printf '%s\n' "$out" | tail -n 60 | sed 's/^/      /'
+  fi
+}
+full() { [ "$quick" -eq 0 ] && run "$@"; return 0; }
+
+# ---------------------------------------------------------------- CHECKS
+# `run` always runs; `full` is skipped with --quick (the Stop hook's run).
+
+run  docs        python3 tools/docs/check.py            # links, paths named in docs, indexes, brand guard
+run  docs-tests  python3 -m unittest discover -q -s tools/docs -p 'test_*.py'
+run  guard-tests .claude/hooks/tests/test_guard.sh
+run  typecheck   pnpm -s typecheck
+run  lint        pnpm -s lint
+run  format      pnpm -s format:check
+full tests       pnpm -s test
+# ---------------------------------------------------------------- end of checks
+
+if [ "$ran" -eq 0 ]; then
+  echo "no checks configured: edit scripts/agent/check"
+  exit 3
+fi
+[ "$failed" -eq 0 ] && echo "all $ran checks passed" || echo "$failed of $ran checks failed"
+[ "$failed" -eq 0 ]

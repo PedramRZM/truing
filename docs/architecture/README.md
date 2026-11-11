@@ -20,8 +20,8 @@ Truing is one Node process and one Chromium window, on the person's computer.
 
 ## To add here as they settle
 
-- A dependency map: which parts may import which, kept current by the `capture` skill.
+- A dependency map: which parts may import which, kept current when a change moves a boundary.
 - A feature map per module: its invariants and blast radius (what else breaks if it changes), checked so it can't silently rot.
 - How data moves when a change is made: from a control, through staging and preview, to an edit in source.
 
-Decisions live in [`../adr/`](../adr/), not here.
+Decisions live in [`../decisions/`](../decisions/), not here.

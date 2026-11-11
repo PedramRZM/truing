@@ -234,7 +234,7 @@ export default {
 - **v0.3, design system round trip:** create and lint tokens, flag what's off-token, let Claude apply what the panels can't, and hand changes back as a pull request that follows your project's own conventions.
 - **v1.0, team ready:** a board of pages, several takes side by side, a component gallery, drag to reorder, performance tools, and shared team settings for those who want them.
 
-The details are in [`docs/roadmap.md`](docs/roadmap.md), and every task is in [`backlog/`](backlog/).
+The details are in [`docs/roadmap.md`](docs/roadmap.md), and every task is a [GitHub issue](https://github.com/PedramRZM/truing/issues).
 
 ## Contributing
 

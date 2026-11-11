@@ -1,0 +1,37 @@
+name: Task
+description: One change that fits one context window and one pull request.
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One or two sentences. What can a user or the system do after this, and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Files, routes, tables, earlier issues or decision records to read first. Enough that a fresh session needs nothing else.
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria
+      description: Numbered. Each is a behaviour plus the check that proves it. Agents do not edit this section.
+      value: |
+        AC1. <behaviour>. Check: <command, test name, or UI step and the expected result>
+        AC2.
+    validations:
+      required: true
+  - type: textarea
+    id: edges
+    attributes:
+      label: Edge cases and data changes
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope / do not change

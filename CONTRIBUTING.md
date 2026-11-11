@@ -51,13 +51,11 @@ Everyone gets the same setup in VS Code or Cursor. Open the folder, accept the r
 
 ## How work is tracked
 
-Work lives in [`backlog/`](backlog/) as files, so it's reviewed like code. Change it with the `backlog` CLI, not by hand, since hand edits break its metadata: `make board` shows it, and `backlog task list --plain` lists it. Issues are where people outside the project raise things. Once an issue is accepted, it becomes a task under an epic.
-
-Numbers follow the order to do things in: `TRU-6.4` is the fourth task in the sixth epic. [`docs/roadmap.md`](docs/roadmap.md) shows the epics in order. You don't need a task number to contribute: an issue number is enough.
+Work is tracked in GitHub issues, made from the Task and Epic forms. An epic is a goal too large for one pull request, and its tasks are its sub-issues. State is in labels: an issue with no state label is new, and `ready` means the owner has accepted it and anyone, person or agent, may take it. [`WORKFLOW.md`](WORKFLOW.md) has the whole loop, and [`docs/roadmap.md`](docs/roadmap.md) shows the epics in order. Older commits and docs name tasks as `TRU-6.4`; each issue says which TRU id it came from.
 
 ## Make a change
 
-1. Pick or open an issue. For anything larger than a small fix, agree the shape first: a hard-to-reverse choice (a protocol, the module API, a new dependency) needs an ADR in `docs/adr/`.
+1. Pick or open an issue. For anything larger than a small fix, agree the shape first: a hard-to-reverse choice (a protocol, the module API, a new dependency) needs a decision record in `docs/decisions/`, accepted before the work starts.
 2. Branch from `main`. A bug fix starts with a test that fails, and a behaviour change comes with tests.
 3. Run `make check`, and look at anything visible on a real app. There's no CI, so paste its result in the pull request. Never skip, delete or weaken a test to get green, and don't use `--no-verify`.
 4. Open a pull request using the template: what changed and why, how you verified it, and which agent helped if one did. A person approves every merge.
@@ -66,7 +64,7 @@ Numbers follow the order to do things in: `TRU-6.4` is the fourth task in the si
 
 - **Zero config.** A feature must never need a config file or a hard-coded project path, port, framework or token location. Its acceptance criteria say how it gets what it needs from the project: read it from the saved profile, or ask Claude to read the project, and ask the person when Claude can't tell.
 - **The Claude auth rule.** Truing only ever runs the person's own unmodified `claude` binary. It never reads, stores, proxies or asks for credentials, tokens or login codes, and never shows a login form of its own.
-- **No brand of any host project** in code, config, tests, docs or the backlog. `make check` fails on it. Reduce a real app's case to a fixture in `test/fixtures/`.
+- **No brand of any host project** in code, config, tests, docs or issues. `make check` fails on it. Reduce a real app's case to a fixture in `test/fixtures/`.
 - **Third-party code** needs a compatible licence, its header and a row in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Report a vulnerability privately, as [`SECURITY.md`](SECURITY.md) describes, not in an issue. By taking part, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).

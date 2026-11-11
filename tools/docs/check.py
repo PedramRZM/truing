@@ -4,8 +4,8 @@
 Checks
 - relative markdown links resolve (code spans/fences ignored; test fixtures and vendored files skipped);
 - repo paths named in code spans of operational docs exist;
-- required metadata on ADRs, research reports, learnings, reference notes and change plans;
-- every ADR / research report / learning / reference note is listed in its folder's README index;
+- required metadata on research reports and reference notes;
+- every decision record, research report and reference note is listed in its folder's README index;
 - no host project's name appears in any tracked or about-to-be-tracked file, outside the exempt paths.
 Usage: check.py
 """
@@ -23,38 +23,34 @@ ROOT = Path(__file__).resolve().parents[2]
 LINK = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)>\s]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 CODE_SPAN = re.compile(r"`+[^`]*`+")
 DATED_FOLDER = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$")
-ADR_FILE = re.compile(r"^\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
+DECISION_FILE = re.compile(r"^\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 NO_LINK_CHECK = re.compile(r"^test/|/references/vendor/")  # fixtures and third-party text
 
 # "Blind reference" check: repo paths named in code spans or frontmatter must exist.
 # Only our operational docs are checked; research reports and reference notes cite other repos' paths,
 # and a skill's references/ use made-up example paths.
-OPERATIONAL_DOCS = ("AGENTS.md", "CLAUDE.md", "README.md", "REVIEW.md", "CONTRIBUTING.md", "SECURITY.md", "docs/README.md",
-                    "docs/adr/", "docs/architecture/", "docs/harnesses/", "docs/learnings/", "docs/specs/", "docs/changes/",
-                    "docs/references/README.md", "docs/research/README.md", ".agents/skills/", ".claude/agents/")
-NOT_OPERATIONAL = re.compile(r"/references/|^\.agents/skills/(ai-features|react-patterns|ui-design|ux-copy|verify-ui)/")
-PATH_ROOTS = ("docs/", "tools/", ".agents/", ".claude/", ".github/", ".githooks/", "backlog/", ".codex/", ".gemini/", ".cursor/", ".vscode/",
+OPERATIONAL_DOCS = ("AGENTS.md", "CLAUDE.md", "WORKFLOW.md", "README.md", "CONTRIBUTING.md", "SECURITY.md", "docs/README.md",
+                    "docs/decisions/", "docs/architecture/", "docs/specs/", "docs/plans/",
+                    "docs/references/README.md", "docs/research/README.md", ".claude/skills/", ".claude/agents/")
+NOT_OPERATIONAL = re.compile(r"/references/|^\.claude/skills/(kickoff|dream)/")  # example paths for other projects
+PATH_ROOTS = ("docs/", "tools/", ".agents/", ".claude/", ".github/", ".githooks/", ".codex/", ".opencode/", ".vscode/",
               "src/", "test/", "scripts/", "examples/")
-ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "REVIEW.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
-              "THIRD_PARTY_NOTICES.md", "LICENSE", "Makefile", ".mcp.json", "opencode.json"}
-OPTIONAL_PATHS = {"docs/changes/archive", "CLAUDE.local.md", ".claude/settings.local.json", ".agents/state", ".claude/hooks",
-                  "backlog/decisions", "backlog/docs", "backlog/drafts", "backlog/completed", "backlog/archive", "refs"}
+ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "WORKFLOW.md", "README.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
+              "THIRD_PARTY_NOTICES.md", "LICENSE", "Makefile", "opencode.json"}
+OPTIONAL_PATHS = {"CLAUDE.local.md", ".claude/settings.local.json", ".claude/worktrees", ".agents/memory/.transcripts",
+                  ".agents/dream-report.md", "refs"}
 PLACEHOLDER = re.compile(r"[<>*{}…$]|\.\.\.|YYYY|NNNN|\bOWNER\b|\bREPO\b")
 CODE_SPAN_TOKEN = re.compile(r"`([^`\s]+)`")
 NOT_PATHS = {"tools/list", "tools/call"}  # MCP method names that look like paths
 
 REQUIRED_METADATA = [
     # (glob relative to ROOT, required keys, files to skip)
-    ("docs/adr/*.md", {"status", "date"}, {"README.md"}),
     ("docs/research/*/README.md", {"title", "date", "status", "revisit_by"}, set()),
-    ("docs/learnings/*.md", {"title", "date", "status"}, {"README.md"}),
     ("docs/references/*.md", {"repo", "studied", "license", "read_policy"}, {"README.md"}),
-    ("docs/changes/*/plan.md", {"status", "updated"}, set()),
 ]
 INDEXES = [
     # (folder, README that must list each entry, whether entries may also be dated folders)
-    ("docs/adr", "docs/adr/README.md", False),
-    ("docs/learnings", "docs/learnings/README.md", False),
+    ("docs/decisions", "docs/decisions/README.md", False),
     ("docs/references", "docs/references/README.md", False),
     ("docs/research", "docs/research/README.md", True),
 ]
@@ -206,7 +202,7 @@ def check_metadata(errors: list[str]) -> None:
             rel = path.relative_to(ROOT)
             keys = metadata_keys(path)
             if keys is None:
-                errors.append(f"{rel}: missing metadata (needs {sorted(required)}); see docs/templates/")
+                errors.append(f"{rel}: missing metadata (needs {sorted(required)}); see the folder's README")
             elif missing := required - keys:
                 errors.append(f"{rel}: metadata is missing {sorted(missing)}")
 
@@ -230,9 +226,9 @@ def check_indexes(errors: list[str]) -> None:
         for name in sorted(entries):
             if name not in listed:
                 errors.append(f"{index}: add an entry for {name}")
-        if folder == "docs/adr":
-            errors.extend(f"{folder}/{name}: ADR files are named NNNN-kebab-title.md"
-                          for name in entries if not ADR_FILE.match(name))
+        if folder == "docs/decisions":
+            errors.extend(f"{folder}/{name}: decision records are named NNNN-kebab-title.md"
+                          for name in entries if not DECISION_FILE.match(name))
 
 
 def main() -> int:

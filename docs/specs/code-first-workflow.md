@@ -2,7 +2,7 @@
 
 - Status: draft. The base, the Claude bridge and the element-to-source mechanism are settled by the spikes TRU-1.1, TRU-1.2 and TRU-1.3. It becomes an ADR after the pilot (TRU-13.3).
 - Date: 2026-10-31
-- Related: epic TRU-20, [product spec](product.md), [ADR 0001](../adr/0001-compose-our-own-injected-browser-modules.md). Research: [README](../research/README.md).
+- Related: epic TRU-20, [product spec](product.md), [ADR 0001](../decisions/0001-compose-our-own-injected-browser-modules.md). Research: [README](../research/README.md).
 
 ## 1. Problem
 

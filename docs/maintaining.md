@@ -6,20 +6,20 @@ The reasoning and the projects this draws on are in [the research note](research
 
 ## What happens when
 
-| When                   | What                                                                                                                                            | How an agent helps                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| An issue arrives       | Reply. Ask for a reproduction if it needs one. Label it. If it's accepted, make it a task under an epic.                                        | Ask it to summarise the issue and propose labels and a reply. You post them.  |
-| A PR arrives           | Check it against [`REVIEW.md`](../REVIEW.md). Run `make check` on the branch, since nothing runs it for you, and a person approves every merge. | The `review` skill gives a fresh read of the diff.                            |
-| Weekly                 | Tend the docs.                                                                                                                                  | The `garden-docs` skill finds broken links, stale plans and index drift.      |
-| A change is ready      | Cut a release. There's no fixed cadence or promised date.                                                                                       | The `release` skill drafts the version and changelog in a PR.                 |
-| A security report      | Handle it through a private advisory, as [`SECURITY.md`](../SECURITY.md) says. Fix first, then publish.                                         | Only on your own machine. Never paste an embargoed report into a hosted tool. |
-| An outsider's PR ships | Thank them by handle in the changelog entry.                                                                                                    | The `release` skill keeps the thanks.                                         |
+| When                   | What                                                                                                                                                                                                    | How an agent helps                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| An issue arrives       | Reply. Ask for a reproduction if it needs one. Label it. If it's accepted, rewrite it in the Task form, put it under its epic, and label it `ready`.                                                    | Ask it to summarise the issue and propose labels and a reply. You post them.  |
+| A PR arrives           | Check its evidence against the task's acceptance criteria ([`WORKFLOW.md`](../WORKFLOW.md)). Run `scripts/agent/check` on the branch, since nothing runs it for you, and a person approves every merge. | The `second-opinion` skill gives a fresh read against the task.               |
+| Weekly                 | Tend the docs.                                                                                                                                                                                          | `/dream` corrects memory; `scripts/agent/check` finds broken links.           |
+| A change is ready      | Cut a release. There's no fixed cadence or promised date.                                                                                                                                               | Ask it to draft the version and changelog in a PR.                            |
+| A security report      | Handle it through a private advisory, as [`SECURITY.md`](../SECURITY.md) says. Fix first, then publish.                                                                                                 | Only on your own machine. Never paste an embargoed report into a hosted tool. |
+| An outsider's PR ships | Thank them by handle in the changelog entry.                                                                                                                                                            | The changelog draft keeps the thanks.                                         |
 
 ## Cutting a release
 
-The steps are in [ADR 0004](adr/0004-versions-and-releases.md), and the `release` skill drafts the pull request. There's no CI, so a person runs the last steps on their own machine.
+The steps are in [ADR 0004](decisions/0004-versions-and-releases.md), and an agent can draft the pull request. There's no CI, so a person runs the last steps on their own machine.
 
-1. Someone runs the `release` skill. It changes only the version and `CHANGELOG.md`, on a branch.
+1. Someone drafts the release on a branch. It changes only the version and `CHANGELOG.md`, on a branch.
 2. A person edits the entry and merges the pull request, keeping the subject `release: v<version>`.
 3. From a clean clone of `main`:
 

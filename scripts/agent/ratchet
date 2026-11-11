@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Guard a number so it can only get better.
+
+    scripts/agent/ratchet <name> <value> [--higher-is-better] [--tolerance 2%] [--update]
+
+Compares <value> with the best value recorded for <name> in .agents/ratchets.json:
+
+  worse than the record (beyond the tolerance)   exit 1, with both numbers
+  equal or within tolerance                      exit 0
+  better                                         exit 0; with --update the record moves
+
+The first time a name is seen its value is recorded. Use it for anything countable: bundle
+size, queries per request, lint warnings, a Lighthouse score, test-suite seconds. Call it from
+scripts/agent/check so a gain cannot be lost quietly, and run it with --update (for example in
+CI on the main branch) when the number improves.
+
+Counts are better guards than timings. For a noisy measurement, pass a tolerance.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+STORE = ".agents/ratchets.json"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("name")
+    parser.add_argument("value", type=float)
+    parser.add_argument("--higher-is-better", action="store_true")
+    parser.add_argument("--tolerance", default="0", help="allowed slack, as a percentage (2%%) or an absolute number")
+    parser.add_argument("--update", action="store_true", help="record the value when it is better")
+    args = parser.parse_args()
+
+    root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False).stdout.strip()
+    path = Path(root or ".") / STORE
+    records = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    entry = records.get(args.name)
+
+    def save(value: float, higher_is_better: bool) -> None:
+        records[args.name] = {"best": value, "higher_is_better": higher_is_better}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(dict(sorted(records.items())), indent=2) + "\n", encoding="utf-8")
+
+    def show(number: float) -> str:
+        return f"{number:g}"
+
+    if entry is None:
+        save(args.value, args.higher_is_better)
+        print(f"ratchet {args.name}: recorded {show(args.value)} as the starting value")
+        return 0
+
+    best = float(entry["best"])
+    higher = bool(entry.get("higher_is_better", args.higher_is_better))
+    slack = abs(best) * float(args.tolerance.rstrip("%")) / 100 if args.tolerance.endswith("%") else float(args.tolerance)
+    worse = args.value < best - slack if higher else args.value > best + slack
+    better = args.value > best if higher else args.value < best
+    direction = "at least" if higher else "at most"
+
+    if worse:
+        print(f"ratchet {args.name}: {show(args.value)} is worse than the recorded best {show(best)} "
+              f"(must be {direction} {show(best - slack if higher else best + slack)}). "
+              "Fix the regression; do not edit the record to make this pass.")
+        return 1
+    if better and args.update:
+        save(args.value, higher)
+        print(f"ratchet {args.name}: improved from {show(best)} to {show(args.value)}; record updated")
+    elif better:
+        print(f"ratchet {args.name}: {show(args.value)} beats the record {show(best)}; run with --update to keep it")
+    else:
+        print(f"ratchet {args.name}: {show(args.value)} holds (record {show(best)})")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -6,7 +6,7 @@ How Truing's own interface looks and behaves, after [Paper](research/paper-desig
 
 ## A dense desktop tool
 
-Truing runs on a designer's computer, in its own window, beside work that needs the room. So this file overrides the generic web rules in `ui-design` and `design-reviewer`:
+Truing runs on a designer's computer, in its own window, beside work that needs the room. So this file overrides generic web design rules:
 
 | Rule            | Generic web           | Truing                                             |
 | --------------- | --------------------- | -------------------------------------------------- |
@@ -125,8 +125,8 @@ The right panel speaks a designer's language, like Paper's: Layout, Blending, Fi
 
 ## Words
 
-Designers' words first: Frame, Text, Fill, Fit, Fixed. Code's words go in the Code view and the source links. `ux-copy` sets the voice.
+Designers' words first: Frame, Text, Fill, Fit, Fixed. Code's words go in the Code view and the source links. The voice is calm, plain and in the second person.
 
 ## Checking a screen
 
-`/verify-ui` at 1280 and 1440, in light and dark, then `design-reviewer` and `copy-reviewer`, given this file. A change to this file is a design decision: it says why, and a maintainer reviews it.
+Run it with `pnpm dev` and take screenshots at 1280 and 1440 px, in light and dark, then judge them and the screen's words against this file (the `verify` skill). A change to this file is a design decision: it says why, and a maintainer reviews it.

@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Start Claude Code against another vendor's Anthropic-compatible endpoint, for this session only.
+#
+#   scripts/agent/claude-with glm        [claude arguments...]   Z.ai GLM (coding plan or API key)
+#   scripts/agent/claude-with deepseek   [claude arguments...]   DeepSeek
+#   scripts/agent/claude-with kimi       [claude arguments...]   Moonshot Kimi platform (pay as you go)
+#   scripts/agent/claude-with kimi-code  [claude arguments...]   Kimi Code membership
+#
+# Keys are read from .env.agents.local in the repository root (gitignored; start from
+# scripts/agent/keys.example). Nothing is written to ~/.claude or to .claude/settings.json: the
+# variables live in this process and are gone when the session ends. Do not also put these
+# variables in a settings file, because a settings `env` block overrides the shell.
+#
+# Status: written from each vendor's documentation as of 2026-11-10 and NOT run against a live
+# endpoint. Model names change often; check the vendor's page if a request fails. After
+# starting, run /status and confirm the base URL and credential source.
+#
+# Anthropic does not support running Claude Code against non-Claude models. Expect the advisor,
+# fast mode, Remote Control and some newer features to be unavailable on these endpoints.
+set -euo pipefail
+
+provider="${1:-}"
+[ -n "$provider" ] && shift || { sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+
+root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -f "$root/.env.agents.local" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$root/.env.agents.local"
+  set +a
+fi
+
+need() { # need <variable name>
+  if [ -z "${!1:-}" ]; then
+    echo "Set $1 in $root/.env.agents.local (start from scripts/agent/keys.example)." >&2
+    exit 1
+  fi
+}
+
+# Start from a clean slate so a credential or model left in the shell cannot leak across vendors.
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_MODEL \
+  ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL \
+  ANTHROPIC_DEFAULT_FABLE_MODEL CLAUDE_CODE_SUBAGENT_MODEL
+
+all_tiers() { # all_tiers <main model> <small model>
+  export ANTHROPIC_MODEL="$1" ANTHROPIC_DEFAULT_FABLE_MODEL="$1" ANTHROPIC_DEFAULT_OPUS_MODEL="$1" \
+    ANTHROPIC_DEFAULT_SONNET_MODEL="$1" ANTHROPIC_DEFAULT_HAIKU_MODEL="$2" CLAUDE_CODE_SUBAGENT_MODEL="$1"
+}
+
+case "$provider" in
+  glm)
+    need ZAI_API_KEY
+    export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic" ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY"
+    all_tiers "glm-5.3[1m]" "glm-5.3-flash[1m]"
+    export CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000 API_TIMEOUT_MS=3000000
+    ;;
+  deepseek)
+    need DEEPSEEK_API_KEY
+    export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic" ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY"
+    # deepseek-flash is the vendor's default for agents and accepts images; deepseek-v4-pro is
+    # stronger and text-only. Swap the first argument to use it as the main model.
+    all_tiers "deepseek-flash[1m]" "deepseek-flash"
+    export CLAUDE_CODE_AUTO_COMPACT_WINDOW=786432
+    ;;
+  kimi)
+    need MOONSHOT_API_KEY
+    export ANTHROPIC_BASE_URL="https://api.moonshot.ai/anthropic" ANTHROPIC_AUTH_TOKEN="$MOONSHOT_API_KEY"
+    all_tiers "kimi-k3[1m]" "kimi-k3[1m]"
+    export CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000
+    ;;
+  kimi-code)
+    need KIMI_API_KEY
+    # The membership endpoint takes the key as an API key, not a bearer token.
+    export ANTHROPIC_BASE_URL="https://api.kimi.ai/coding/" ANTHROPIC_API_KEY="$KIMI_API_KEY"
+    all_tiers "k3.1-pro[1m]" "k3.1-pro[1m]"
+    export CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000 CLAUDE_CODE_MAX_CONTEXT_TOKENS=1000000
+    ;;
+  *)
+    echo "Unknown provider '$provider'. Use one of: glm, deepseek, kimi, kimi-code." >&2
+    exit 2
+    ;;
+esac
+
+# Features these endpoints do not offer; turning them off avoids confusing errors.
+export CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1 CLAUDE_CODE_DISABLE_FAST_MODE=1
+
+echo "claude-with: $provider via $ANTHROPIC_BASE_URL (model $ANTHROPIC_MODEL). Run /status to confirm." >&2
+exec claude "$@"

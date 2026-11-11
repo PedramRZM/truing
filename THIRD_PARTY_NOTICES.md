@@ -26,14 +26,3 @@ Listed here because the font files ship inside the shell's CSS, unlike other npm
 | -------------- | ------------------------------------- | ------------------------- | --------------------- |
 | Inter          | `@fontsource-variable/inter`          | SIL Open Font License 1.1 | Latin, Latin Extended |
 | JetBrains Mono | `@fontsource-variable/jetbrains-mono` | SIL Open Font License 1.1 | Latin, Latin Extended |
-
-## Agent skills
-
-Guidance for coding agents working on this repo, read by the `ui-design` skill. These files sit in `.agents/skills/` and aren't part of the npm package. Each keeps its licence beside it; `.agents/skills/ui-design/references/vendor/VENDORED.md` lists what was edited and why.
-
-| Files in `.agents/skills/ui-design/references/vendor/` | Source                                                                                                                                      | Commit         | Licence                                         |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------- |
-| `vercel-web-interface-guidelines.md`                   | [vercel-labs/web-interface-guidelines](https://github.com/vercel-labs/web-interface-guidelines) `AGENTS.md`                                 | `e3d624baaf29` | MIT (`LICENSE.vercel-web-interface-guidelines`) |
-| `emil-design-eng.md`                                   | [emilkowalski/skills](https://github.com/emilkowalski/skills) `skills/emil-design-eng/SKILL.md`                                             | `85e8e2363b71` | MIT (`LICENSE.emilkowalski-skills`)             |
-| `make-interfaces-feel-better/*.md`                     | [jakubkrehel/make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) `skills/make-interfaces-feel-better/` | `35545ea1512a` | MIT (`LICENSE.make-interfaces-feel-better`)     |
-| `fixing-accessibility.md`                              | [ibelick/ui-skills](https://github.com/ibelick/ui-skills) `skills/fixing-accessibility/SKILL.md`                                            | `c5bcd86450b3` | MIT (`LICENSE.ibelick-ui-skills`)               |

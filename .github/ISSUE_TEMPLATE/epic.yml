@@ -1,0 +1,31 @@
+name: Epic
+description: A goal too large for one pull request. Tasks are added as sub-issues.
+labels: ['epic']
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: One to three sentences on what will be true when this is finished.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+  - type: textarea
+    id: exit
+    attributes:
+      label: How we will know it is finished
+      description: The observable checks for the whole epic, not for each task.
+    validations:
+      required: true
+  - type: input
+    id: spec
+    attributes:
+      label: Spec
+      description: Path to docs/specs/<slug>.md, if this epic needed one.

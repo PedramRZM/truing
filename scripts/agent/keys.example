@@ -1,0 +1,16 @@
+# Keys for the optional model vendors used by scripts/agent/claude-with and opencode.json.
+# Copy this file to .env.agents.local in the repository root (it is gitignored) and fill in
+# only the ones you use. Never commit the filled-in file, and never paste a key into an agent
+# conversation.
+
+# Z.ai GLM: coding-plan key or API key from https://z.ai
+ZAI_API_KEY=
+
+# DeepSeek: https://platform.deepseek.com
+DEEPSEEK_API_KEY=
+
+# Moonshot Kimi platform (pay as you go): https://platform.moonshot.ai
+MOONSHOT_API_KEY=
+
+# Kimi Code membership key (a different product and key from the platform one)
+KIMI_API_KEY=

@@ -1,0 +1,30 @@
+{
+  "description": "Shares the guard and stop-check scripts with Claude Code (.claude/hooks/). Codex asks you to review and trust each hook before it runs, and again whenever a script changes.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/guard.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking against project guardrails"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/stop-check.py\"",
+            "timeout": 300,
+            "statusMessage": "Running quick checks"
+          }
+        ]
+      }
+    ]
+  }
+}

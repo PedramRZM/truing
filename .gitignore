@@ -12,7 +12,6 @@ secrets/
 .claude/settings.local.json
 CLAUDE.local.md
 *.local.md
-.agents/state/
 /refs/
 /.scratch/
 __pycache__/
@@ -20,3 +19,13 @@ __pycache__/
 
 # Git worktrees that coding agents make: each is a whole copy of the repo.
 .claude/worktrees/
+
+# agent tooling (from tackroom)
+# Personal Claude Code overrides and local state
+# Vendor API keys for scripts/agent/claude-with and opencode.json
+.env.agents.local
+# Per-project homes for harnesses that keep sessions and credentials in their home folder
+.codex-home/
+.kimi-home/
+# Browser tool scratch output
+.playwright-mcp/

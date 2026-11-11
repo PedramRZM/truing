@@ -92,7 +92,7 @@ export function createScreenshots(shell: Page): ScreenshotControl {
         await drawn();
         const what = `the ${target.role} "${target.name}" in frame ${frame}`;
         // Forced: the frame is scaled on the canvas, where Playwright's own
-        // check for what's under the pointer is wrong (docs/learnings).
+        // check for what's under the pointer is wrong (.agents/memory/connected-is-not-hydrated.md).
         switch (action.kind) {
           case 'scroll':
             return `Scrolled to ${what}.`;

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Create the labels WORKFLOW.md relies on, in the GitHub repository of the current checkout.
+# Run it once per repository. Existing labels are left as they are.
+set -euo pipefail
+label() { gh label create "$1" --color "$2" --description "$3" 2>/dev/null && echo "created $1" || echo "exists  $1"; }
+label ready        0e8a16 "Approved by the owner; an agent may take it"
+label in-progress  fbca04 "Claimed; a branch exists"
+label needs-human  d93f0b "Blocked on a question for the owner"
+label interactive  5319e7 "Ready, but do it with the owner present"
+label blocked      b60205 "Waiting on another task"
+label epic         1d76db "Parent of several tasks"
+label agent-filed  c5def5 "Filed by an agent; not triaged yet"
+label p0           b60205 "Do first"
+label p1           d93f0b "High"
+label p2           fbca04 "Normal"
+label p3           c2e0c6 "Low"
